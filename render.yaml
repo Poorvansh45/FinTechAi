@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: finai-edge-backend
+    env: node
+    plan: free
+    region: ohio # Change based on your preference
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8080
+      - key: FRONTEND_URL
+        sync: false # Set this in Render Dashboard (e.g., https://finai-edge.vercel.app)
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
