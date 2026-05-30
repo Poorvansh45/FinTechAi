@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { reconnectFirestore } from '@/firebase';
 
 export function useOnlineStatus() {
   const [isOnline, setIsOnline] = useState(true);
@@ -9,10 +8,9 @@ export function useOnlineStatus() {
   useEffect(() => {
     if (typeof navigator === 'undefined') return;
 
-    const handleOnline = async () => {
+    const handleOnline = () => {
       setIsOnline(true);
-      console.log('[Network] Connection restored. Reconnecting Firestore...');
-      await reconnectFirestore();
+      console.log('[Network] Connection restored.');
     };
 
     const handleOffline = () => {

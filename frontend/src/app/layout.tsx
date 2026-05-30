@@ -1,11 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
-import { AppLayout } from '@/components/layout/app-layout';
-import { ThemeProvider } from '@/components/theme-provider';
-import { AuthProvider } from '@/context/auth-context';
-import { OfflineBanner } from '@/components/common/OfflineBanner';
+import { Providers } from './providers';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -31,13 +27,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className="antialiased" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <AuthProvider>
-            <AppLayout>{children}</AppLayout>
-            <Toaster />
-            <OfflineBanner />
-          </AuthProvider>
-        </ThemeProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

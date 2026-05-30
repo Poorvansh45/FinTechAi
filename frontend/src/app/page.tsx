@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthProvider";
 import {
   BrainCircuit, BarChart3, BookOpen, Bot, ScanLine,
   ArrowRight, Shield, Zap, TrendingUp,
@@ -73,6 +76,9 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export default function HomePage() {
+  const { user, isAuthenticated, loading } = useAuth();
+  const router = useRouter();
+
   return (
     <div className="space-y-20 py-6 animate-fadeIn">
       {/* ── HERO ── */}
@@ -94,16 +100,26 @@ export default function HomePage() {
         </p>
 
         <div className="flex items-center justify-center gap-3 flex-wrap">
-          <Link href="/dashboard"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-105"
-            style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)", boxShadow: "0 0 24px rgba(99,102,241,0.35)" }}>
-            Open Dashboard <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link href="/journal"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/8"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
-            Start Journaling
-          </Link>
+          {isAuthenticated ? (
+            <Link href="/home"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.03] hover:shadow-[0_0_32px_rgba(99,102,241,0.45)] active:scale-[0.98]"
+              style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)", boxShadow: "0 0 24px rgba(99,102,241,0.35)" }}>
+              Open Dashboard <ArrowRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <>
+              <Link href="/auth?mode=signup"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:scale-[1.03] hover:shadow-[0_0_32px_rgba(99,102,241,0.45)] active:scale-[0.98]"
+                style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)", boxShadow: "0 0 24px rgba(99,102,241,0.35)" }}>
+                Get Started <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link href="/auth?mode=signin"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:bg-white/10 hover:border-violet-500/30 active:scale-[0.98]"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                Sign In
+              </Link>
+            </>
+          )}
         </div>
       </div>
 

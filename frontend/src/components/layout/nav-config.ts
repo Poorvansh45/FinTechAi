@@ -62,13 +62,10 @@ export const NAV_MODULES: NavModule[] = [
     color: 'text-violet-400',
     glowColor: 'rgba(139,92,246,0.15)',
     items: [
-      { href: '/quant-lab/strategies',   label: 'Strategies',          icon: FlaskConical, desc: 'Design & manage strategies'   },
-      { href: '/quant-lab/backtest',     label: 'Backtesting',          icon: RotateCcw,    desc: 'Historical strategy validation', badge: 'Beta' },
-      { href: '/quant-lab/replay',       label: 'Trade Replay',         icon: PlayCircle,   desc: 'Replay and learn from trades'  },
-      { href: '/quant-lab/correlation',  label: 'Correlation Matrix',   icon: GitCompare,   desc: 'Asset correlation analysis'    },
-      { href: '/quant-lab/probability',  label: 'Probability Engine',   icon: PieChart,     desc: 'Win probability scoring'       },
-      { href: '/quant-lab/stats',        label: 'Statistical Analysis', icon: Sigma,        desc: 'Advanced quant metrics'        },
       { href: '/quant-lab/optimizer',    label: 'Portfolio Optimizer',  icon: Briefcase,    desc: 'MPT-based portfolio optimization', badge: 'New' },
+      { href: '/quant-lab/research',     label: 'Quant Research',       icon: GitCompare,   desc: 'Asset correlation & statistical analysis' },
+      { href: '/quant-lab/strategies',   label: 'Strategy Lab',         icon: FlaskConical, desc: 'Design & backtest trading strategies' },
+      { href: '/quant-lab/replay',       label: 'Trade Replay',         icon: PlayCircle,   desc: 'Replay and learn from historical trades' },
     ],
   },
   {
@@ -81,8 +78,6 @@ export const NAV_MODULES: NavModule[] = [
       { href: '/journal',             label: 'Trading Journal',       icon: BookOpen,  desc: 'Log and review all trades'       },
       { href: '/workspace/history',   label: 'Trade History',         icon: History,   desc: 'Full trade history & filters'    },
       { href: '/analytics',           label: 'Performance Analytics', icon: LineChart,  desc: 'PnL, win rate & deep stats'     },
-      { href: '/workspace/psych',     label: 'Psychology Notes',      icon: Brain,     desc: 'Track mindset & emotions'        },
-      { href: '/workspace/execution', label: 'Execution Analytics',   icon: AreaChart, desc: 'Slippage & entry quality'        },
     ],
   },
   {

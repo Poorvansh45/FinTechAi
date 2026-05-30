@@ -537,3 +537,27 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="checkbox"] {
   accent-color: #6366f1;
 }
+
+/* Workspace terminal utilities */
+.terminal-row-hover {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.terminal-row-hover:hover {
+  border-color: rgba(99, 102, 241, 0.22);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.06);
+}
+.glow-active {
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.35), 0 0 24px rgba(99, 102, 241, 0.12);
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pnl-pulse {
+  animation: pnl-pulse 0.6s ease-out;
+}
+@keyframes pnl-pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}

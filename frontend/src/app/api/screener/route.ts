@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   const demandCol = searchParams.get('demandCol')
   const debug = searchParams.get('debug')
 
-  const csvPath = path.join(process.cwd(), '..', 'backend', 'data', 'stocks.csv')
+  const csvPath = path.join(process.cwd(), '..', 'backend', 'data', 'Stocks.csv')
   const args = [
     '--csv', csvPath,
     '--cmp-min', String(cmpMin),

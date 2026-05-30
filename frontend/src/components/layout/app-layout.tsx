@@ -1,12 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { profileInitial } from '@/lib/auth/types';
 import { useState, useEffect } from 'react';
 import { BrainCircuit, Search, Bell, Menu, X, Home, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/context/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { ModuleDropdown } from './ModuleDropdown';
 import { UserMenu } from './UserMenu';
@@ -14,19 +14,20 @@ import { NAV_MODULES, MOBILE_TABS } from './nav-config';
 
 // ── Mobile full-screen drawer ─────────────────────────────────
 function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user, username, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const pathname = usePathname();
-  const name = username || user?.displayName || 'Trader';
+  const name = user?.username ?? 'Account';
+  const initial = user?.username ? profileInitial(user.username) : '?';
 
   if (!open) return null;
 
   const handleLogout = async () => {
     onClose();
     await logout();
-    toast({ title: 'Session ended', description: 'See you next session 👋' });
-    router.replace('/login');
+    toast({ title: 'Signed out', description: 'See you next time.' });
+    router.replace('/');
   };
 
   return (
@@ -49,15 +50,14 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
         </div>
 
         {/* User info */}
-        {user && (
+        {isAuthenticated && user && (
           <div className="px-4 py-3 border-b border-white/5 flex items-center gap-3">
-            {user.photoURL
-              ? <Image src={user.photoURL} alt="" width={32} height={32} className="w-8 h-8 rounded-lg" unoptimized />
-              : <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                  style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>{name[0]?.toUpperCase()}</div>
-            }
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+              style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', border: '1px solid rgba(99,102,241,0.35)' }}>
+              {initial}
+            </div>
             <div>
-              <div className="text-sm font-semibold text-white">{name}</div>
+              <div className="text-sm font-semibold text-white">@{name}</div>
               <div className="text-[10px] text-slate-500">{user.email}</div>
             </div>
           </div>
@@ -65,9 +65,9 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
 
         {/* Home */}
         <div className="px-3 pt-3">
-          <Link href="/" onClick={onClose}
+          <Link href={isAuthenticated ? '/home' : '/'} onClick={onClose}
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium mb-1 transition-all ${
-              pathname === '/' ? 'bg-white/6 text-white' : 'text-slate-400 hover:text-white hover:bg-white/4'
+              pathname === '/home' || pathname === '/' ? 'bg-white/6 text-white' : 'text-slate-400 hover:text-white hover:bg-white/4'
             }`}>
             <Home className="w-4 h-4" /> Home
           </Link>
@@ -94,7 +94,7 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
         ))}
 
         {/* Sign out */}
-        {user && (
+        {isAuthenticated && (
           <div className="px-3 pb-6 pt-2">
             <div className="my-2 h-px bg-white/5" />
             <button onClick={handleLogout}
@@ -115,7 +115,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [search, setSearch] = useState('');
   const [scrolled, setScrolled] = useState(false);
 
-  const isAuthPage = pathname === '/login' || pathname === '/onboarding';
+  const isAuthPage = pathname === '/auth' || pathname === '/login' || pathname === '/onboarding';
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 4);

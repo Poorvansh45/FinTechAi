@@ -2,6 +2,7 @@ export type UUID = string;
 
 export type MarketType = 'Indices' | 'Stocks' | 'FNO' | 'Forex' | 'Crypto';
 export type Side = 'Buy' | 'Sell';
+export type SessionTag = 'London' | 'NY' | 'Asian';
 
 export type Setup = {
   id: UUID;
@@ -40,7 +41,21 @@ export type Trade = {
   pointValue?: number;
   stopLoss?: number;
   target?: number;
+  session?: SessionTag;
+  setupTag?: string;
+  confidence?: number;
+  emotionTags?: string[];
 };
+
+/** Parse session from legacy comments if not stored structurally */
+export function getTradeSession(trade: Trade): SessionTag | null {
+  if (trade.session) return trade.session;
+  const c = trade.comments ?? '';
+  if (c.includes('London')) return 'London';
+  if (c.includes('NY') || c.includes('New York')) return 'NY';
+  if (c.includes('Asian')) return 'Asian';
+  return null;
+}
 
 export type TradeDerived = {
   pnl: number | null;

@@ -5,7 +5,10 @@
  * Uses a simple in-memory cache with TTL to avoid hitting rate limits.
  */
 
-const FINNHUB_KEY = process.env.FINNHUB_API_KEY;
+const env = require('../config/env');
+const HttpError = require('../utils/httpError');
+
+const FINNHUB_KEY = env.finnhubApiKey;
 const BASE = 'https://finnhub.io/api/v1';
 
 // ─── In-memory cache with TTL ────────────────────────────────
@@ -24,6 +27,10 @@ function setCache(key, data) {
 
 // ─── Finnhub fetch helper ────────────────────────────────────
 async function fhFetch(path) {
+  if (!FINNHUB_KEY) {
+    throw new HttpError(500, 'Finnhub API key is not configured.');
+  }
+
   const url = `${BASE}${path}${path.includes('?') ? '&' : '?'}token=${FINNHUB_KEY}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
   if (!res.ok) throw new Error(`Finnhub ${res.status}: ${res.statusText}`);

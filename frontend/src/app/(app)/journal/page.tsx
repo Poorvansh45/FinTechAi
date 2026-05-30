@@ -2,11 +2,13 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { Plus, Search, Sparkles, X, ChevronRight, Activity, BookOpen } from "lucide-react";
 import { listSetups, listTradesBySetup, seedDemo, ensureTradeIdsUnique, deleteTrade, updateTrade } from "@/lib/journal/storage";
-import { derive } from "@/lib/journal/types";
+import { derive, getTradeSession } from "@/lib/journal/types";
 import type { Setup, Trade } from "@/lib/journal/types";
 import { AIJournalAnalyzer } from "@/components/journal/AIJournalAnalyzer";
 import { TradeWizard } from "@/components/journal/TradeWizard";
-import { TradeDetailPanel } from "@/components/journal/TradeDetailPanel";
+import { TradeTable } from "@/components/workspace/TradeTable";
+import { TradeInsightPanel } from "@/components/workspace/TradeInsightPanel";
+import { LiveIndicator } from "@/components/workspace/LiveIndicator";
 
 const MARKETS = ["All","Indices","Forex","Stocks","FNO"];
 const SESSIONS_F = ["All","London","NY","Asian"];
@@ -50,7 +52,7 @@ export default function JournalPage() {
         if(filterResult==="Win"&&(t.exitPrice==null||(derive(t).pnl??0)<=0)) return false;
         if(filterResult==="Loss"&&(t.exitPrice==null||(derive(t).pnl??0)>=0)) return false;
       }
-      if(filterSession!=="All"&&!t.comments?.includes(filterSession)) return false;
+      if(filterSession!=="All"&&getTradeSession(t)!==filterSession) return false;
       if(dateFrom&&new Date(t.entryAt)<new Date(dateFrom)) return false;
       if(dateTo&&new Date(t.entryAt)>new Date(dateTo+"T23:59:59")) return false;
       return true;
@@ -84,6 +86,7 @@ export default function JournalPage() {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-indigo-400"/> Trading Journal
+            <LiveIndicator />
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">{allTrades.length} entries · {kpi.count} closed</p>
         </div>
@@ -162,10 +165,9 @@ export default function JournalPage() {
         </div>
       )}
 
-      {/* Main split */}
-      <div className="flex flex-col lg:flex-row gap-4">
-        {/* LEFT */}
-        <div className="lg:w-[58%] flex flex-col gap-3 min-h-0">
+      {/* Main split 65 / 35 */}
+      <div className="grid grid-cols-1 lg:grid-cols-[65fr_35fr] gap-3 min-h-0">
+        <div className="flex flex-col gap-2 min-h-0">
           {/* Filters */}
           <div className="glass-card p-3 space-y-2">
             <div className="flex flex-wrap gap-2 items-center">
@@ -203,68 +205,33 @@ export default function JournalPage() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="glass-card overflow-hidden" style={{minHeight:320}}>
-            <div className="overflow-auto" style={{maxHeight:"55vh"}}>
-              <table className="w-full text-xs">
-                <thead className="sticky top-0" style={{background:"rgba(8,12,20,0.9)",backdropFilter:"blur(8px)"}}>
-                  <tr className="border-b border-white/5">
-                    {["Date","Instrument","Side","Setup","Entry","Exit","P&L",""].map(h=>(
-                      <th key={h} className="text-left py-3 px-3 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length===0?(
-                    <tr><td colSpan={8} className="py-12 text-center text-muted-foreground text-sm">
-                      No trades. <button onClick={()=>setShowWizard(true)} className="text-indigo-400 hover:underline">Add one →</button>
-                    </td></tr>
-                  ):filtered.map((t,i)=>{
-                    const m=derive(t); const pnl=m.pnl; const isSel=selected?.id===t.id;
-                    return (
-                      <tr key={t.id||i} onClick={()=>setSelected(isSel?null:t)}
-                        className="trade-row border-b border-white/[0.03] cursor-pointer"
-                        style={isSel?{background:"rgba(99,102,241,0.08)",borderLeftColor:"#6366f1"}:{}}>
-                        <td className="py-2.5 px-3 tabular-nums text-muted-foreground whitespace-nowrap">
-                          {new Date(t.entryAt).toLocaleDateString("en-IN",{day:"2-digit",month:"short"})}
-                        </td>
-                        <td className="py-2.5 px-3 font-semibold">{t.instrument}</td>
-                        <td className="py-2.5 px-3"><span className={t.side==="Buy"?"profit-badge":"loss-badge"}>{t.side}</span></td>
-                        <td className="py-2.5 px-3 text-muted-foreground max-w-[100px] truncate">{setupName(t.setupId)}</td>
-                        <td className="py-2.5 px-3 tabular-nums">{t.entryPrice}</td>
-                        <td className="py-2.5 px-3 tabular-nums">{t.exitPrice??<span className="text-orange-400 text-[10px] font-semibold">OPEN</span>}</td>
-                        <td className={`py-2.5 px-3 tabular-nums font-bold ${pnl==null?"text-muted-foreground":pnl>=0?"profit":"loss"}`}>
-                          {pnl==null?"—":`${pnl>=0?"+":""}${pnl.toFixed(2)}`}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <button onClick={e=>{e.stopPropagation();deleteTrade(t.id);setVersion(v=>v+1);if(selected?.id===t.id)setSelected(null);}}
-                            className="text-muted-foreground hover:text-red-400 transition-colors p-1 rounded">
-                            <X className="w-3 h-3"/>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <TradeTable
+            trades={filtered}
+            selectedId={selected?.id ?? null}
+            setupName={setupName}
+            onSelect={setSelected}
+            onDelete={(id) => {
+              deleteTrade(id);
+              setVersion((v) => v + 1);
+              if (selected?.id === id) setSelected(null);
+            }}
+            emptyAction={() => setShowWizard(true)}
+          />
         </div>
 
-        {/* RIGHT: Detail Panel */}
-        <div className="lg:flex-1 min-h-0" style={{minHeight:400}}>
-          {selected?(
-            <TradeDetailPanel trade={selected} setupName={setupName} onClose={()=>setSelected(null)}/>
-          ):(
-            <div className="glass-card h-full flex flex-col items-center justify-center gap-4 py-16 text-center">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                style={{background:"rgba(99,102,241,0.08)",border:"1px solid rgba(99,102,241,0.15)"}}>
-                <ChevronRight className="w-6 h-6 text-indigo-400"/>
+        <div className="min-h-[400px] lg:min-h-0">
+          {selected ? (
+            <TradeInsightPanel trade={selected} setupName={setupName} onClose={() => setSelected(null)} />
+          ) : (
+            <div className="glass-card h-full min-h-[400px] flex flex-col items-center justify-center gap-3 py-12 text-center px-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                <ChevronRight className="w-5 h-5 text-indigo-400" />
               </div>
-              <div>
-                <p className="text-sm font-medium">Select a Trade</p>
-                <p className="text-xs text-muted-foreground mt-1">Click any row to view full details + AI insights</p>
-              </div>
+              <p className="text-sm font-medium">AI Trade Insight Panel</p>
+              <p className="text-[11px] text-muted-foreground max-w-[200px] leading-relaxed">
+                Select a trade to see execution score, behavior tags, and improvement insights.
+              </p>
             </div>
           )}
         </div>

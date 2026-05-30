@@ -138,6 +138,7 @@ export function TradeWizard({ setups, onClose, onSaved }: { setups:Setup[]; onCl
       partialEnabled && `Partial: ${partial1} / ${partial2}`,
     ].filter(Boolean).join(" | ");
 
+    const sessionTag = (['London', 'NY', 'Asian'].includes(session) ? session : 'London') as 'London' | 'NY' | 'Asian';
     createTrade({
       id:"" as any,
       setupId: setupId||"",
@@ -152,6 +153,10 @@ export function TradeWizard({ setups, onClose, onSaved }: { setups:Setup[]; onCl
       entryModel: setupType,
       stopLoss: sl ? parseFloat(sl) : undefined,
       target: target ? parseFloat(target) : undefined,
+      session: sessionTag,
+      setupTag: setupType || undefined,
+      confidence,
+      emotionTags: emotion ? [emotion.toLowerCase()] : undefined,
     });
     onSaved();
   };

@@ -11,40 +11,50 @@
 const express = require('express');
 const router = express.Router();
 const { getGlobalOverview, getMarketNews, getQuote } = require('../services/marketService');
+const asyncHandler = require('../utils/asyncHandler');
 
 // ── Global overview (batch indices) ──────────────────────────
-router.get('/overview', async (req, res) => {
+router.get('/overview', asyncHandler(async (req, res, next) => {
   try {
     const data = await getGlobalOverview();
     res.json({ success: true, data, timestamp: new Date().toISOString() });
-  } catch (err) {
-    console.error('Markets overview error:', err);
-    res.status(500).json({ success: false, error: 'Failed to fetch market overview' });
+  } catch (error) {
+    if (typeof next === 'function') {
+      next(error);
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+}));
 
 // ── Processed news / intelligence feed ───────────────────────
-router.get('/news', async (req, res) => {
+router.get('/news', asyncHandler(async (req, res, next) => {
   try {
     const category = req.query.category || 'general';
     const count = Math.min(parseInt(req.query.count) || 15, 50);
     const data = await getMarketNews(category, count);
     res.json({ success: true, data, timestamp: new Date().toISOString() });
-  } catch (err) {
-    console.error('Market news error:', err);
-    res.status(500).json({ success: false, error: 'Failed to fetch market intelligence' });
+  } catch (error) {
+    if (typeof next === 'function') {
+      next(error);
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+}));
 
 // ── Single quote ─────────────────────────────────────────────
-router.get('/quote/:symbol', async (req, res) => {
+router.get('/quote/:symbol', asyncHandler(async (req, res, next) => {
   try {
     const data = await getQuote(req.params.symbol);
     res.json({ success: true, data, timestamp: new Date().toISOString() });
-  } catch (err) {
-    console.error(`Quote error (${req.params.symbol}):`, err);
-    res.status(500).json({ success: false, error: 'Failed to fetch quote' });
+  } catch (error) {
+    if (typeof next === 'function') {
+      next(error);
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+}));
 
 module.exports = router;
