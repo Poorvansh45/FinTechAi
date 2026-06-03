@@ -1,7 +1,9 @@
 """
-FinAI Edge — Market Data Provider: Abstract Base
-===================================================
-Provider pattern for pluggable market data sources.
+FinAI Edge — Market Data Provider Base
+=========================================
+Abstract base class and shared data models for all market data providers.
+
+COPY TO: backend/fastapi_app/market/providers/base.py
 """
 
 from abc import ABC, abstractmethod
@@ -9,56 +11,65 @@ from typing import Optional
 from pydantic import BaseModel
 
 
+# ── Data Models ────────────────────────────────────────────────────
+
 class StockQuote(BaseModel):
-    """Standardized stock quote across all providers."""
-    ticker: str
-    price: Optional[float] = None
-    change: Optional[float] = None
+    """Normalised quote across all providers."""
+    ticker:     str
+    price:      Optional[float] = None
+    change:     Optional[float] = None
     change_pct: Optional[float] = None
-    high: Optional[float] = None
-    low: Optional[float] = None
+    high:       Optional[float] = None
+    low:        Optional[float] = None
     prev_close: Optional[float] = None
-    volume: Optional[int] = None
-    available: bool = True
-    source: str = "unknown"
+    volume:     Optional[int]   = None
+    market_cap: Optional[float] = None
+    pe_ratio:   Optional[float] = None
+    available:  bool = False
+    source:     str = "unknown"
 
 
 class Instrument(BaseModel):
-    """Standardized instrument search result."""
-    ticker: str
-    name: str
-    sector: str = "Other"
-    exchange: str = "NSE"
+    """Search result instrument."""
+    ticker:          str
+    name:            str
+    sector:          str = "Other"
+    exchange:        str = "NSE"
     instrument_type: str = "equity"
 
 
 class Candle(BaseModel):
-    """OHLCV candle data point."""
+    """OHLCV candle."""
     timestamp: str
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: int = 0
+    open:      float
+    high:      float
+    low:       float
+    close:     float
+    volume:    int = 0
 
+
+# ── Abstract Provider ──────────────────────────────────────────────
 
 class MarketDataProvider(ABC):
-    """Abstract market data provider interface."""
+    """
+    Abstract base class for all market data providers.
+    Each concrete provider (yfinance, Groww, Finnhub) must implement these methods.
+    """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Provider name for logging."""
+        """Provider identifier (used in logging and status reports)."""
         ...
 
     @abstractmethod
     async def get_quote(self, symbol: str) -> StockQuote:
-        """Get live quote for a symbol."""
+        """Fetch live quote for a single symbol."""
         ...
 
     @abstractmethod
     async def search_instruments(self, query: str, limit: int = 12) -> list[Instrument]:
-        """Search for instruments by name/ticker."""
+        """Search for instruments matching a query string."""
         ...
 
     @abstractmethod
@@ -68,9 +79,5 @@ class MarketDataProvider(ABC):
         interval: str = "1d",
         period: str = "1y",
     ) -> list[Candle]:
-        """Get historical OHLCV candles."""
+        """Fetch historical OHLCV candles."""
         ...
-
-    async def is_available(self) -> bool:
-        """Check if provider is configured and reachable."""
-        return True

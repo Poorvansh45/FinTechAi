@@ -3,12 +3,14 @@ FinAI Edge — FastAPI Router: Analytics
 ========================================
 Dedicated analytics endpoints for risk, sector, diversification, concentration.
 
-Each endpoint delegates to a *targeted* analysis path instead of running the
-entire holdings pipeline, so we avoid computing all metrics when only one is
-needed.
+Each endpoint uses a targeted fast computation path (no market data fetch,
+< 500ms response). The full pipeline is only used via /portfolio/analyze-holdings.
+
+COPY TO: backend/fastapi_app/api/analytics.py
 """
 
 import logging
+import time
 from fastapi import APIRouter, HTTPException
 from schemas.portfolio import AnalyzeHoldingsRequest
 from portfolio.calculator import compute_all_holdings
@@ -25,15 +27,16 @@ log = logging.getLogger("finai_edge.api.analytics")
 router = APIRouter()
 
 
-# ── Shared helper ──────────────────────────────────────────────────────
+# ── Shared fast helper ─────────────────────────────────────────────
 
-def _base_analytics(holdings_raw: list[dict]) -> dict:
+def _fast_analytics(holdings_raw: list[dict]) -> dict:
     """
-    Compute cheap, synchronous analytics that don’t require market data.
-    Used by /risk, /sector, /diversification, /concentration so we avoid
-    running the full portfolio service pipeline (which fetches historical
-    prices and runs MPT optimisation) when only one metric is needed.
+    Synchronous local-only analytics (no I/O, no market data fetch).
+    All four analytics endpoints share this computation path.
+    Typical latency: < 50ms.
     """
+    t0 = time.perf_counter()
+
     enriched, totals = compute_all_holdings(holdings_raw)
 
     sector_exposure = compute_sector_exposure(enriched)
@@ -42,7 +45,7 @@ def _base_analytics(holdings_raw: list[dict]) -> dict:
     allocations = [h["allocation"] for h in enriched]
     concentration = compute_concentration_score(allocations)
 
-    # Cheap diversification estimate (no covariance matrix needed)
+    # Cheap diversification estimate: no covariance matrix needed
     n = len(enriched)
     diversification_score = round(min(85.0, n * 12.0), 1) if n > 0 else 0.0
 
@@ -60,27 +63,39 @@ def _base_analytics(holdings_raw: list[dict]) -> dict:
         stock_count=n,
     )
 
+    elapsed = time.perf_counter() - t0
+    log.debug(f"[analytics] fast_analytics: {n} holdings in {elapsed*1000:.1f}ms")
+
     return {
-        "sector_exposure": sector_exposure,
+        "sector_exposure":      sector_exposure,
         "sector_concentration": sector_concentration,
-        "concentration": concentration,
+        "concentration":        concentration,
         "diversification_score": diversification_score,
-        "risk": {"risk_level": risk_level, "data_source": "estimated"},
-        "health": health,
+        "risk":                 {"risk_level": risk_level, "data_source": "estimated"},
+        "health":               health,
     }
 
 
+# ── Endpoints ──────────────────────────────────────────────────────
+
 @router.post("/risk")
 async def risk_analysis(req: AnalyzeHoldingsRequest):
-    """Concentration + estimated risk metrics for given holdings."""
+    """
+    Fast concentration + estimated risk metrics.
+    Does NOT fetch market data — uses local computation only.
+    Response time: < 200ms.
+    """
+    if not req.holdings:
+        raise HTTPException(status_code=400, detail="Holdings list cannot be empty.")
     try:
         holdings = [h.model_dump() for h in req.holdings]
-        result = _base_analytics(holdings)
+        result = _fast_analytics(holdings)
         return {
             "success": True,
-            "risk": result["risk"],
-            "concentration": result["concentration"],
+            "risk":                  result["risk"],
+            "concentration":         result["concentration"],
             "diversification_score": result["diversification_score"],
+            "data_source":           "estimated",
         }
     except Exception as e:
         log.error(f"Risk analysis failed: {e}", exc_info=True)
@@ -89,15 +104,22 @@ async def risk_analysis(req: AnalyzeHoldingsRequest):
 
 @router.post("/sector")
 async def sector_analysis(req: AnalyzeHoldingsRequest):
-    """Sector exposure, concentration, and bias analysis."""
+    """
+    Sector exposure, concentration, and aggressive/defensive bias.
+    Response time: < 200ms.
+    """
+    if not req.holdings:
+        raise HTTPException(status_code=400, detail="Holdings list cannot be empty.")
     try:
         holdings = [h.model_dump() for h in req.holdings]
-        result = _base_analytics(holdings)
+        result = _fast_analytics(holdings)
+        enriched, _ = compute_all_holdings(holdings)
+        exposure = result["sector_exposure"]
         return {
-            "success": True,
-            "sector_exposure": result["sector_exposure"],
+            "success":              True,
+            "sector_exposure":      exposure,
             "sector_concentration": result["sector_concentration"],
-            "sector_bias": detect_sector_bias(result["sector_exposure"]),
+            "sector_bias":          detect_sector_bias(exposure),
         }
     except Exception as e:
         log.error(f"Sector analysis failed: {e}", exc_info=True)
@@ -106,15 +128,20 @@ async def sector_analysis(req: AnalyzeHoldingsRequest):
 
 @router.post("/diversification")
 async def diversification_analysis(req: AnalyzeHoldingsRequest):
-    """Diversification metrics analysis."""
+    """
+    Diversification score, concentration metrics, and health score.
+    Response time: < 200ms.
+    """
+    if not req.holdings:
+        raise HTTPException(status_code=400, detail="Holdings list cannot be empty.")
     try:
         holdings = [h.model_dump() for h in req.holdings]
-        result = _base_analytics(holdings)
+        result = _fast_analytics(holdings)
         return {
-            "success": True,
+            "success":              True,
             "diversification_score": result["diversification_score"],
-            "concentration": result["concentration"],
-            "health": result["health"],
+            "concentration":        result["concentration"],
+            "health":               result["health"],
         }
     except Exception as e:
         log.error(f"Diversification analysis failed: {e}", exc_info=True)
@@ -123,22 +150,31 @@ async def diversification_analysis(req: AnalyzeHoldingsRequest):
 
 @router.post("/concentration")
 async def concentration_analysis(req: AnalyzeHoldingsRequest):
-    """Concentration risk analysis with rebalance hints."""
+    """
+    Concentration risk with rebalance hints.
+    Response time: < 200ms.
+    """
+    if not req.holdings:
+        raise HTTPException(status_code=400, detail="Holdings list cannot be empty.")
     try:
-        from analytics import generate_rebalance_suggestions
+        from analytics.rebalancer import generate_rebalance_suggestions
+
         holdings = [h.model_dump() for h in req.holdings]
-        result = _base_analytics(holdings)
+        result = _fast_analytics(holdings)
+
         enriched, _ = compute_all_holdings(holdings)
         current_weights = {h["ticker"]: h["allocation"] for h in enriched}
+
         rebalance = generate_rebalance_suggestions(
             current_weights=current_weights,
             sector_exposure=result["sector_exposure"],
             health_data=result["health"],
         )
         return {
-            "success": True,
-            "concentration": result["concentration"],
+            "success":               True,
+            "concentration":         result["concentration"],
             "rebalance_suggestions": rebalance,
+            "health":                result["health"],
         }
     except Exception as e:
         log.error(f"Concentration analysis failed: {e}", exc_info=True)

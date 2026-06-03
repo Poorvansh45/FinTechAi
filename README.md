@@ -1,289 +1,311 @@
 # FinAI Edge — AI-Powered Portfolio Intelligence Platform
 
-> **Phase 1 — Production-Ready**
-> Full-stack FinTech application for Indian retail investors. AI portfolio generation, real-time market data, portfolio risk analytics, MPT optimisation, and sector analysis.
+> **Phase 1 — Production Ready**  
+> Institutional-grade portfolio analytics for Indian retail investors. AI portfolio generation, real-time market data, risk analytics, MPT optimisation, and sector analysis — all in one platform.
 
 ---
 
 ## Table of Contents
 
 1. [Architecture Overview](#1-architecture-overview)
-2. [Project Structure](#2-project-structure)
-3. [Phase 1 Feature List](#3-phase-1-feature-list)
-4. [Environment Variables](#4-environment-variables)
-5. [How to Run — Frontend](#5-how-to-run--frontend)
-6. [How to Run — Express Backend](#6-how-to-run--express-backend)
-7. [How to Run — FastAPI Backend](#7-how-to-run--fastapi-backend)
-8. [How to Run — Notebooks](#8-how-to-run--notebooks)
-9. [API Reference](#9-api-reference)
-10. [API Provider Setup](#10-api-provider-setup)
-11. [Groww API Setup](#11-groww-api-setup)
-12. [Gemini AI Setup](#12-gemini-ai-setup)
-13. [Troubleshooting](#13-troubleshooting)
+2. [Tech Stack](#2-tech-stack)
+3. [Project Structure](#3-project-structure)
+4. [Phase 1 Feature List](#4-phase-1-feature-list)
+5. [Environment Variables](#5-environment-variables)
+6. [How to Run — Frontend](#6-how-to-run--frontend)
+7. [How to Run — Express Backend](#7-how-to-run--express-backend)
+8. [How to Run — FastAPI Backend](#8-how-to-run--fastapi-backend)
+9. [How to Run — Notebooks](#9-how-to-run--notebooks)
+10. [API Reference](#10-api-reference)
+11. [API Provider Setup](#11-api-provider-setup)
+12. [Groww API Setup](#12-groww-api-setup)
+13. [Gemini AI Setup](#13-gemini-ai-setup)
+14. [MongoDB Setup](#14-mongodb-setup)
+15. [Quant Lab Module](#15-quant-lab-module)
+16. [Portfolio Optimizer Workflow](#16-portfolio-optimizer-workflow)
+17. [Troubleshooting](#17-troubleshooting)
+18. [Screenshots](#18-screenshots)
+19. [Future Roadmap](#19-future-roadmap)
 
 ---
 
 ## 1. Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Next.js Frontend                         │
-│                   localhost:9002                            │
-│  Pages: Landing / Dashboard / Analytics / Markets /        │
-│         Workspace / AI Insights / Screener / Journal       │
-└────────────────┬────────────────────────┬───────────────────┘
-                 │                        │
-    REST (auth)  │          REST (analytics, AI, market)
-                 │                        │
-┌────────────────▼───────┐   ┌────────────▼──────────────────┐
-│   Express Backend      │   │   FastAPI Backend             │
-│   localhost:8080       │   │   localhost:8000              │
-│                        │   │                               │
-│  - JWT auth (login /   │   │  - Portfolio analytics        │
-│    register / logout)  │   │  - MPT optimisation           │
-│  - Session cookies     │   │  - Risk engine (VaR, Sharpe,  │
-│  - Market proxy        │   │    Sortino, Beta, Drawdown)   │
-│  - Rate limiting       │   │  - Sector analysis            │
-│  - Helmet security     │   │  - AI portfolio generation    │
-│                        │   │    (Gemini / rule-based)      │
-└────────────┬───────────┘   └──────┬──────────────┬─────────┘
-             │                      │              │
-      MongoDB Atlas          yfinance       Groww / Finnhub
-      (users, portfolios)    (primary)     (optional APIs)
++------------------------------------------+
+|           Next.js 15 Frontend            |
+|           localhost:9002                 |
+|                                          |
+|  Landing / Dashboard / Analytics /       |
+|  Markets / Workspace / AI Insights /     |
+|  Screener / Journal / Quant Lab          |
++----------+-------------------+-----------+
+           |                   |
+  REST (auth, markets)    REST (analytics, AI)
+           |                   |
++----------v--------+  +-------v-----------------+
+|  Express Backend  |  |   FastAPI Backend       |
+|  localhost:8080   |  |   localhost:8000        |
+|                   |  |                         |
+|  - JWT auth       |  |  - Portfolio analytics  |
+|  - Sessions       |  |  - MPT optimisation     |
+|  - Market proxy   |  |  - Risk engine          |
+|  - Rate limiting  |  |  - AI portfolio gen     |
+|  - Helmet         |  |  - Sector analysis      |
++----------+--------+  +------+----------+-------+
+           |                  |          |
+     MongoDB Atlas        yfinance   Groww / Finnhub
+    (users, ports)        (default)  (optional APIs)
 ```
 
-### Data Flow
+### Request Flow for Portfolio Analysis
 
 ```
-User enters holdings
-    → Frontend sends POST /api/v2/portfolio/analyze-holdings
-    → FastAPI: compute_all_holdings() → P&L, allocations
-    → FastAPI: fetch 2y price history via yfinance (async)
-    → FastAPI: compute volatility, Sharpe, VaR, beta vs Nifty
-    → FastAPI: compute health score (diversification × risk × concentration × sector)
-    → FastAPI: generate rebalance suggestions + insights
-    → Frontend renders dashboard with all metrics
+User submits holdings
+  -> POST /api/v2/portfolio/analyze-holdings (FastAPI, port 8000)
+     -> compute_all_holdings()         [Step 1: P&L, allocation]
+     -> compute_sector_exposure()      [Step 2: Sector analysis]
+     -> compute_concentration_score()  [Step 3: HHI, effective N]
+     -> get_bulk_prices() via yfinance [Step 4: 2yr price history]
+        -> compute_portfolio_volatility()
+        -> compute_sharpe_ratio()
+        -> compute_sortino_ratio()
+        -> compute_var() (95% + 99%)
+        -> compute_max_drawdown()
+        -> compute_beta() vs Nifty 50
+        -> compute_cagr_from_prices()
+        -> compute_diversification_score()
+     -> compute_portfolio_health()     [Step 5: Composite 0-100]
+     -> generate_rebalance_suggestions() [Step 6: Action items]
+     -> generate_insights()            [Step 7: AI insights]
+  <- Returns full analysis JSON
+     -> Frontend renders: KPIs + Donut + Risk table + Holdings + Rebalance + Insights
 ```
 
 ---
 
-## 2. Project Structure
+## 2. Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15, React 18, TypeScript, Tailwind CSS |
+| UI Components | shadcn/ui, Framer Motion, Recharts |
+| Express Backend | Node.js 18+, Express 4, JWT, Mongoose |
+| FastAPI Backend | Python 3.11+, FastAPI, Pydantic v2, Uvicorn |
+| Analytics | NumPy, Pandas, SciPy (SLSQP), Scikit-learn (Ledoit-Wolf) |
+| Market Data | yfinance (default), Groww API (optional), Finnhub (optional) |
+| AI | Google Gemini 2.5 Flash (optional, rule-based fallback) |
+| Database | MongoDB (Motor async driver) |
+| Auth | JWT (HttpOnly cookies), bcrypt |
+
+---
+
+## 3. Project Structure
 
 ```
 FinTechAI-AntiGravity/
 ├── README.md
-├── render.yaml                    # Render.com deployment config
+├── start-dev.bat              # One-click Windows dev starter
+├── render.yaml                # Render.com deployment config
 │
-├── frontend/                      # Next.js 15 App (TypeScript)
+├── frontend/                  # Next.js 15 App (TypeScript)
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── (app)/             # Authenticated layout group
-│   │   │   │   ├── analytics/     # Portfolio analytics page
-│   │   │   │   ├── dashboard/     # Main dashboard
-│   │   │   │   ├── home/          # Home after login
-│   │   │   │   ├── journal/       # Trade journal
-│   │   │   │   ├── markets/       # Markets overview
-│   │   │   │   ├── quant-lab/     # Quant research tools
-│   │   │   │   ├── settings/      # User settings
-│   │   │   │   └── workspace/     # Trading workspace
-│   │   │   ├── ai-insights/       # AI portfolio insights
-│   │   │   ├── analytics/         # Public analytics
-│   │   │   ├── auth/              # Auth pages
-│   │   │   ├── login/             # Login page
-│   │   │   ├── onboarding/        # AI portfolio onboarding
-│   │   │   ├── screener/          # Stock screener
-│   │   │   ├── api/               # Next.js API routes
-│   │   │   │   ├── journal/       # Journal API
-│   │   │   │   ├── price/         # Price proxy
-│   │   │   │   └── screener/      # Screener API
-│   │   │   ├── layout.tsx
-│   │   │   └── page.tsx           # Landing page
+│   │   │   ├── (app)/         # Authenticated route group
+│   │   │   │   ├── analytics/
+│   │   │   │   ├── dashboard/
+│   │   │   │   │   └── portfolio/   # Main portfolio dashboard
+│   │   │   │   ├── home/
+│   │   │   │   ├── journal/
+│   │   │   │   ├── markets/
+│   │   │   │   ├── quant-lab/
+│   │   │   │   │   └── optimizer/   # Portfolio optimizer + AI builder
+│   │   │   │   ├── settings/
+│   │   │   │   └── workspace/
+│   │   │   ├── ai-insights/
+│   │   │   ├── auth/
+│   │   │   ├── login/
+│   │   │   ├── onboarding/
+│   │   │   ├── screener/
+│   │   │   └── api/           # Next.js API routes (journal, price, screener)
 │   │   ├── components/
-│   │   │   ├── auth/              # Login / register forms
-│   │   │   ├── common/            # Shared UI components
-│   │   │   ├── dashboard/         # Dashboard panels, mini-charts
-│   │   │   ├── journal/           # Trade journal components
-│   │   │   ├── landing/           # Landing page sections
-│   │   │   ├── layout/            # Sidebar, navbar
-│   │   │   ├── markets/           # Market data widgets
-│   │   │   ├── ui/                # shadcn/ui components
-│   │   │   └── workspace/         # Trading workspace panels
-│   │   ├── config/
-│   │   │   └── env.ts             # Environment config with defaults
-│   │   ├── context/               # React context providers
-│   │   ├── hooks/                 # Custom React hooks
-│   │   ├── lib/
-│   │   │   ├── api/
-│   │   │   │   ├── client.ts      # Express API client
-│   │   │   │   ├── authApi.ts     # Auth API helpers
-│   │   │   │   └── fastapi.ts     # FastAPI client (retry + timeout)
-│   │   │   ├── auth/              # Auth utilities
-│   │   │   ├── journal/           # Journal utilities
-│   │   │   ├── market-data.ts     # Market data helpers
-│   │   │   └── utils.ts           # Shared utilities
-│   │   ├── ai/                    # Genkit AI integration
-│   │   └── firebase.ts            # Firebase config
-│   ├── .env                       # Local environment (not committed)
-│   ├── .env.example               # Template — copy to .env
+│   │   │   ├── auth/
+│   │   │   ├── dashboard/     # KPI cards, mini-charts
+│   │   │   ├── layout/        # Sidebar, navbar
+│   │   │   ├── markets/       # Market widgets
+│   │   │   ├── ui/            # shadcn/ui base components
+│   │   │   └── workspace/     # Trade table, insight panel
+│   │   ├── config/env.ts      # Env config with safe defaults
+│   │   ├── hooks/
+│   │   └── lib/
+│   │       ├── api/
+│   │       │   ├── fastapi.ts # FastAPI client (retry + timeout)
+│   │       │   └── client.ts  # Express API client
+│   │       └── auth/
+│   ├── .env                   # Local env (not committed)
+│   ├── .env.example           # Template
 │   ├── next.config.ts
 │   ├── tailwind.config.ts
 │   └── package.json
 │
 └── backend/
-    ├── server.js                  # Express entry point (port 8080)
+    ├── server.js              # Express entry point (port 8080)
     ├── package.json
-    ├── .env                       # Local environment (not committed)
-    ├── .env.example               # Template — copy to .env
-    ├── config/
-    │   └── env.js                 # Express environment loader
-    ├── controllers/
-    │   └── authController.js      # Register, login, logout, me
+    ├── .env                   # Local env (not committed)
+    ├── .env.example
+    ├── config/env.js
+    ├── controllers/authController.js
     ├── middleware/
-    │   ├── authMiddleware.js      # JWT protect middleware
-    │   └── errorHandler.js        # 404 + global error handler
-    ├── models/                    # Mongoose schemas
+    ├── models/                # Mongoose schemas
     ├── routes/
-    │   ├── authRoutes.js          # /api/auth/*
-    │   ├── markets.js             # /api/markets/*
-    │   └── portfolio.js           # /api/portfolio/*
-    ├── services/                  # Express service layer
-    ├── utils/                     # Express utilities
-    ├── requirements.txt           # Root Python deps (legacy)
+    │   ├── authRoutes.js      # /api/auth/*
+    │   ├── markets.js         # /api/markets/*
+    │   └── portfolio.js       # /api/portfolio/*
     ├── notebooks/
     │   └── portfolio_research.ipynb
-    └── fastapi_app/               # Python FastAPI backend (port 8000)
-        ├── main.py                # FastAPI app + lifespan + middleware
-        ├── config.py              # Pydantic Settings
-        ├── validate_phase1.py     # Phase 1 verification script
-        ├── requirements.txt       # Python dependencies
-        ├── .env.example           # FastAPI env template
+    └── fastapi_app/           # Python FastAPI (port 8000)
+        ├── main.py            # App factory, middleware, routing
+        ├── config.py          # Pydantic Settings
+        ├── validate_phase1.py # Full stack verification script
+        ├── requirements.txt
+        ├── .env.example
         ├── api/
-        │   ├── ai.py              # POST /api/v2/ai/*
-        │   ├── analytics.py       # POST /api/v2/analytics/*
-        │   ├── market.py          # GET  /api/v2/market/*
-        │   └── portfolio.py       # POST /api/v2/portfolio/*
+        │   ├── ai.py          # POST /api/v2/ai/*
+        │   ├── analytics.py   # POST /api/v2/analytics/*
+        │   ├── market.py      # GET  /api/v2/market/*
+        │   └── portfolio.py   # POST /api/v2/portfolio/*
         ├── services/
-        │   ├── market_service.py  # Provider chain: Groww→yfinance→Finnhub
-        │   └── portfolio_service.py # Full analytics orchestrator (90s timeout)
+        │   ├── market_service.py    # Provider chain orchestrator
+        │   └── portfolio_service.py # Analysis pipeline (90s timeout)
         ├── analytics/
-        │   ├── __init__.py        # Public analytics API
-        │   ├── risk_engine.py     # Vol, VaR, Sharpe, Sortino, Beta, CAGR
-        │   ├── diversification.py # HHI, effective N, concentration score
-        │   ├── health_score.py    # Composite 0-100 health score
-        │   ├── sector_analysis.py # Sector exposure, concentration, bias
-        │   └── rebalancer.py      # Rebalance suggestions engine
-        ├── market/
-        │   └── providers/
-        │       ├── base.py        # Abstract provider + data models
-        │       ├── yfinance_provider.py  # Default (no API key)
-        │       ├── groww.py       # Groww Trading API (optional)
-        │       └── finnhub_provider.py   # Finnhub (optional)
+        │   ├── __init__.py
+        │   ├── risk_engine.py       # Vol, Sharpe, Sortino, VaR, Beta, CAGR
+        │   ├── diversification.py   # HHI, effective N, concentration
+        │   ├── health_score.py      # Composite 0-100 health
+        │   ├── sector_analysis.py   # Sector exposure, concentration, bias
+        │   └── rebalancer.py        # Rebalance suggestions engine
+        ├── market/providers/
+        │   ├── base.py
+        │   ├── yfinance_provider.py  # Default (no key, async wrapped)
+        │   ├── groww.py              # Groww Trading API
+        │   └── finnhub_provider.py   # Finnhub
         ├── portfolio/
-        │   └── calculator.py      # P&L, allocation, CAGR, insights
-        ├── models/
-        │   └── portfolio.py       # MongoDB portfolio CRUD (motor)
-        ├── schemas/
-        │   ├── portfolio.py       # Pydantic request schemas
-        │   └── ai.py              # Onboarding / AI schemas
-        └── utils/
-            ├── cache.py           # Async in-memory TTL cache
-            └── helpers.py         # NSE stock DB, sector map, ticker validation
+        │   └── calculator.py         # P&L, allocation, insights
+        ├── models/portfolio.py        # MongoDB CRUD (motor)
+        ├── schemas/                   # Pydantic request schemas
+        ├── utils/
+        │   ├── cache.py               # Async TTL cache
+        │   └── helpers.py             # NSE DB, sector map, validators
+        └── tests/
+            └── validate_analytics.py  # Analytics unit test suite
 ```
 
 ---
 
-## 3. Phase 1 Feature List
+## 4. Phase 1 Feature List
 
 ### Frontend
-- [x] Landing page with animated hero, feature cards, pricing
-- [x] Login / Register with JWT auth (Express)
-- [x] Onboarding flow → AI portfolio generation
-- [x] Dashboard with portfolio summary, P&L, sector pie chart
-- [x] Analytics page: risk metrics, health score, sector exposure, rebalance suggestions
-- [x] Markets page: live quotes, search, candlestick charts
-- [x] Workspace: trade insights, trade table, behavior intelligence panel
+- [x] Landing page (hero, features, pricing)
+- [x] JWT auth (login / register / logout)
+- [x] Onboarding flow + AI portfolio generation
+- [x] Portfolio dashboard (INDmoney-grade UI)
+  - [x] 6 KPI cards with P&L, CAGR, Sharpe, Volatility
+  - [x] Animated health gauge (SVG, 0-100)
+  - [x] Sector allocation donut + bar chart (interactive)
+  - [x] Risk analytics panel (8 metrics)
+  - [x] Holdings table (sortable, filterable, delete)
+  - [x] Add Holding form (live P&L preview)
+  - [x] Rebalance suggestions with priority badges
+  - [x] AI insight cards (4 tones: warn/good/info/strong)
+  - [x] Concentration panel with HHI
+  - [x] Privacy toggle (hide/show values)
+  - [x] Demo data + empty states
+  - [x] API error state with FastAPI start instructions
+- [x] Markets page
 - [x] Trade Journal
 - [x] Stock Screener
-- [x] Dark / Light mode toggle
-- [x] Responsive layout (sidebar + mobile)
-- [x] FastAPI client with AbortController timeout + exponential-backoff retry
+- [x] Dark / Light mode
+- [x] Mobile responsive layout
+- [x] FastAPI client: AbortController timeout + exponential-backoff retry
 
-### FastAPI Backend
-- [x] `POST /api/v2/portfolio/analyze-holdings` — Full holdings analysis (90s timeout)
-- [x] `POST /api/v2/portfolio/analyze` — MPT optimisation, efficient frontier
+### FastAPI Backend (19 endpoints)
+- [x] `GET  /health`
+- [x] `GET  /api/v2/status` — Full system status
+- [x] `POST /api/v2/portfolio/analyze-holdings` — Full 90s pipeline
+- [x] `POST /api/v2/portfolio/analyze` — MPT efficient frontier
 - [x] `POST /api/v2/portfolio/health` — Quick health check
 - [x] `POST /api/v2/portfolio/rebalance` — Rebalance suggestions
 - [x] `POST /api/v2/portfolio/save` — MongoDB persistence
 - [x] `GET  /api/v2/portfolio/saved` — List user portfolios
-- [x] `GET  /api/v2/market/quote/{symbol}` — Live quote (Groww→yfinance→Finnhub)
-- [x] `GET  /api/v2/market/search` — Instrument search (curated NSE DB)
-- [x] `GET  /api/v2/market/candles/{symbol}` — Historical OHLCV
-- [x] `GET  /api/v2/market/bulk-quotes` — Multi-symbol quotes (max 30)
-- [x] `GET  /api/v2/market/provider-status` — Provider health + cache stats
-- [x] `POST /api/v2/analytics/risk` — Fast risk + concentration (no market fetch)
-- [x] `POST /api/v2/analytics/sector` — Sector exposure + bias (no market fetch)
-- [x] `POST /api/v2/analytics/diversification` — Diversification score
-- [x] `POST /api/v2/analytics/concentration` — Concentration + rebalance hints
-- [x] `POST /api/v2/ai/generate-portfolio` — AI portfolio (Gemini or rule-based)
-- [x] `GET  /health` — Health check
+- [x] `GET  /api/v2/market/quote/{symbol}`
+- [x] `GET  /api/v2/market/search`
+- [x] `GET  /api/v2/market/candles/{symbol}`
+- [x] `GET  /api/v2/market/bulk-quotes`
+- [x] `GET  /api/v2/market/provider-status`
+- [x] `POST /api/v2/analytics/risk` — Fast (< 500ms, no market fetch)
+- [x] `POST /api/v2/analytics/sector`
+- [x] `POST /api/v2/analytics/diversification`
+- [x] `POST /api/v2/analytics/concentration`
+- [x] `POST /api/v2/ai/generate-portfolio` — Gemini or rule-based
 
-### Analytics Engine
-- [x] P&L calculation (invested, current value, gain/loss %)
-- [x] Portfolio allocation (% per holding, sums to 100%)
-- [x] Sector exposure + concentration + bias (defensive/aggressive tilt)
+### Analytics Engine (verified via validate_analytics.py)
+- [x] P&L calculation (invested, value, gain/loss %)
+- [x] Portfolio allocation (sums to exactly 100%)
+- [x] Sector exposure + concentration + bias detection
 - [x] Annualized volatility (Ledoit-Wolf covariance, 252-day)
-- [x] Sharpe ratio (Indian risk-free rate: 6.5%)
+- [x] Sharpe ratio (risk-free = 6.5% Indian T-bill)
 - [x] Sortino ratio (downside deviation only)
-- [x] Treynor ratio (systematic risk)
+- [x] Treynor ratio (systematic risk measure)
 - [x] Historical VaR (95% + 99%, daily + annual)
 - [x] Maximum drawdown (peak-to-trough)
 - [x] Beta vs Nifty 50
-- [x] CAGR (from historical price series)
-- [x] HHI-based concentration score
-- [x] Composite health score (diversification × risk × concentration × sector)
-- [x] Rebalance suggestions (trim/add/introduce/remove)
+- [x] CAGR (from price series or P&L estimate)
+- [x] HHI concentration index
+- [x] Effective number of stocks
+- [x] Composite health score (0-100, 4 components)
 - [x] MPT efficient frontier (scipy SLSQP)
 - [x] Max-Sharpe + Min-Volatility optimal portfolios
 - [x] Pearson correlation matrix
 
 ### Infrastructure
-- [x] Provider fallback chain: Groww → yfinance → Finnhub
-- [x] Async TTL cache (quotes: 5 min, candles: 1 hr, search: cached)
-- [x] Provider cooldown on repeated failures (60s)
-- [x] Per-provider retry with exponential backoff
-- [x] 90s timeout on full portfolio analysis (graceful partial response)
-- [x] Structured logging at every pipeline step
-- [x] MongoDB portfolio persistence (motor async)
+- [x] Provider chain: Groww → yfinance → Finnhub
+- [x] All yfinance calls wrapped in asyncio.to_thread() (non-blocking)
+- [x] Async TTL cache (quotes: 5m, candles: 1h, search: 30m)
+- [x] Per-provider retry with exponential backoff (2 retries)
+- [x] Provider cooldown on failure (60s)
+- [x] 90s timeout on full portfolio analysis (graceful partial)
+- [x] Structured step logging (timing per pipeline stage)
+- [x] Graceful MongoDB failure (analytics work without DB)
 - [x] CORS configured for frontend dev + prod URLs
 - [x] Request timing header (X-Process-Time)
-- [x] Phase 1 validation script
+- [x] Analytics validation test suite (60+ assertions)
 
 ### Express Backend
-- [x] JWT authentication (register / login / logout / me)
+- [x] JWT auth (register / login / logout / me)
 - [x] bcrypt password hashing
 - [x] HttpOnly cookie sessions
 - [x] Rate limiting (100 req / 15 min)
 - [x] Helmet security headers
 - [x] Market proxy routes
-- [x] MongoDB (Mongoose) user model
+- [x] MongoDB Mongoose user model
 
 ---
 
-## 4. Environment Variables
+## 5. Environment Variables
 
 ### Frontend — `frontend/.env`
 
 ```env
-# Express backend (auth, markets proxy)
+# Express backend (auth, markets)
 NEXT_PUBLIC_API_URL=http://localhost:8080
 
 # FastAPI backend (portfolio analytics, AI)
 NEXT_PUBLIC_FASTAPI_URL=http://localhost:8000
 
-# Gemini AI (server-side only — keep secret)
+# Gemini AI (server-side Next.js only)
 GEMINI_API_KEY=your_gemini_key_here
 
-# Firebase (optional — stub active if not set)
+# Firebase (optional)
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
@@ -293,268 +315,216 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=
 ```
 
-> Copy `frontend/.env.example` to `frontend/.env` and fill in your values.
-
----
-
 ### Express Backend — `backend/.env`
 
 ```env
-# Server
 PORT=8080
 NODE_ENV=development
 FRONTEND_URL=http://localhost:9002
-
-# MongoDB
 MONGODB_URI=mongodb://localhost:27017/finai_edge
-
-# Auth
-JWT_SECRET=your_super_secret_jwt_key_here
+JWT_SECRET=your_super_secret_jwt_key_minimum_32_chars
 JWT_EXPIRE=30d
-
-# Market data (optional — used by Express markets proxy)
 FINNHUB_API_KEY=
 ```
-
-> Copy `backend/.env.example` to `backend/.env` and fill in your values.
-
----
 
 ### FastAPI Backend — `backend/fastapi_app/.env` (or `backend/.env`)
 
 ```env
-# Server
 FASTAPI_PORT=8000
 ENVIRONMENT=development
 FRONTEND_URL=http://localhost:9002
 LOG_LEVEL=INFO
 
-# MongoDB
 MONGODB_URI=mongodb://localhost:27017/finai_edge
 
-# Groww Trading API (optional — yfinance used if not set)
+# Market Data (all optional — yfinance is the default)
 GROWW_API_KEY=
 GROWW_TOTP_SECRET=
 
-# Google Gemini AI (optional — rule-based fallback if not set)
+# AI (optional — rule-based fallback if not set)
 GEMINI_API_KEY=
 
-# Finnhub (optional — tertiary fallback)
+# Finnhub (optional tertiary fallback)
 FINNHUB_API_KEY=
 ```
 
-> **Note:** FastAPI reads `../  .env` (i.e. `backend/.env`) via pydantic-settings.
-> You can place a single `.env` in `backend/` and both Express and FastAPI will use it.
+> **Note:** FastAPI reads `backend/.env` via `env_file="../.env"`. You can use a single `.env` in `backend/` for both Express and FastAPI.
 
 ---
 
-## 5. How to Run — Frontend
-
-**Requirements:** Node.js 18+, npm 9+
+## 6. How to Run — Frontend
 
 ```bash
-# 1. Install dependencies
 cd frontend
+
+# Install
 npm install
 
-# 2. Set up environment
+# Configure
 cp .env.example .env
-# Edit .env — set NEXT_PUBLIC_API_URL and NEXT_PUBLIC_FASTAPI_URL
+# Edit .env: set NEXT_PUBLIC_API_URL and NEXT_PUBLIC_FASTAPI_URL
 
-# 3. Start dev server (port 9002)
+# Dev server (port 9002)
 npm run dev
 ```
 
-Open: http://localhost:9002
-
-**Production build:**
+Open: **http://localhost:9002**
 
 ```bash
-npm run build
-npm start
-```
-
-**TypeScript check:**
-
-```bash
+# Type check
 npm run typecheck
-```
 
-**Lint:**
-
-```bash
+# Lint
 npm run lint
+
+# Production build
+npm run build && npm start
 ```
 
 ---
 
-## 6. How to Run — Express Backend
-
-**Requirements:** Node.js 18+, npm 9+, MongoDB running
+## 7. How to Run — Express Backend
 
 ```bash
-# 1. Install dependencies
 cd backend
+
+# Install
 npm install
 
-# 2. Set up environment
+# Configure
 cp .env.example .env
-# Edit .env — set MONGODB_URI and JWT_SECRET
+# Edit .env: set MONGODB_URI and JWT_SECRET
 
-# 3. Start (port 8080)
-npm start
-
-# Dev with auto-reload
+# Dev (auto-reload)
 npm run dev
+
+# Production
+npm start
 ```
 
-Express API base: http://localhost:8080/api
+API base: **http://localhost:8080/api**
 
-**Verify it's running:**
-
-```bash
-curl http://localhost:8080/health
-# {"status":"healthy","db":"connected"}
-```
+Verify: `curl http://localhost:8080/health`
 
 ---
 
-## 7. How to Run — FastAPI Backend
-
-**Requirements:** Python 3.11+, pip
+## 8. How to Run — FastAPI Backend
 
 ```bash
-# 1. Create virtual environment (recommended)
 cd backend/fastapi_app
+
+# Create virtual environment (recommended)
 python -m venv .venv
 
-# Windows
-.venv\Scripts\activate
+# Activate
+.venv\Scripts\activate      # Windows
+source .venv/bin/activate   # macOS/Linux
 
-# macOS / Linux
-source .venv/bin/activate
-
-# 2. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 3. Set up environment
-# Create backend/.env (FastAPI reads ../. env = backend/.env)
-cp .env.example ../.env
-# Edit ../  .env — add GEMINI_API_KEY, GROWW keys, etc.
+# Configure — create backend/.env with your keys
+# (FastAPI reads ../.env relative to fastapi_app/)
 
-# 4. Start FastAPI (port 8000)
+# Dev server (port 8000, hot reload)
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
-# Production (no reload, multiple workers)
+# Production (2 workers, no reload)
 uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
 ```
 
-FastAPI docs (Swagger UI): http://localhost:8000/docs
-FastAPI ReDoc: http://localhost:8000/redoc
+Swagger UI: **http://localhost:8000/docs**  
+ReDoc: **http://localhost:8000/redoc**
 
-**Verify it's running:**
+Verify: `curl http://localhost:8000/health`
 
-```bash
-curl http://localhost:8000/health
-# {"status":"healthy","service":"finai-edge-fastapi",...}
-```
-
-**Run Phase 1 validation script:**
+### Run Analytics Validation Suite
 
 ```bash
-# With server running on port 8000:
 cd backend/fastapi_app
-python validate_phase1.py
-
-# Without server (still tests imports + calculations):
-python validate_phase1.py
+python tests/validate_analytics.py
 ```
 
----
+Expected: `All analytics calculations verified. Phase 1 backend PASSED.`
 
-## 8. How to Run — Notebooks
-
-**Requirements:** Python 3.11+, Jupyter
+### Run Full Stack Verification
 
 ```bash
-# 1. Install Jupyter + dependencies
-cd backend
-pip install jupyter notebook pandas numpy matplotlib seaborn yfinance --break-system-packages
-# or inside your venv:
-pip install jupyter notebook pandas numpy matplotlib seaborn yfinance
-
-# 2. Start Jupyter
-cd backend/notebooks
-jupyter notebook
-
-# Or Jupyter Lab:
-jupyter lab
+# Start FastAPI first, then:
+python validate_phase1.py
 ```
-
-Open `portfolio_research.ipynb` in the browser.
-
-**Available notebooks:**
-
-| Notebook | Purpose |
-|---|---|
-| `portfolio_research.ipynb` | Exploratory portfolio analysis, NSE stock research |
 
 ---
 
-## 9. API Reference
+## 9. How to Run — Notebooks
 
-### FastAPI — Portfolio
+```bash
+cd backend
+pip install jupyter pandas numpy matplotlib seaborn yfinance
+
+cd notebooks
+jupyter notebook
+# or: jupyter lab
+```
+
+Open `portfolio_research.ipynb` for NSE stock research and portfolio analysis.
+
+---
+
+## 10. API Reference
+
+### FastAPI — System
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/v2/portfolio/analyze-holdings` | Full holdings analysis (P&L, risk, health, insights) |
-| POST | `/api/v2/portfolio/analyze` | MPT optimisation + efficient frontier |
-| POST | `/api/v2/portfolio/health` | Quick health score check |
-| POST | `/api/v2/portfolio/rebalance` | Rebalance suggestions |
-| POST | `/api/v2/portfolio/save` | Save portfolio to MongoDB |
-| GET  | `/api/v2/portfolio/saved` | List user's saved portfolios |
+| GET | `/health` | Basic health check |
+| GET | `/api/v2/status` | Full system status (providers, cache, MongoDB) |
 
-**Example — analyze-holdings:**
+### FastAPI — Portfolio
 
-```bash
-curl -X POST http://localhost:8000/api/v2/portfolio/analyze-holdings \
-  -H "Content-Type: application/json" \
-  -d '{
-    "holdings": [
-      {"ticker": "RELIANCE.NS", "name": "Reliance", "quantity": 10,
-       "avg_buy_price": 2800, "current_price": 3000},
-      {"ticker": "TCS.NS", "name": "TCS", "quantity": 5,
-       "avg_buy_price": 3500, "current_price": 3700}
-    ]
-  }'
+| Method | Endpoint | Body | Description |
+|---|---|---|---|
+| POST | `/api/v2/portfolio/analyze-holdings` | `{ holdings: [...] }` | Full analysis (P&L, risk, health, insights) |
+| POST | `/api/v2/portfolio/analyze` | `{ tickers, weights, risk_profile }` | MPT optimization |
+| POST | `/api/v2/portfolio/health` | `{ holdings }` | Quick health check |
+| POST | `/api/v2/portfolio/rebalance` | `{ holdings }` | Rebalance suggestions |
+| POST | `/api/v2/portfolio/save` | `{ user_id, name, holdings }` | Save to MongoDB |
+| GET  | `/api/v2/portfolio/saved` | `?user_id=` | List saved portfolios |
+
+**Holdings input schema:**
+```json
+{
+  "holdings": [
+    {
+      "ticker": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "quantity": 10,
+      "avg_buy_price": 2800,
+      "current_price": 3000,
+      "sector": "Energy"
+    }
+  ]
+}
 ```
 
----
-
-### FastAPI — Analytics (Fast — No Market Data Fetch)
+### FastAPI — Analytics (Fast, < 500ms)
 
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/v2/analytics/risk` | Risk level + concentration |
 | POST | `/api/v2/analytics/sector` | Sector exposure + bias |
-| POST | `/api/v2/analytics/diversification` | Diversification score + health |
+| POST | `/api/v2/analytics/diversification` | Diversification score |
 | POST | `/api/v2/analytics/concentration` | Concentration + rebalance hints |
-
-> These endpoints use local computation only (no yfinance calls). They respond in < 500ms.
-
----
 
 ### FastAPI — Market Data
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/v2/market/quote/{symbol}` | Live quote (Groww→yfinance→Finnhub) |
+| GET | `/api/v2/market/quote/{symbol}` | Live quote (cached 5m) |
 | GET | `/api/v2/market/search?q={query}` | Instrument search |
-| GET | `/api/v2/market/candles/{symbol}` | OHLCV candles |
-| GET | `/api/v2/market/bulk-quotes?symbols=A,B,C` | Multiple quotes |
+| GET | `/api/v2/market/candles/{symbol}` | Historical OHLCV (cached 1h) |
+| GET | `/api/v2/market/bulk-quotes?symbols=A,B,C` | Multi-symbol (max 30) |
 | GET | `/api/v2/market/provider-status` | Provider health + cache stats |
-
----
 
 ### FastAPI — AI
 
@@ -562,144 +532,72 @@ curl -X POST http://localhost:8000/api/v2/portfolio/analyze-holdings \
 |---|---|---|
 | POST | `/api/v2/ai/generate-portfolio` | Generate portfolio (Gemini / rule-based) |
 
-**Example:**
-
-```bash
-curl -X POST http://localhost:8000/api/v2/ai/generate-portfolio \
-  -H "Content-Type: application/json" \
-  -d '{
-    "goal": "wealth_creation",
-    "horizon": "7y+",
-    "risk": "balanced",
-    "monthly_investment": 10000
-  }'
+```json
+{
+  "goal": "wealth_creation",
+  "horizon": "7y+",
+  "risk": "balanced",
+  "monthly_investment": 10000
+}
 ```
-
----
 
 ### Express — Auth
 
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/auth/register` | Register user |
+| POST | `/api/auth/register` | Register |
 | POST | `/api/auth/login` | Login (sets HttpOnly cookie) |
-| POST | `/api/auth/logout` | Logout (clears cookie) |
-| GET  | `/api/auth/me` | Get current user (requires auth) |
+| POST | `/api/auth/logout` | Logout |
+| GET  | `/api/auth/me` | Current user (requires auth) |
 | PUT  | `/api/auth/username` | Update username |
 
 ---
 
-### Express — Markets
+## 11. API Provider Setup
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/markets/overview` | Market overview |
-| GET | `/api/markets/news` | Market news |
-| GET | `/api/markets/quote/:symbol` | Single quote proxy |
+### yfinance (Default — No Setup)
 
----
+Always active, no API key needed. Wraps Yahoo Finance. All calls run in `asyncio.to_thread()` to prevent event loop blocking.
 
-## 10. API Provider Setup
+Tickers use `.NS` suffix for NSE: `RELIANCE.NS`, `TCS.NS`, `^NSEI` (Nifty).
 
-### yfinance (Default — No Setup Required)
+### Finnhub (Optional)
 
-yfinance is always active as the primary/fallback provider. No API key needed. It fetches data from Yahoo Finance.
-
-**Limitations:**
-- Rate limits apply (avoid hammering with bulk calls > 30 tickers)
-- Intraday data has some delay
-- Some Indian MF tickers may not be available
+1. Sign up: https://finnhub.io/dashboard (free tier: 60 calls/min)
+2. Add to `backend/.env`: `FINNHUB_API_KEY=your_key`
+3. Automatically becomes tertiary provider
 
 ---
 
-### Finnhub (Optional — Tertiary Fallback)
+## 12. Groww API Setup
 
-1. Sign up at https://finnhub.io/dashboard (free tier available)
-2. Copy your API key
+> Requires paid Groww Trading API subscription (India only). App works fully without it.
+
+1. Apply: https://developer.groww.in
+2. After approval, get API key + TOTP secret
 3. Add to `backend/.env`:
    ```env
-   FINNHUB_API_KEY=your_key_here
+   GROWW_API_KEY=your_api_key
+   GROWW_TOTP_SECRET=your_totp_secret   # NOTE: TOTP_SECRET, not API_SECRET
    ```
-4. Finnhub is activated automatically as the third provider in the chain
-
-**Free tier limits:** 60 API calls/minute
+4. Groww becomes primary provider automatically
 
 ---
 
-## 11. Groww API Setup
+## 13. Gemini AI Setup
 
-> **Note:** Groww Trading API requires a paid subscription and is intended for Indian residents with an active Groww account. The app works fully without it — yfinance is the default.
-
-1. Apply for Groww API access at https://developer.groww.in
-2. After approval, generate your API key and TOTP secret from the developer dashboard
-3. Add to `backend/.env`:
-   ```env
-   GROWW_API_KEY=your_groww_api_key
-   GROWW_TOTP_SECRET=your_totp_secret
-   ```
-
-**Important:** The env variable is `GROWW_TOTP_SECRET` (not `GROWW_API_SECRET`). This matches the `config.py` setting `groww_totp_secret`.
-
-When Groww is configured, it becomes the **primary** market data provider. The fallback chain becomes: **Groww → yfinance → Finnhub**.
+1. Get key: https://aistudio.google.com/app/apikey (free tier)
+2. Add to `backend/.env`: `GEMINI_API_KEY=your_key`
+3. FastAPI uses `gemini-2.5-flash` with 30s timeout + rule-based fallback
 
 ---
 
-## 12. Gemini AI Setup
+## 14. MongoDB Setup
 
-1. Go to https://aistudio.google.com/app/apikey
-2. Create a new API key (free tier available)
-3. Add to `backend/.env` (FastAPI reads this):
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key_here
-   ```
+### Local
 
-When configured, the AI portfolio generation endpoint uses `gemini-2.5-flash` with structured output (JSON schema enforcement via Pydantic). If not configured, a rule-based template system generates portfolios instead — the frontend still works normally.
-
-**Gemini model used:** `gemini-2.5-flash`
-**Timeout:** 30s (with 45s frontend timeout for safety margin)
-**Fallback:** Rule-based templates (conservative / balanced / aggressive)
-
----
-
-## 13. Troubleshooting
-
-### FastAPI won't start
-
-```
-ModuleNotFoundError: No module named 'fastapi'
-```
-**Fix:** Make sure you're in the virtual environment and have installed dependencies:
 ```bash
-cd backend/fastapi_app
-.venv\Scripts\activate    # Windows
-pip install -r requirements.txt
-uvicorn main:app --port 8000 --reload
-```
-
----
-
-### yfinance returns empty data
-
-```
-yfinance bulk download returned empty
-```
-**Fix:** Yahoo Finance rate-limits aggressive requests. Wait 60 seconds and retry. For > 10 tickers, the bulk download may take 5–15 seconds.
-
-Also ensure tickers use the correct format:
-- Indian NSE stocks: `RELIANCE.NS`, `TCS.NS`, `HDFCBANK.NS`
-- Nifty index: `^NSEI`
-- Nifty BeES ETF: `NIFTYBEES.NS`
-
----
-
-### MongoDB connection fails
-
-```
-[MongoDB] Connection failed: connect ECONNREFUSED 127.0.0.1:27017
-```
-**Fix:** Start MongoDB locally:
-```bash
-# Windows (run as admin)
+# Windows
 net start MongoDB
 
 # macOS
@@ -709,98 +607,168 @@ brew services start mongodb-community
 sudo systemctl start mongod
 ```
 
-Or use MongoDB Atlas and set `MONGODB_URI` to your Atlas connection string.
+URI: `mongodb://localhost:27017/finai_edge`
+
+### Atlas (Cloud)
+
+1. Create free cluster at https://mongodb.com/atlas
+2. Get connection string
+3. Set `MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/finai_edge`
+
+> If MongoDB is unavailable, all analytics still work — only portfolio save/load is disabled.
 
 ---
 
-### Gemini API timeout
+## 15. Quant Lab Module
+
+The Quant Lab (Optimizer) module has two flows:
+
+**Option A — Analyze Existing Portfolio**
+- Enter stock tickers + weights manually
+- Runs MPT analysis via `/api/v2/portfolio/analyze`
+- Shows: efficient frontier, optimal portfolios, correlation matrix, VaR
+
+**Option B — AI Portfolio Builder**
+- Answer onboarding questions (goal, horizon, risk, monthly SIP)
+- Calls `/api/v2/ai/generate-portfolio` (Gemini or rule-based)
+- Shows: AI-generated allocation, SIP projection, beginner explanation
+
+---
+
+## 16. Portfolio Optimizer Workflow
+
+```
+User Input
+  |
+  +--[Option A]--> Manual tickers/weights
+  |                    |
+  |               POST /api/v2/portfolio/analyze
+  |                    |
+  |               Efficient frontier (SLSQP)
+  |               Max-Sharpe portfolio
+  |               Min-Vol portfolio
+  |               Correlation heatmap
+  |
+  +--[Option B]--> Onboarding answers
+                       |
+                  POST /api/v2/ai/generate-portfolio
+                       |
+                  Gemini 2.5 Flash (if key set)
+                       |-- success --> AI-tailored portfolio
+                       |-- timeout/fail --> Rule-based template
+                       |
+                  SIP projection (FV formula)
+                  Goal alignment text
+                  Beginner explanation
+```
+
+---
+
+## 17. Troubleshooting
+
+### FastAPI won't start: `ModuleNotFoundError`
+
+```bash
+cd backend/fastapi_app
+.venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+uvicorn main:app --port 8000 --reload
+```
+
+### yfinance returns empty data
+
+Yahoo Finance rate-limits heavy usage. Wait 60 seconds and retry. Use `.NS` suffix for all NSE stocks.
+
+### MongoDB connection failed
+
+```
+[MongoDB] connection failed - ...
+```
+
+Analytics still work. Only portfolio save/load fails. Start MongoDB or set Atlas URI. The warning is non-fatal.
+
+### Gemini timeout (30s)
 
 ```
 Gemini API call timed out after 30s, falling back to templates
 ```
-**This is handled gracefully** — the endpoint returns a rule-based portfolio. If you see this repeatedly:
-1. Check your Gemini API key in `.env`
-2. Check your internet connection
-3. The free Gemini tier can be slow under load — consider upgrading
 
----
+Non-fatal — rule-based portfolio returned. Check `GEMINI_API_KEY` in `.env`. Gemini free tier can be slow under load.
 
-### Frontend can't connect to FastAPI
+### Frontend can't reach FastAPI
 
 ```
 [FastAPI] Network error on attempt 1/3: Failed to fetch
 ```
-**Fix:**
-1. Ensure FastAPI is running: `curl http://localhost:8000/health`
+
+1. Verify FastAPI is running: `curl http://localhost:8000/health`
 2. Check `frontend/.env` has `NEXT_PUBLIC_FASTAPI_URL=http://localhost:8000`
-3. Restart the Next.js dev server after editing `.env`
-4. Check FastAPI CORS allows `http://localhost:9002`
+3. Restart Next.js after `.env` changes
+4. Check CORS allows `http://localhost:9002`
 
----
+### Analytics endpoints slow (was: > 30s)
 
-### Analytics routes are slow
+Fixed in Phase 1. `/api/v2/analytics/risk|sector|diversification|concentration` now use local computation (no market data fetch). Response time < 500ms.
 
-Previously, `/api/v2/analytics/risk`, `/sector`, `/diversification`, and `/concentration` each triggered the **full** portfolio pipeline (90s potential). This has been fixed in Phase 1 — they now use a fast local computation path with no market data fetches. Response time should be < 500ms.
+### Portfolio analysis timeout (90s)
 
----
-
-### Portfolio analysis timeout
-
-```
-analyze_holdings timed out after 90.0s — returning partial result
-```
-**This is a graceful degradation** — the frontend receives basic P&L data. To avoid timeouts:
-1. Reduce number of holdings (< 20 recommended)
-2. yfinance may be slow — wait a minute and retry
-3. Check `GET /api/v2/market/provider-status` to see provider health
-
----
+Graceful partial result returned (basic P&L). Reduce holdings count or wait for yfinance to recover.
 
 ### GROWW_API_SECRET vs GROWW_TOTP_SECRET
 
-If you previously had `GROWW_API_SECRET` in your `.env`, rename it to `GROWW_TOTP_SECRET`. The `config.py` uses `groww_totp_secret` and the `.env.example` has been updated accordingly.
+Must be `GROWW_TOTP_SECRET` (matches `config.py`). `GROWW_API_SECRET` is incorrect and will be ignored.
 
----
-
-### TypeScript build errors
+### TypeScript errors on build
 
 ```bash
 cd frontend
 npm run typecheck
 ```
-Common causes:
-- Missing `NEXT_PUBLIC_FASTAPI_URL` in `.env` (defaults to `http://localhost:8000` — safe to ignore locally)
-- Outdated `node_modules` — run `npm install` again
 
----
+Most common: missing `NEXT_PUBLIC_FASTAPI_URL` in `.env` (safe to ignore locally — defaults to `http://localhost:8000`).
 
-### Running the Phase 1 validation script
+### Run analytics validation
 
 ```bash
 cd backend/fastapi_app
-
-# Activate venv first
-.venv\Scripts\activate   # Windows
-source .venv/bin/activate  # macOS/Linux
-
-# Run checks (imports + calculations work without server)
-python validate_phase1.py
-
-# Run full checks including route verification (requires server running)
-# Terminal 1:
-uvicorn main:app --port 8000
-
-# Terminal 2:
-python validate_phase1.py
+python tests/validate_analytics.py
 ```
 
-Expected output when all passing:
-```
-[v] config.get_settings
-[v] analytics.risk_engine.compute_portfolio_volatility
-[v] compute_portfolio_volatility     | vol=0.1823
-[v] compute_sharpe_ratio             | sharpe=0.412
-[v] compute_portfolio_health         | score=72 label=Moderate
-...
-Phase 1 validation PASSED - all critical checks are green.
-```
+All 60+ assertions should pass with `Phase 1 backend PASSED.`
+
+---
+
+## 18. Screenshots
+
+> _Screenshots will be added post-deployment._
+
+- [ ] Landing page
+- [ ] Portfolio dashboard (dark mode)
+- [ ] Portfolio dashboard (light mode)
+- [ ] Sector allocation donut chart
+- [ ] Risk analytics panel
+- [ ] Holdings table
+- [ ] AI portfolio builder (onboarding flow)
+- [ ] Quant lab optimizer (efficient frontier)
+- [ ] Markets page
+- [ ] Mobile view
+
+---
+
+## 19. Future Roadmap
+
+### Phase 2 (Planned)
+- Real-time WebSocket price streaming
+- Advanced options analytics (Greeks, IV surface)
+- Multi-currency support (USD, EUR alongside INR)
+- Portfolio backtesting engine
+- Alert system (price, P&L, rebalance triggers)
+- Social portfolio comparison
+
+### Phase 3 (Planned)
+- LangGraph-powered AI research agent
+- RAG over company filings (SEBI EDGAR)
+- Multi-agent portfolio committee simulation
+- Vector DB for semantic stock search
+- Automated tax-loss harvesting suggestions
+- Demat account integration (Zerodha Kite API)

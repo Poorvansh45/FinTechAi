@@ -39,10 +39,23 @@ async def lifespan(app: FastAPI):
     log.info(f"  MongoDB:     {settings.mongodb_uri[:40]}...")
 
     # Initialize MongoDB connection
-    from motor.motor_asyncio import AsyncIOMotorClient
-    app.state.mongo_client = AsyncIOMotorClient(settings.mongodb_uri)
-    app.state.db = app.state.mongo_client.get_default_database("finai_edge")
-    log.info("  MongoDB:     connected ✓")
+    try:
+        from motor.motor_asyncio import AsyncIOMotorClient
+        app.state.mongo_client = AsyncIOMotorClient(
+            settings.mongodb_uri,
+            serverSelectionTimeoutMS=5000,
+        )
+        # Ping to verify connection
+        await app.state.mongo_client.admin.command('ping')
+        app.state.db = app.state.mongo_client.get_default_database("finai_edge")
+        app.state.mongo_connected = True
+        log.info("  MongoDB:     connected [OK]")
+    except Exception as mongo_err:
+        log.warning(f"  MongoDB:     connection failed - {mongo_err}")
+        log.warning("  MongoDB:     portfolio save/load features will be disabled")
+        app.state.mongo_client = None
+        app.state.db = None
+        app.state.mongo_connected = False
 
     # Initialize Market Data Service
     from services.market_service import get_market_service
@@ -57,7 +70,8 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    app.state.mongo_client.close()
+    if app.state.mongo_client:
+        app.state.mongo_client.close()
     log.info("FastAPI shutdown complete.")
 
 
@@ -138,6 +152,31 @@ async def health_check():
             "gemini": settings.gemini_available,
             "finnhub": settings.finnhub_available,
         },
+    }
+
+
+# ── System Status Endpoint ──────────────────────────────────────────
+@app.get("/api/v2/status", tags=["System"])
+async def system_status(request: Request):
+    """Full system status: providers, cache, MongoDB, env."""
+    from services.market_service import get_market_service
+    svc = get_market_service()
+    return {
+        "status": "healthy",
+        "service": "finai-edge-fastapi",
+        "version": "2.0.0",
+        "environment": settings.environment,
+        "mongodb": {
+            "connected": getattr(request.app.state, "mongo_connected", False),
+            "uri_prefix": settings.mongodb_uri[:30] + "...",
+        },
+        "api_keys": {
+            "groww": settings.groww_available,
+            "gemini": settings.gemini_available,
+            "finnhub": settings.finnhub_available,
+        },
+        "providers": svc.get_provider_status(),
+        "cache": svc.get_cache_stats(),
     }
 
 

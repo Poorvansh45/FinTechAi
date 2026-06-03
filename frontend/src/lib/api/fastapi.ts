@@ -91,6 +91,7 @@ export interface RiskData {
     factors: string[];
   };
   data_source: string;
+  data_points?: number;
 }
 
 export interface RebalanceSuggestion {
@@ -121,6 +122,8 @@ export interface HoldingsAnalysis {
 
 export interface StockQuote {
   ticker: string;
+  name?: string;
+  sector?: string;
   price: number | null;
   change: number | null;
   change_pct: number | null;
@@ -128,6 +131,8 @@ export interface StockQuote {
   low: number | null;
   prev_close: number | null;
   volume: number | null;
+  market_cap?: number | null;
+  pe_ratio?: number | null;
   available: boolean;
   source: string;
 }

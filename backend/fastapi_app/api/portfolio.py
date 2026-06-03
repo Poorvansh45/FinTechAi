@@ -102,6 +102,12 @@ async def rebalance_suggestions(req: RebalanceRequest):
 async def save_portfolio(request: Request):
     """Save portfolio to MongoDB."""
     try:
+        if not getattr(request.app.state, "mongo_connected", False):
+            raise HTTPException(
+                status_code=503,
+                detail="MongoDB is not connected. Portfolio persistence is unavailable. "
+                       "Check MONGODB_URI in your .env file.",
+            )
         from models.portfolio import save_portfolio as db_save
 
         body = await request.json()

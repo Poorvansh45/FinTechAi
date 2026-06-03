@@ -1,104 +1,88 @@
 """
-FinAI Edge — Pydantic Schemas: Portfolio
-==========================================
-Request/Response schemas for portfolio endpoints.
+FinAI Edge — Portfolio Request Schemas
+========================================
+Pydantic v2 schemas for all portfolio-related API endpoints.
+
+COPY TO: backend/fastapi_app/schemas/portfolio.py
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 
 
-# ── Request Schemas ─────────────────────────────────────────────────
-
 class HoldingInput(BaseModel):
-    """Single holding input from frontend."""
-    ticker: str = Field(..., min_length=1, max_length=25)
-    name: str = ""
-    quantity: float = Field(..., gt=0)
-    avg_buy_price: float = Field(..., gt=0)
-    current_price: float = Field(..., gt=0)
-    sector: str = "Other"
+    """Single holding input for portfolio analysis."""
+
+    ticker: str = Field(..., min_length=1, max_length=25,
+                        description="Yahoo Finance ticker symbol (e.g. RELIANCE.NS)")
+    name: str = Field(..., min_length=1, max_length=120,
+                      description="Company or fund name")
+    quantity: float = Field(..., gt=0, description="Number of units held")
+    avg_buy_price: float = Field(..., gt=0, description="Average purchase price per unit (INR)")
+    current_price: float = Field(..., gt=0, description="Current market price per unit (INR)")
+    sector: Optional[str] = Field(None, description="Sector (auto-detected if not provided)")
+
+    @field_validator('ticker')
+    @classmethod
+    def clean_ticker(cls, v: str) -> str:
+        """Normalize ticker to uppercase and add .NS suffix if bare."""
+        t = v.strip().upper()
+        # If no exchange suffix, add .NS (NSE India default)
+        if '.' not in t and '^' not in t:
+            t = f"{t}.NS"
+        return t
+
+    @field_validator('name')
+    @classmethod
+    def clean_name(cls, v: str) -> str:
+        return v.strip()
 
 
 class AnalyzeHoldingsRequest(BaseModel):
-    """Request body for holdings-based analysis."""
-    holdings: list[HoldingInput] = Field(..., min_length=1)
+    """Request body for POST /portfolio/analyze-holdings."""
+    holdings: list[HoldingInput] = Field(
+        ..., min_length=1, max_length=50,
+        description="List of holdings (1–50 stocks)",
+    )
 
 
 class AnalyzePortfolioRequest(BaseModel):
-    """Request body for MPT portfolio analysis."""
-    tickers: list[str] = Field(..., min_length=2)
-    weights: dict[str, float]
-    risk_profile: str = "balanced"
+    """Request body for POST /portfolio/analyze (MPT optimization)."""
+    tickers: list[str] = Field(
+        ..., min_length=2, max_length=30,
+        description="Ticker symbols for optimization",
+    )
+    weights: dict[str, float] = Field(
+        default_factory=dict,
+        description="Optional current weights (0–1), defaults to equal-weight",
+    )
+    risk_profile: str = Field(
+        default='balanced',
+        description="Risk profile: conservative | balanced | aggressive",
+    )
+
+    @field_validator('risk_profile')
+    @classmethod
+    def validate_risk_profile(cls, v: str) -> str:
+        valid = {'conservative', 'balanced', 'aggressive'}
+        if v not in valid:
+            raise ValueError(f"risk_profile must be one of {valid}")
+        return v
 
 
 class HealthCheckRequest(BaseModel):
-    """Request body for portfolio health check."""
-    holdings: list[HoldingInput] = Field(..., min_length=1)
+    """Request body for POST /portfolio/health."""
+    holdings: list[HoldingInput] = Field(
+        ..., min_length=1, max_length=50,
+    )
 
 
 class RebalanceRequest(BaseModel):
-    """Request body for rebalance suggestions."""
-    holdings: list[HoldingInput] = Field(..., min_length=1)
-    target_weights: Optional[dict[str, float]] = None
-
-
-# ── Response Schemas ────────────────────────────────────────────────
-
-class HoldingStats(BaseModel):
-    """Computed stats for a single holding."""
-    ticker: str
-    name: str
-    sector: str
-    quantity: float
-    avg_buy_price: float
-    current_price: float
-    invested: float
-    value: float
-    pnl: float
-    pnl_pct: float
-    allocation: float
-    daily_pnl: float = 0.0
-    daily_pnl_pct: float = 0.0
-
-
-class PortfolioTotals(BaseModel):
-    """Aggregate portfolio totals."""
-    total_value: float
-    total_invested: float
-    total_pnl: float
-    total_pnl_pct: float
-    daily_pnl: float = 0.0
-    daily_pnl_pct: float = 0.0
-    holding_count: int
-
-
-class SectorExposure(BaseModel):
-    """Sector allocation breakdown."""
-    sector: str
-    value: float
-    weight_pct: float
-    stock_count: int
-    tickers: list[str]
-
-
-class PortfolioHealthResponse(BaseModel):
-    """Full health analysis response."""
-    score: int
-    label: str
-    color: str
-    breakdown: dict[str, float]
-    summary: str
-
-
-class HoldingsAnalysisResponse(BaseModel):
-    """Full holdings analysis response."""
-    holdings: list[HoldingStats]
-    totals: PortfolioTotals
-    sector_exposure: list[SectorExposure]
-    health: PortfolioHealthResponse
-    risk: dict
-    concentration: dict
-    sector_bias: dict
-    rebalance_suggestions: list[dict]
-    insights: list[dict]
+    """Request body for POST /portfolio/rebalance."""
+    holdings: list[HoldingInput] = Field(
+        ..., min_length=1, max_length=50,
+    )
+    target_weights: Optional[dict[str, float]] = Field(
+        None,
+        description="Optional target weights. Defaults to equal-weight if not provided.",
+    )

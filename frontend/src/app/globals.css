@@ -472,20 +472,59 @@ select {
   color-scheme: light dark;
   background-color: transparent;
   color: hsl(var(--foreground));
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
 }
-
+select:focus {
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.25);
+}
 .dark select {
   background-color: #0d1117;
+  color: #e2e8f0;
 }
-
 select option {
   background-color: #ffffff;
-  color: hsl(var(--foreground));
+  color: #111827;
 }
-
 .dark select option {
   background-color: #111827;
+  color: #e2e8f0;
 }
+/* ─── Light mode KPI card value text fix ─── */
+.kpi-card .text-white,
+.kpi-card [class*="text-emerald"],
+.kpi-card [class*="text-cyan"],
+.kpi-card [class*="text-amber"],
+.kpi-card [class*="text-red"],
+.kpi-card [class*="text-violet"] {
+  opacity: 1;
+}
+:root .kpi-card .text-white {
+  color: #111827 !important;
+}
+:root .glass-card .text-white {
+  color: #1e293b;
+}
+:root .glass-card .text-slate-400 {
+  color: #475569;
+}
+:root .glass-card .text-slate-500 {
+  color: #64748b;
+}
+:root .glass-card .text-slate-300 {
+  color: #374151;
+}
+:root .glass-card .text-slate-600 {
+  color: #6b7280;
+}
+/* In dark mode, these revert to their normal values */
+.dark .glass-card .text-white { color: #ffffff; }
+.dark .glass-card .text-slate-400 { color: #94a3b8; }
+.dark .glass-card .text-slate-500 { color: #64748b; }
+.dark .glass-card .text-slate-300 { color: #cbd5e1; }
+.dark .glass-card .text-slate-600 { color: #475569; }
+.dark .kpi-card .text-white { color: #ffffff !important; }
 
 /* Date/time inputs */
 input[type="date"],
@@ -560,4 +599,202 @@ input[type="checkbox"] {
   0% { transform: scale(1); }
   50% { transform: scale(1.02); }
   100% { transform: scale(1); }
+}
+
+/* =======================================================
+   PREMIUM ADDITIONS — Phase 1 Polish
+   ======================================================= */
+
+/* Chart container: prevent recharts overflow */
+.recharts-wrapper {
+  overflow: visible;
+}
+.recharts-surface {
+  overflow: visible;
+}
+
+/* Focus rings for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(99,102,241,0.5);
+  outline-offset: 2px;
+}
+
+/* Premium table hover */
+.holdings-table tr {
+  transition: background 0.15s ease;
+}
+.holdings-table tr:hover {
+  background: rgba(99,102,241,0.04);
+}
+.dark .holdings-table tr:hover {
+  background: rgba(99,102,241,0.06);
+}
+
+/* Sector legend hover */
+.sector-legend-item {
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+.sector-legend-item:hover {
+  opacity: 1 !important;
+}
+
+/* Insight card premium style */
+.insight-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.insight-card:hover {
+  border-color: rgba(99,102,241,0.2);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+.dark .insight-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+/* Allocation bar shimmer on load */
+.alloc-bar {
+  transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Search dropdown overlay fix */
+.search-dropdown {
+  position: absolute;
+  z-index: 9999;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+}
+.dark .search-dropdown {
+  background: rgba(10,13,20,0.95);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
+}
+.light .search-dropdown,
+:root .search-dropdown {
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+/* Metric pill */
+.metric-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+}
+.metric-pill:hover {
+  filter: brightness(1.1);
+}
+
+/* Benchmark comparison bar */
+.benchmark-bar {
+  height: 4px;
+  border-radius: 99px;
+  position: relative;
+  background: rgba(255,255,255,0.06);
+  overflow: visible;
+}
+.benchmark-bar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  background: rgba(248,250,252,0.3);
+  border-radius: 1px;
+}
+
+/* Sidebar nav scroll */
+[data-sidebar] {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+[data-sidebar]::-webkit-scrollbar {
+  width: 4px;
+}
+[data-sidebar]::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 99px;
+}
+
+/* Mobile overflow prevention */
+@media (max-width: 768px) {
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+  .glass-card {
+    border-radius: 12px;
+  }
+  .kpi-card {
+    border-radius: 12px;
+  }
+}
+
+/* Sticky header in holdings table */
+.holdings-sticky-header thead tr {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(10,13,20,0.9);
+  backdrop-filter: blur(8px);
+}
+:root .holdings-sticky-header thead tr {
+  background: rgba(255,255,255,0.9);
+}
+
+/* Number counter animation */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.count-animate {
+  animation: countUp 0.4s ease forwards;
+}
+
+/* Premium glow on active sector slice */
+.sector-active-glow {
+  filter: drop-shadow(0 0 8px rgba(99,102,241,0.5));
+}
+
+/* Toast notification base (for future use) */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  backdrop-filter: blur(16px);
+  animation: fadeUp 0.3s ease forwards;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.toast-success {
+  background: rgba(34,197,94,0.15);
+  border: 1px solid rgba(34,197,94,0.3);
+  color: #22c55e;
+}
+.toast-error {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #ef4444;
+}
+.toast-info {
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.3);
+  color: #818cf8;
 }
