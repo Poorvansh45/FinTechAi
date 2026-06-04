@@ -74,6 +74,12 @@ export function listTradesBySetup(setupId: UUID): Trade[] {
   return load().trades.filter((t) => t.setupId === setupId).sort((a, b) => new Date(b.entryAt).getTime() - new Date(a.entryAt).getTime());
 }
 
+export function listTrades(): Trade[] {
+  return load().trades
+    .slice()
+    .sort((a, b) => new Date(b.entryAt).getTime() - new Date(a.entryAt).getTime());
+}
+
 // Ensure trades have unique, non-empty IDs (migration for legacy/seeded data)
 export function ensureTradeIdsUnique() {
   const st = load();

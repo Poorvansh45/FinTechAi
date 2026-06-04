@@ -8,14 +8,13 @@ import {
 
 // Storage
 import {
-  listSetups, listTradesBySetup,
+  listSetups, listTrades,
   seedDemo, ensureTradeIdsUnique,
   deleteTrade,
 } from '@/lib/journal/storage';
 import type { Setup, Trade } from '@/lib/journal/types';
 
-// Existing components (unchanged)
-import { TradeWizard } from '@/components/journal/TradeWizard';
+import { TradeCaptureWorkspace } from '@/components/journal/add-trade/TradeCaptureWorkspace';
 import { TradeTable } from '@/components/workspace/TradeTable';
 import { TradeInsightPanel } from '@/components/workspace/TradeInsightPanel';
 import { LiveIndicator } from '@/components/workspace/LiveIndicator';
@@ -53,7 +52,7 @@ export default function JournalDashboardPage() {
   const [setups, setSetups]       = useState<Setup[]>([]);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [selected, setSelected]   = useState<Trade | null>(null);
-  const [showWizard, setShowWizard]   = useState(false);
+  const [showCapture, setShowCapture] = useState(false);
   const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [showTradeList, setShowTradeList] = useState(false);
   const [version, setVersion]     = useState(0);
@@ -76,10 +75,7 @@ export default function JournalDashboardPage() {
   const refresh = useCallback(() => {
     const s = listSetups();
     setSetups(s);
-    const trades = s
-      .flatMap((x) => listTradesBySetup(x.id))
-      .sort((a, b) => new Date(b.entryAt).getTime() - new Date(a.entryAt).getTime());
-    setAllTrades(trades);
+    setAllTrades(listTrades());
   }, []);
 
   useEffect(() => { seedDemo(); ensureTradeIdsUnique(); refresh(); }, [refresh, version]);
@@ -151,7 +147,7 @@ export default function JournalDashboardPage() {
             <Upload className="w-3.5 h-3.5" /> Import
           </button>
           <button
-            onClick={() => setShowWizard(true)}
+            onClick={() => setShowCapture(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white hover:scale-[1.03] active:scale-95 transition-all"
             style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 20px rgba(99,102,241,0.3)' }}
           >
@@ -177,7 +173,7 @@ export default function JournalDashboardPage() {
           EMPTY STATE
       ═══════════════════════════════════════════════════════════════ */}
       {hasNoTrades ? (
-        <EmptyState onAddTrade={() => setShowWizard(true)} />
+        <EmptyState onAddTrade={() => setShowCapture(true)} />
       ) : (
         <>
           {/* ═══════════════════════════════════════════════════════════
@@ -265,7 +261,7 @@ export default function JournalDashboardPage() {
                     setVersion((v) => v + 1);
                     if (selected?.id === id) setSelected(null);
                   }}
-                  emptyAction={() => setShowWizard(true)}
+                  emptyAction={() => setShowCapture(true)}
                 />
                 <div className="min-h-[400px] lg:min-h-0">
                   {selected ? (
@@ -293,12 +289,11 @@ export default function JournalDashboardPage() {
         </>
       )}
 
-      {/* TradeWizard modal */}
-      {showWizard && (
-        <TradeWizard
+      {showCapture && (
+        <TradeCaptureWorkspace
           setups={setups}
-          onClose={() => setShowWizard(false)}
-          onSaved={() => { setVersion((v) => v + 1); setShowWizard(false); }}
+          onClose={() => setShowCapture(false)}
+          onSaved={() => { setVersion((v) => v + 1); setShowCapture(false); }}
         />
       )}
     </div>

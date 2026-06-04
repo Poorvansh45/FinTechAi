@@ -3,6 +3,47 @@ export type UUID = string;
 export type MarketType = 'Indices' | 'Stocks' | 'FNO' | 'Forex' | 'Crypto';
 export type Side = 'Buy' | 'Sell';
 export type SessionTag = 'London' | 'NY' | 'Asian';
+export type TradeStatus = 'Draft' | 'Open' | 'Closed' | 'Reviewed';
+export type TradeContext = {
+  setup?: string;
+  timeframe?: string;
+  htfBias?: string;
+  session?: SessionTag;
+  tags?: string[];
+};
+
+export type TradePsychology = {
+  confidenceScore?: number;
+  emotionBefore?: string;
+  followedPlan?: boolean;
+  thesis?: string;
+};
+
+export type TradeMediaReference = {
+  id: UUID;
+  kind: 'entry' | 'exit';
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  storageRef: string;
+  capturedAt: string;
+};
+
+export type TradeMedia = {
+  entryScreenshot?: TradeMediaReference | null;
+  exitScreenshot?: TradeMediaReference | null;
+  notes?: string;
+};
+
+export type TradeRiskSnapshot = {
+  riskAmount?: number | null;
+  rewardAmount?: number | null;
+  riskRewardRatio?: number | null;
+  positionValue?: number | null;
+  riskPerUnit?: number | null;
+  rewardPerUnit?: number | null;
+  stopDistancePercent?: number | null;
+};
 
 export type Setup = {
   id: UUID;
@@ -23,6 +64,7 @@ export type Setup = {
 export type Trade = {
   id: UUID;
   setupId: UUID;
+  status?: TradeStatus;
   instrument: string;
   marketType: MarketType;
   side: Side;
@@ -43,8 +85,15 @@ export type Trade = {
   target?: number;
   session?: SessionTag;
   setupTag?: string;
+  tags?: string[];
   confidence?: number;
   emotionTags?: string[];
+  timeframe?: string;
+  htfBias?: string;
+  tradeContext?: TradeContext;
+  psychology?: TradePsychology;
+  media?: TradeMedia;
+  riskSnapshot?: TradeRiskSnapshot;
 };
 
 /** Parse session from legacy comments if not stored structurally */
