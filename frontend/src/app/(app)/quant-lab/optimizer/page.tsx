@@ -2174,7 +2174,7 @@ function ManualPortfolioBuilderScreen({ onBack, onRestart }: { onBack: () => voi
                     </form>
 
                     {/* Holdings cards (left sidebar) */}
-                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-xl shadow-slate-200/60 backdrop-blur dark:border-white/[0.07] dark:bg-slate-950/70">
+                    <div className="rounded-2xl border border-slate-200/80 bg-white/90 p-4 shadow-xl shadow-slate-200/60 backdrop-blur dark:border-white/[0.07] dark:bg-slate-950/70 dark:shadow-black/30">
                         <div className="mb-3 flex items-center justify-between">
                             <h2 className="text-sm font-black">Portfolio Holdings</h2>
                             <span className="rounded-full bg-violet-500/10 px-2 py-1 text-[10px] font-bold text-violet-700 dark:text-violet-300">{holdings.length} stocks</span>
