@@ -1,19 +1,17 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   BookOpen, Plus, Upload, Sparkles,
-  TrendingUp, TrendingDown, Target, Award, Calendar, Activity,
   ChevronDown, ChevronUp,
 } from 'lucide-react';
 
-// Storage + types (unchanged)
+// Storage
 import {
   listSetups, listTradesBySetup,
   seedDemo, ensureTradeIdsUnique,
   deleteTrade,
 } from '@/lib/journal/storage';
-import { derive } from '@/lib/journal/types';
 import type { Setup, Trade } from '@/lib/journal/types';
 
 // Existing components (unchanged)
@@ -25,112 +23,56 @@ import { AIJournalAnalyzer } from '@/components/journal/AIJournalAnalyzer';
 
 // Dashboard API
 import {
-  getDashboardStats, getRecentTrades, getPerformanceData, getAIInsights,
-  getPerformanceSnapshot, getTraderScore,
-  type JournalStats, type TradeSummary, type PerformancePoint,
-  type AIInsight, type PerformanceSnapshot, type TraderScore,
+  getKpiBundle, getPerformanceData, getRecentTrades,
+  getTradesBreakdown, getLongShortBreakdown, getBestSetups,
+  getTopSymbols, getAIInsights, getPerformanceSnapshot, getTraderScore,
+  type KpiBundle, type PerformancePoint, type TradeSummary,
+  type TradesBreakdown, type LongShortBreakdown, type SetupPerformance,
+  type SymbolPerformance, type AIInsight, type PerformanceSnapshot, type TraderScore,
 } from '@/lib/api/journalApi';
 
 // Dashboard components
-import { KpiCard } from '@/components/journal/dashboard/KpiCard';
+import { KpiStrip } from '@/components/journal/dashboard/KpiStrip';
 import { EquityCurveChart } from '@/components/journal/dashboard/EquityCurveChart';
-import { PnlDistribution } from '@/components/journal/dashboard/PnlDistribution';
-import { RecentTradesWidget } from '@/components/journal/dashboard/RecentTradesWidget';
-import { AIInsightStrip } from '@/components/journal/dashboard/AIInsightStrip';
-import { QuickActions } from '@/components/journal/dashboard/QuickActions';
-import { EmptyState } from '@/components/journal/dashboard/EmptyState';
-import { PerformanceSnapshotRow } from '@/components/journal/dashboard/PerformanceSnapshotRow';
+import { PerformanceCalendar } from '@/components/journal/dashboard/PerformanceCalendar';
+import { TradesBreakdownCard } from '@/components/journal/dashboard/TradesBreakdownCard';
+import { LongShortCard } from '@/components/journal/dashboard/LongShortCard';
+import { BestSetupsCard } from '@/components/journal/dashboard/BestSetupsCard';
+import { TopSymbolsCard } from '@/components/journal/dashboard/TopSymbolsCard';
+import { AIPerformanceCenter } from '@/components/journal/dashboard/AIPerformanceCenter';
 import { TraderScoreCard } from '@/components/journal/dashboard/TraderScoreCard';
+import { ImprovementCenter } from '@/components/journal/dashboard/ImprovementCenter';
+import { RecentTradesTable } from '@/components/journal/dashboard/RecentTradesTable';
+import { EmptyState } from '@/components/journal/dashboard/EmptyState';
 
 type Period = '1W' | '1M' | '3M' | '6M' | '1Y' | 'ALL';
 
-// ─── KPI builder ──────────────────────────────────────────────────────────────
-function buildKpis(stats: JournalStats | null) {
-  if (!stats) {
-    const e = { value: '—', subLabel: 'No journal data' };
-    return [
-      { label: 'Total P&L',     ...e, icon: TrendingUp,   accentColor: '#6366f1' },
-      { label: 'Win Rate',      ...e, icon: Target,        accentColor: '#22c55e' },
-      { label: 'Profit Factor', ...e, icon: Award,         accentColor: '#f59e0b' },
-      { label: 'Avg RR',        ...e, icon: TrendingDown,  accentColor: '#a78bfa' },
-      { label: 'Total Trades',  ...e, icon: Activity,      accentColor: '#38bdf8' },
-      { label: 'Best Day',      ...e, icon: Calendar,      accentColor: '#fb923c' },
-    ];
-  }
-  const pos = stats.totalPnl >= 0;
-  const rrStr = stats.avgRR !== null ? `${stats.avgRR}R` : '—';
-  return [
-    {
-      label: 'Total P&L',
-      value: `${pos ? '+' : ''}${stats.totalPnl.toFixed(2)}`,
-      subLabel: `${stats.openTrades} open`,
-      icon: pos ? TrendingUp : TrendingDown,
-      color: pos ? 'text-emerald-400' : 'text-red-400',
-      accentColor: pos ? '#22c55e' : '#ef4444',
-    },
-    {
-      label: 'Win Rate',
-      value: `${stats.winRate.toFixed(1)}%`,
-      subLabel: `${stats.totalTrades} closed`,
-      icon: Target,
-      color: stats.winRate >= 50 ? 'text-emerald-400' : 'text-amber-400',
-      accentColor: stats.winRate >= 50 ? '#22c55e' : '#f59e0b',
-    },
-    {
-      label: 'Profit Factor',
-      value: stats.profitFactor > 50 ? '∞' : String(stats.profitFactor),
-      subLabel: stats.profitFactor >= 1.5 ? 'Above target' : 'Below 1.5',
-      icon: Award,
-      color: stats.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-amber-400',
-      accentColor: '#f59e0b',
-    },
-    {
-      label: 'Avg RR',
-      value: rrStr,
-      subLabel: stats.avgRR === null ? 'Set SL+Target' : undefined,
-      icon: TrendingDown,
-      color: (stats.avgRR ?? 0) >= 2 ? 'text-emerald-400' : 'text-amber-400',
-      accentColor: '#a78bfa',
-    },
-    {
-      label: 'Total Trades',
-      value: String(stats.totalTrades),
-      subLabel: `${stats.openTrades} open`,
-      icon: Activity,
-      accentColor: '#38bdf8',
-    },
-    {
-      label: 'Best Day',
-      value: stats.bestDay,
-      subLabel: 'Highest P&L weekday',
-      icon: Calendar,
-      accentColor: '#fb923c',
-    },
-  ];
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function JournalDashboardPage() {
-  // Core journal state
-  const [setups, setSetups] = useState<Setup[]>([]);
+  // Core state
+  const [setups, setSetups]       = useState<Setup[]>([]);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
-  const [selected, setSelected] = useState<Trade | null>(null);
-  const [showWizard, setShowWizard] = useState(false);
+  const [selected, setSelected]   = useState<Trade | null>(null);
+  const [showWizard, setShowWizard]   = useState(false);
   const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [showTradeList, setShowTradeList] = useState(false);
-  const [version, setVersion] = useState(0);
+  const [version, setVersion]     = useState(0);
 
   // Dashboard data
-  const [stats, setStats] = useState<JournalStats | null | undefined>(undefined);
+  const [kpis, setKpis]               = useState<KpiBundle | null | undefined>(undefined);
+  const [perfData, setPerfData]       = useState<PerformancePoint[]>([]);
   const [recentTrades, setRecentTrades] = useState<TradeSummary[]>([]);
-  const [perfData, setPerfData] = useState<PerformancePoint[]>([]);
-  const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
-  const [snapshot, setSnapshot] = useState<PerformanceSnapshot | null | undefined>(undefined);
+  const [breakdown, setBreakdown]     = useState<TradesBreakdown | null | undefined>(undefined);
+  const [longShort, setLongShort]     = useState<LongShortBreakdown | null | undefined>(undefined);
+  const [bestSetups, setBestSetups]   = useState<SetupPerformance[]>([]);
+  const [topSymbols, setTopSymbols]   = useState<SymbolPerformance[]>([]);
+  const [aiInsights, setAiInsights]   = useState<AIInsight[]>([]);
+  const [snapshot, setSnapshot]       = useState<PerformanceSnapshot | null | undefined>(undefined);
   const [traderScore, setTraderScore] = useState<TraderScore | undefined>(undefined);
-  const [period, setPeriod] = useState<Period>('ALL');
-  const [dashLoading, setDashLoading] = useState(true);
+  const [period, setPeriod]           = useState<Period>('ALL');
+  const [loading, setLoading]         = useState(true);
 
-  // Load trades from storage
+  // Refresh trades from storage
   const refresh = useCallback(() => {
     const s = listSetups();
     setSetups(s);
@@ -144,48 +86,44 @@ export default function JournalDashboardPage() {
 
   // Load all dashboard data
   useEffect(() => {
-    setDashLoading(true);
+    setLoading(true);
     Promise.all([
-      getDashboardStats(),
-      getRecentTrades(7),
+      getKpiBundle(period),
+      getRecentTrades(10),
+      getTradesBreakdown(),
+      getLongShortBreakdown(),
+      getBestSetups(4),
+      getTopSymbols(4),
       getAIInsights(),
       getPerformanceSnapshot(),
       getTraderScore(),
-    ]).then(([s, r, ai, snap, ts]) => {
-      setStats(s);
-      setRecentTrades(r);
+    ]).then(([k, rt, tb, ls, bs, ts, ai, snap, score]) => {
+      setKpis(k);
+      setRecentTrades(rt);
+      setBreakdown(tb);
+      setLongShort(ls);
+      setBestSetups(bs);
+      setTopSymbols(ts);
       setAiInsights(ai);
       setSnapshot(snap);
-      setTraderScore(ts);
-      setDashLoading(false);
+      setTraderScore(score);
+      setLoading(false);
     });
-  }, [version]);
+  }, [version, period]);
 
-  // Equity curve reloads on period change
+  // Equity curve on period change
   useEffect(() => { getPerformanceData(period).then(setPerfData); }, [period, version]);
 
-  // Win/Loss/Breakeven for donut
-  const wlb = useMemo(() => {
-    const closed = allTrades.filter((t) => t.exitPrice != null);
-    let wins = 0, losses = 0, breakeven = 0;
-    for (const t of closed) {
-      const pnl = derive(t).pnl ?? 0;
-      if (Math.abs(pnl) < 0.01) breakeven++;
-      else if (pnl > 0) wins++;
-      else losses++;
-    }
-    return { wins, losses, breakeven };
-  }, [allTrades]);
-
   const setupName = (id: string) => setups.find((s) => s.id === id)?.name ?? '—';
-  const kpis = buildKpis(stats === undefined ? null : stats);
-  const isLoading = stats === undefined || dashLoading;
+  const isLoading = loading || kpis === undefined;
   const hasNoTrades = !isLoading && allTrades.length === 0;
 
   return (
-    <div className="space-y-4 animate-fadeIn pb-6">
+    <div className="space-y-4 animate-fadeIn pb-8">
 
-      {/* ── ROW 1: HEADER ─────────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════
+          HEADER
+      ═══════════════════════════════════════════════════════════════ */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-black flex items-center gap-2">
@@ -194,116 +132,111 @@ export default function JournalDashboardPage() {
             <LiveIndicator />
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Review performance, journal trades, and improve execution quality.
+            Track performance, execution quality, and trading behavior.
           </p>
         </div>
-
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowAnalyzer((v) => !v)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-400 transition-all"
-            style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)' }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-indigo-400 transition-all hover:bg-indigo-400/10"
+            style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)' }}
           >
             <Sparkles className="w-3.5 h-3.5" /> AI Review
           </button>
           <button
-            disabled
-            title="CSV import coming soon"
+            disabled title="CSV import coming soon"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-500 opacity-50 cursor-not-allowed"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
           >
             <Upload className="w-3.5 h-3.5" /> Import
           </button>
           <button
             onClick={() => setShowWizard(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white hover:scale-105 active:scale-95 transition-all"
-            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 16px rgba(99,102,241,0.3)' }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white hover:scale-[1.03] active:scale-95 transition-all"
+            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 20px rgba(99,102,241,0.3)' }}
           >
             <Plus className="w-4 h-4" /> Add Trade
           </button>
         </div>
       </div>
 
-      {/* AI Analyzer (collapsible, unchanged) */}
+      {/* AI Analyzer (collapsible) */}
       {showAnalyzer && (
         <div className="glass-card p-5 animate-fadeUp">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-indigo-400" /> AI Journal Analyzer
             </h2>
-            <button onClick={() => setShowAnalyzer(false)} className="text-muted-foreground hover:text-foreground text-xs">
-              Close ×
-            </button>
+            <button onClick={() => setShowAnalyzer(false)} className="text-muted-foreground hover:text-foreground text-xs">Close ×</button>
           </div>
           <AIJournalAnalyzer trades={allTrades} setupName={setupName} />
         </div>
       )}
 
-      {/* ── EMPTY STATE ───────────────────────────────────────────── */}
+      {/* ═══════════════════════════════════════════════════════════════
+          EMPTY STATE
+      ═══════════════════════════════════════════════════════════════ */}
       {hasNoTrades ? (
         <EmptyState onAddTrade={() => setShowWizard(true)} />
       ) : (
         <>
-          {/* ── ROW 2: KPI CARDS ────────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-            {kpis.map((kpi) => (
-              <KpiCard
-                key={kpi.label}
-                label={kpi.label}
-                value={isLoading ? null : kpi.value}
-                subLabel={isLoading ? undefined : kpi.subLabel}
-                color={kpi.color}
-                icon={kpi.icon}
-                accentColor={kpi.accentColor}
-              />
-            ))}
-          </div>
+          {/* ═══════════════════════════════════════════════════════════
+              ROW 1 — KPI STRIP
+          ═══════════════════════════════════════════════════════════ */}
+          <KpiStrip bundle={kpis === undefined ? null : kpis} loading={isLoading} />
 
-          {/* ── ROW 3: CHARTS — 2-col: [Equity+Donut left] + [Recent Trades right] ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3">
-            {/* Left column: Equity Curve stacked above P&L Donut */}
-            <div className="flex flex-col gap-3">
-              <EquityCurveChart
-                data={perfData}
-                activePeriod={period}
-                onPeriodChange={setPeriod}
-                loading={isLoading}
-              />
-              <PnlDistribution
-                wins={wlb.wins}
-                losses={wlb.losses}
-                breakeven={wlb.breakeven}
-                loading={isLoading}
-              />
-            </div>
-
-            {/* Right column: Recent Trades — wider, more visible */}
-            <RecentTradesWidget
-              trades={recentTrades}
+          {/* ═══════════════════════════════════════════════════════════
+              ROW 2 — EQUITY CURVE (60%) + CALENDAR (40%)
+          ═══════════════════════════════════════════════════════════ */}
+          <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-3">
+            <EquityCurveChart
+              data={perfData}
+              activePeriod={period}
+              onPeriodChange={setPeriod}
               loading={isLoading}
-              onViewAll={() => setShowTradeList(true)}
             />
+            <PerformanceCalendar version={version} />
           </div>
 
-          {/* ── ROW 4: PERFORMANCE SNAPSHOT ─────────────────────── */}
-          <PerformanceSnapshotRow
+          {/* ═══════════════════════════════════════════════════════════
+              ROW 3 — TRADING BREAKDOWN (4 cards)
+          ═══════════════════════════════════════════════════════════ */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            <TradesBreakdownCard data={breakdown === undefined ? null : breakdown} loading={isLoading} />
+            <LongShortCard data={longShort === undefined ? null : longShort} loading={isLoading} />
+            <BestSetupsCard setups={bestSetups} loading={isLoading} />
+            <TopSymbolsCard symbols={topSymbols} loading={isLoading} />
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════
+              ROW 4 — AI PERFORMANCE CENTER
+          ═══════════════════════════════════════════════════════════ */}
+          <AIPerformanceCenter insights={aiInsights} loading={isLoading} />
+
+          {/* ═══════════════════════════════════════════════════════════
+              ROW 5 — TRADER SCORE
+          ═══════════════════════════════════════════════════════════ */}
+          <TraderScoreCard
+            score={traderScore ?? { overall: null, execution: null, riskManagement: null, consistency: null, discipline: null }}
+            loading={isLoading || traderScore === undefined}
+          />
+
+          {/* ═══════════════════════════════════════════════════════════
+              ROW 6 — IMPROVEMENT CENTER
+          ═══════════════════════════════════════════════════════════ */}
+          <ImprovementCenter
             snapshot={snapshot === undefined ? null : snapshot}
             loading={isLoading}
           />
 
-          {/* ── ROW 5: TRADER SCORE + AI INSIGHTS side by side ──── */}
-          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-3">
-            <TraderScoreCard
-              score={traderScore ?? { overall: null, execution: null, riskManagement: null, consistency: null, discipline: null }}
-              loading={isLoading || traderScore === undefined}
-            />
-            <AIInsightStrip insights={aiInsights} loading={isLoading} />
-          </div>
+          {/* ═══════════════════════════════════════════════════════════
+              ROW 7 — RECENT TRADES TABLE
+          ═══════════════════════════════════════════════════════════ */}
+          <RecentTradesTable trades={recentTrades} loading={isLoading} />
 
-          {/* ── ROW 6: QUICK ACTIONS ────────────────────────────── */}
-          <QuickActions onAddTrade={() => setShowWizard(true)} />
-
-          {/* ── ROW 7: TRADE TABLE (collapsible) ────────────────── */}
+          {/* ═══════════════════════════════════════════════════════════
+              EXPANDED TRADE TABLE (collapsible — full existing UI)
+          ═══════════════════════════════════════════════════════════ */}
           <div>
             <button
               onClick={() => setShowTradeList((v) => !v)}
@@ -311,11 +244,9 @@ export default function JournalDashboardPage() {
             >
               <span className="flex items-center gap-2">
                 <BookOpen className="w-3.5 h-3.5" />
-                All Trades
-                <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}
-                >
+                Full Trade Log
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
                   {allTrades.length}
                 </span>
               </span>
@@ -344,13 +275,9 @@ export default function JournalDashboardPage() {
                       onClose={() => setSelected(null)}
                     />
                   ) : (
-                    <div
-                      className="glass-card h-full min-h-[400px] flex flex-col items-center justify-center gap-3 py-12 text-center px-4"
-                    >
-                      <div
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                        style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}
-                      >
+                    <div className="glass-card h-full min-h-[400px] flex flex-col items-center justify-center gap-3 py-12 text-center px-4">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                        style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
                         <Sparkles className="w-5 h-5 text-indigo-400" />
                       </div>
                       <p className="text-sm font-medium">AI Trade Insight Panel</p>
@@ -366,7 +293,7 @@ export default function JournalDashboardPage() {
         </>
       )}
 
-      {/* TradeWizard modal (unchanged) */}
+      {/* TradeWizard modal */}
       {showWizard && (
         <TradeWizard
           setups={setups}

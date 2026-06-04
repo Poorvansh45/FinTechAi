@@ -184,6 +184,13 @@
     box-shadow: 0 0 20px rgba(99,102,241,0.1), 0 8px 32px rgba(0,0,0,0.5);
   }
 
+  .terminal-row-hover:hover {
+    background: rgba(99,102,241,0.04);
+  }
+  .dark .terminal-row-hover:hover {
+    background: rgba(99,102,241,0.06);
+  }
+
   .nav-item {
     display: flex;
     align-items: center;
