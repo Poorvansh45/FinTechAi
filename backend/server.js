@@ -33,6 +33,7 @@ app.use(cookieParser());
 const allowedOrigins = [
   'http://localhost:9002',
   'http://localhost:3000',
+  'http://172.20.10.4:9002',
   env.frontendUrl,
 ].filter(Boolean);
 
