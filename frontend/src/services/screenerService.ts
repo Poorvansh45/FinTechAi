@@ -26,4 +26,12 @@ export const screenerService = {
     async getVolumeSurges(params: Record<string, any> = {}) {
         return scannerClient.get("/api/scanner/volume-surge", { params });
     },
+
+    async getSMC(params: Record<string, any> = {}) {
+        return scannerClient.get("/api/v2/scanner/smc", { params });
+    },
+
+    async getSMCStats() {
+        return scannerClient.get("/api/v2/scanner/smc/stats");
+    },
 };
