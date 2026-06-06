@@ -43,10 +43,12 @@ class FinnhubProvider(MarketDataProvider):
     @staticmethod
     def _to_finnhub_symbol(symbol: str) -> str:
         """Convert yfinance-style symbol to Finnhub format.
-        Finnhub uses 'RELIANCE.NS' as-is for NSE stocks, but
-        also supports plain symbols for US stocks.
+        Finnhub uses 'RELIANCE.NS' as-is for NSE stocks.
         """
-        return symbol.strip().upper()
+        sym = symbol.strip().upper()
+        if "." not in sym:
+            return f"{sym}.NS"
+        return sym
 
     async def is_available(self) -> bool:
         """Ping Finnhub to check availability."""

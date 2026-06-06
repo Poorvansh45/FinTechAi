@@ -29,14 +29,6 @@ def format_response(data):
     cleaned = [sanitize_item(item) for item in data]
     return {"success": True, "count": len(cleaned), "data": cleaned}
 
-@router.get("/momentum")
-async def momentum(request: Request, limit: int = Query(50)):
-    if not hasattr(request.app.state, "db") or request.app.state.db is None:
-        return {"success": False, "error": "Database not connected"}
-    
-    svc = get_scanner_service(request.app.state.db)
-    data = await svc.get_momentum_stocks(limit)
-    return format_response(data)
 
 @router.get("/volume")
 async def volume(request: Request, limit: int = Query(50)):

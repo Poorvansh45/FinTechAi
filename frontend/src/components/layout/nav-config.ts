@@ -48,11 +48,11 @@ export const NAV_MODULES: NavModule[] = [
     glowColor: 'rgba(52,211,153,0.15)',
     items: [
       { href: '/screener',              label: 'Technical Filters',  icon: Filter,     desc: 'RSI, MACD, EMA & more'         },
-      { href: '/screener/momentum',     label: 'Momentum Scanner',   icon: Gauge,      desc: 'High-velocity breakout stocks' },
+      { href: '/screener/smc',          label: 'SMC Scanner',        icon: Layers,     desc: 'Institutional demand zones'    },
       { href: '/screener/volume',       label: 'Volume Breakouts',   icon: Waves,      desc: 'Unusual volume detection'      },
       { href: '/screener/fvg',          label: 'FVG Scanner',        icon: ScanLine,   desc: 'Fair value gap opportunities'  },
       { href: '/screener/watchlists',   label: 'Smart Watchlists',   icon: BookMarked, desc: 'AI-curated watchlists'         },
-      { href: '/screener/custom',       label: 'Custom Conditions',  icon: Layers,     desc: 'Build your own scan logic'     },
+      { href: '/screener/custom',       label: 'Custom Conditions',  icon: Layers,     desc: 'Build your own scan logic',    badge: 'Coming soon' },
     ],
   },
   {
