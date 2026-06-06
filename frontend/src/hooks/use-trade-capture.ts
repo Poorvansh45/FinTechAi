@@ -5,6 +5,7 @@ import { createSetup, createTrade } from "@/lib/journal/storage";
 import type { Setup, Trade, TradeStatus } from "@/lib/journal/types";
 import {
   buildAssistantInsights,
+  calculateExitMetrics,
   calculateTradeRisk,
   validateTradeCapture,
 } from "@/services/trade-capture-calculations";
@@ -13,12 +14,20 @@ import type {
   TradeRiskSnapshot,
 } from "@/types/trade-capture";
 
-const DRAFT_KEY = "trade_capture_draft_v1";
+const DRAFT_KEY = "trade_capture_draft_v2";
 
 function nowLocalInput(): string {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 16);
+}
+
+function todayDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function nowTime(): string {
+  return new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 function createDefaultCapture(setups: Setup[]): TradeCaptureData {
@@ -39,6 +48,12 @@ function createDefaultCapture(setups: Setup[]): TradeCaptureData {
     tags: [],
     customSetupName: "",
     status: "Open",
+    // New fields
+    confidence: 5,
+    exitPrice: "",
+    exitDate: todayDate(),
+    exitTime: nowTime(),
+    exitStatus: "Open",
   };
 }
 
@@ -87,16 +102,40 @@ function buildTradePayload(
 ): Omit<Trade, "id"> {
   const setup = resolveSetup(data);
 
+  // Build exit datetime if exit fields are filled
+  let exitPrice: number | null = null;
+  let exitAt: string | null = null;
+  const exitNum = Number(data.exitPrice);
+  if (data.exitPrice && Number.isFinite(exitNum)) {
+    exitPrice = exitNum;
+  }
+  if (data.exitDate && data.exitTime) {
+    try {
+      const dt = new Date(`${data.exitDate}T${data.exitTime}`);
+      if (!isNaN(dt.getTime())) {
+        exitAt = dt.toISOString();
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Map exitStatus to TradeStatus
+  const resolvedStatus: TradeStatus =
+    data.exitStatus === "Closed" || data.exitStatus === "Breakeven"
+      ? "Closed"
+      : status;
+
   return {
     setupId: setup.setupId,
-    status,
+    status: resolvedStatus,
     instrument: data.symbol.trim().toUpperCase(),
     marketType: data.marketType,
     side: data.direction,
     entryPrice: toNumber(data.entryPrice),
-    exitPrice: null,
+    exitPrice,
     entryAt: toIsoFromLocalInput(data.entryAt),
-    exitAt: null,
+    exitAt,
     quantity: toNumber(data.positionSize),
     comments: "",
     criteriaMet: undefined,
@@ -109,6 +148,7 @@ function buildTradePayload(
     tags: data.tags,
     timeframe: data.timeframe || undefined,
     htfBias: data.htfBias || undefined,
+    confidence: data.confidence,
     tradeContext: {
       setup: setup.setupName,
       timeframe: data.timeframe,
@@ -125,6 +165,7 @@ export function useTradeCapture(setups: Setup[], onSaved: () => void) {
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
 
   const risk = useMemo(() => calculateTradeRisk(data), [data]);
+  const exitMetrics = useMemo(() => calculateExitMetrics(data, risk), [data, risk]);
   const validation = useMemo(() => validateTradeCapture(data, risk), [data, risk]);
   const assistantInsights = useMemo(
     () => buildAssistantInsights(risk, validation),
@@ -172,6 +213,7 @@ export function useTradeCapture(setups: Setup[], onSaved: () => void) {
   return {
     data,
     risk,
+    exitMetrics,
     validation,
     assistantInsights,
     draftSavedAt,
