@@ -11,7 +11,7 @@ pydantic-settings==2.6.1
 
 # ── Database ───────────────────────────────────────────────────────
 motor==3.6.0          # Async MongoDB driver
-pymongo==4.10.1       # Sync MongoDB (motor dependency)
+pymongo==4.9.2       # Sync MongoDB (motor dependency)
 
 # ── Market Data ────────────────────────────────────────────────────
 yfinance==0.2.50      # Yahoo Finance (async-wrapped)

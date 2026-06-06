@@ -21,9 +21,16 @@ log = logging.getLogger("finai_edge.yfinance")
 
 # ── Synchronous helpers (run in thread pool) ────────────────────────
 
+def _format_symbol_for_yf(symbol: str) -> str:
+    """Ensure symbol has .NS suffix for NSE stocks."""
+    if "." not in symbol:
+        return f"{symbol}.NS"
+    return symbol
+
 def _sync_get_quote(symbol: str) -> dict:
     """Synchronous quote fetch — runs in thread pool via asyncio.to_thread()."""
-    ticker = yf.Ticker(symbol)
+    yf_symbol = _format_symbol_for_yf(symbol)
+    ticker = yf.Ticker(yf_symbol)
     info = ticker.fast_info
 
     price = getattr(info, "last_price", None)
@@ -50,7 +57,8 @@ def _sync_get_quote(symbol: str) -> dict:
 
 def _sync_get_candles(symbol: str, interval: str, period: str) -> list[dict]:
     """Synchronous candle fetch — runs in thread pool."""
-    ticker = yf.Ticker(symbol)
+    yf_symbol = _format_symbol_for_yf(symbol)
+    ticker = yf.Ticker(yf_symbol)
     hist = ticker.history(period=period, interval=interval)
 
     if hist.empty:
@@ -71,8 +79,9 @@ def _sync_get_candles(symbol: str, interval: str, period: str) -> list[dict]:
 
 def _sync_bulk_download(tickers: list[str], period: str) -> pd.DataFrame:
     """Synchronous bulk download — runs in thread pool."""
+    yf_tickers = [_format_symbol_for_yf(t) for t in tickers]
     raw = yf.download(
-        tickers,
+        yf_tickers,
         period=period,
         auto_adjust=True,
         progress=False,
@@ -87,7 +96,11 @@ def _sync_bulk_download(tickers: list[str], period: str) -> pd.DataFrame:
     else:
         prices = raw[["Close"]] if "Close" in raw.columns else raw
         if len(tickers) == 1:
-            prices.columns = tickers
+            prices.columns = yf_tickers
+
+    # Rename columns back to original tickers to avoid breaking downstream
+    rename_map = {yf_t: t for yf_t, t in zip(yf_tickers, tickers)}
+    prices = prices.rename(columns=rename_map)
 
     return prices.copy().dropna(how="all").ffill().bfill()
 

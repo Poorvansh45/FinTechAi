@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { screenerService } from "@/services/screenerService";
-import { ScannerTable } from "./ScannerTable";
+import ScannerTable from "./ScannerTable";
 import { StockData } from "@/types/screener";
 
 export default function TechnicalFilters() {
@@ -204,7 +204,7 @@ export default function TechnicalFilters() {
                         {error}
                     </div>
                 ) : (
-                    <ScannerTable stocks={stocks} isLoading={loading} />
+                    <ScannerTable stocks={stocks} isLoading={loading} sourceModule="Technical Filters" />
                 )}
             </div>
         </div>

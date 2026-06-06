@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { screenerService } from "@/services/screenerService";
+import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 
 // ── Filter definitions ────────────────────────────────────────────────────────
 const FILTERS = [
@@ -72,6 +73,14 @@ export default function ScreenerPage() {
     const [sortKey, setSortKey]     = useState("volume");
     const [sortDir, setSortDir]     = useState<"asc" | "desc">("desc");
     const [tooltip, setTooltip]     = useState<string | null>(null);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedStock, setSelectedStock] = useState<any | null>(null);
+
+    const handleAddClick = (stock: any) => {
+        setSelectedStock(stock);
+        setIsModalOpen(true);
+    };
 
     const fetchStocks = useCallback(async (f: FilterState) => {
         setLoading(true); setError(null); setPage(1);
@@ -270,6 +279,7 @@ export default function ScreenerPage() {
                                         <th className="px-4 py-3 text-right cursor-pointer hover:text-white text-blue-400" onClick={() => handleSort("ema50d")}>EMA50 Dist% <SortIcon col="ema50d" /></th>
                                         <th className="px-4 py-3 text-right cursor-pointer hover:text-white text-purple-400" onClick={() => handleSort("ema200d")}>EMA200 Dist% <SortIcon col="ema200d" /></th>
                                         <th className="px-4 py-3 text-right cursor-pointer hover:text-white text-green-400" onClick={() => handleSort("macd")}>MACD <SortIcon col="macd" /></th>
+                                        <th className="px-4 py-3 text-right text-gray-400 uppercase tracking-wider">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -300,6 +310,14 @@ export default function ScreenerPage() {
                                                 </td>
                                                 <td className={`px-4 py-2.5 text-right text-xs font-medium ${ind?.macd != null ? (ind.macd >= 0 ? "text-green-400" : "text-red-400") : "text-gray-600"}`}>
                                                     {ind?.macd != null ? ind.macd.toFixed(2) : "—"}
+                                                </td>
+                                                <td className="px-4 py-2.5 text-right">
+                                                    <button 
+                                                        onClick={() => handleAddClick(s)}
+                                                        className="text-xs bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/40 hover:text-white px-3 py-1.5 rounded transition-colors"
+                                                    >
+                                                        + Watchlist
+                                                    </button>
                                                 </td>
                                             </tr>
                                         );
@@ -334,6 +352,17 @@ export default function ScreenerPage() {
                         </div>
                     )}
                 </div>
+
+                {selectedStock && (
+                    <AddToWatchlistModal
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        symbol={selectedStock.symbol}
+                        companyName={selectedStock.company_name || ""}
+                        sourceModule="Technical Screener"
+                        currentPrice={selectedStock.price || 0}
+                    />
+                )}
             </div>
         </div>
     );

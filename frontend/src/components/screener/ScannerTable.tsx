@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import AddToWatchlistModal from "../watchlists/AddToWatchlistModal";
 
 interface Indicators {
     rsi_14?: number | null;
@@ -23,6 +24,7 @@ interface Props {
     stocks?: StockRow[];
     data?: StockRow[];
     isLoading?: boolean;
+    sourceModule?: string;
 }
 
 function getRsiColor(rsi: number | null | undefined): string {
@@ -51,8 +53,16 @@ function fmtVol(n: number | null | undefined): string {
     return n.toString();
 }
 
-export default function ScannerTable({ stocks, data, isLoading }: Props) {
+export default function ScannerTable({ stocks, data, isLoading, sourceModule = "Scanner" }: Props) {
     const rows = stocks || data || [];
+    
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
+
+    const handleAddClick = (stock: StockRow) => {
+        setSelectedStock(stock);
+        setIsModalOpen(true);
+    };
 
     if (isLoading) {
         return (
@@ -86,6 +96,7 @@ export default function ScannerTable({ stocks, data, isLoading }: Props) {
                         <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">EMA 20</th>
                         <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">EMA 50</th>
                         <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">MACD</th>
+                        <th className="px-5 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,11 +132,30 @@ export default function ScannerTable({ stocks, data, isLoading }: Props) {
                                 <td className={`px-5 py-3 text-right ${ind?.macd != null ? (ind.macd >= 0 ? "text-green-400" : "text-red-400") : "text-gray-500"}`}>
                                     {fmt(ind?.macd)}
                                 </td>
+                                <td className="px-5 py-3 text-right">
+                                    <button 
+                                        onClick={() => handleAddClick(item)}
+                                        className="text-xs bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/40 hover:text-white px-3 py-1.5 rounded transition-colors"
+                                    >
+                                        + Watchlist
+                                    </button>
+                                </td>
                             </tr>
                         );
                     })}
                 </tbody>
             </table>
+
+            {selectedStock && (
+                <AddToWatchlistModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    symbol={selectedStock.symbol}
+                    companyName={selectedStock.company_name || ""}
+                    sourceModule={sourceModule}
+                    currentPrice={selectedStock.price || 0}
+                />
+            )}
         </div>
     );
 }
