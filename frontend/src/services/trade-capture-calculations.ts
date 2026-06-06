@@ -1,4 +1,5 @@
 import type {
+  ExitMetrics,
   TradeAssistantInsight,
   TradeCaptureData,
   TradeCaptureValidation,
@@ -8,6 +9,11 @@ import type {
 function toNumber(value: string): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function toNumberAllowZero(value: string): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function calculateTradeRisk(data: TradeCaptureData): TradeRiskSnapshot {
@@ -37,6 +43,45 @@ export function calculateTradeRisk(data: TradeCaptureData): TradeRiskSnapshot {
     rewardPerUnit,
     stopDistancePercent,
   };
+}
+
+export function calculateExitMetrics(
+  data: TradeCaptureData,
+  risk: TradeRiskSnapshot
+): ExitMetrics {
+  const entry = toNumber(data.entryPrice);
+  const exit = toNumberAllowZero(data.exitPrice);
+  const size = toNumber(data.positionSize);
+
+  if (entry == null || exit == null) {
+    return { pnl: null, profitPercent: null, rrAchieved: null, durationMinutes: null };
+  }
+
+  const dir = data.direction === "Buy" ? 1 : -1;
+  const priceDiff = (exit - entry) * dir;
+  const pnl = size != null ? priceDiff * size : priceDiff;
+  const profitPercent = entry > 0 ? (priceDiff / entry) * 100 : null;
+
+  const rrAchieved =
+    risk.riskPerUnit != null && risk.riskPerUnit > 0
+      ? Math.abs(exit - entry) / risk.riskPerUnit * (priceDiff >= 0 ? 1 : -1)
+      : null;
+
+  // Duration
+  let durationMinutes: number | null = null;
+  if (data.exitDate && data.exitTime && data.entryAt) {
+    try {
+      const exitDT = new Date(`${data.exitDate}T${data.exitTime}`);
+      const entryDT = new Date(data.entryAt);
+      if (!isNaN(exitDT.getTime()) && !isNaN(entryDT.getTime())) {
+        durationMinutes = Math.max(0, Math.round((exitDT.getTime() - entryDT.getTime()) / 60000));
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  return { pnl, profitPercent, rrAchieved, durationMinutes };
 }
 
 export function validateTradeCapture(
@@ -90,9 +135,18 @@ export function validateTradeCapture(
     warnings.push("SL appears too tight");
   }
 
-  const completedFields = requiredChecks.filter(([, complete]) => complete).length;
-  const completionPercent = Math.round((completedFields / requiredChecks.length) * 100);
-  const qualityScore = calculateQualityScore(risk, warnings, completionPercent);
+  // Completion includes optional fields for better journal quality tracking
+  const optionalChecks = [
+    Boolean(data.confidence > 0),
+    Boolean(toNumberAllowZero(data.exitPrice) !== null && data.exitPrice !== ""),
+    Boolean(data.timeframe),
+  ];
+  const totalChecks = requiredChecks.length + optionalChecks.length;
+  const completedFields =
+    requiredChecks.filter(([, complete]) => complete).length +
+    optionalChecks.filter(Boolean).length;
+  const completionPercent = Math.round((completedFields / totalChecks) * 100);
+  const qualityScore = calculateQualityScore(risk, warnings, completionPercent, data.confidence);
 
   return {
     canSaveTrade: missingRequired.length === 0,
@@ -110,11 +164,16 @@ export function validateTradeCapture(
 function calculateQualityScore(
   risk: TradeRiskSnapshot,
   warnings: string[],
-  completionPercent: number
+  completionPercent: number,
+  confidence: number
 ): number | null {
   if (risk.riskRewardRatio == null) return null;
-  let score = Math.min(100, Math.round(completionPercent * 0.45 + Math.min(risk.riskRewardRatio, 4) * 13.75));
-  score -= warnings.length * 12;
+  let score = Math.min(100, Math.round(
+    completionPercent * 0.35 +
+    Math.min(risk.riskRewardRatio, 4) * 11 +
+    Math.min(confidence, 10) * 2
+  ));
+  score -= warnings.length * 10;
   return Math.max(0, Math.min(100, score));
 }
 
@@ -165,4 +224,15 @@ export function formatMoney(value: number | null): string {
     maximumFractionDigits: 2,
     minimumFractionDigits: value < 100 ? 2 : 0,
   }).format(value);
+}
+
+export function formatDuration(minutes: number | null): string {
+  if (minutes == null) return "-";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours < 24) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
 }

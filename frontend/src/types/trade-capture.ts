@@ -17,6 +17,7 @@ export type TradeSetupTag =
 
 export type TradeTimeframe = "1m" | "3m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1D";
 export type HtfBias = "Bullish" | "Bearish" | "Neutral" | "Ranging";
+export type ExitStatus = "Open" | "Closed" | "Breakeven";
 
 export type TradeCaptureData = {
   marketType: MarketType;
@@ -35,6 +36,12 @@ export type TradeCaptureData = {
   tags: string[];
   customSetupName: string;
   status: TradeStatus;
+  // ── New fields ──
+  confidence: number;
+  exitPrice: string;
+  exitDate: string;
+  exitTime: string;
+  exitStatus: ExitStatus;
 };
 
 export type TradeRiskSnapshot = {
@@ -45,6 +52,13 @@ export type TradeRiskSnapshot = {
   riskPerUnit: number | null;
   rewardPerUnit: number | null;
   stopDistancePercent: number | null;
+};
+
+export type ExitMetrics = {
+  pnl: number | null;
+  profitPercent: number | null;
+  rrAchieved: number | null;
+  durationMinutes: number | null;
 };
 
 export type TradeAssistantInsight = {

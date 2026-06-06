@@ -14,7 +14,7 @@ import {
 } from '@/lib/journal/storage';
 import type { Setup, Trade } from '@/lib/journal/types';
 
-import { TradeCaptureWorkspace } from '@/components/journal/add-trade/TradeCaptureWorkspace';
+import { TradeTicket } from '@/components/journal/add-trade/TradeTicket';
 import { TradeTable } from '@/components/workspace/TradeTable';
 import { TradeInsightPanel } from '@/components/workspace/TradeInsightPanel';
 import { LiveIndicator } from '@/components/workspace/LiveIndicator';
@@ -290,7 +290,7 @@ export default function JournalDashboardPage() {
       )}
 
       {showCapture && (
-        <TradeCaptureWorkspace
+        <TradeTicket
           setups={setups}
           onClose={() => setShowCapture(false)}
           onSaved={() => { setVersion((v) => v + 1); setShowCapture(false); }}
