@@ -14,7 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import logging
-
 from config import get_settings
 
 # ── Logging ─────────────────────────────────────────────────────────
@@ -62,6 +61,28 @@ async def lifespan(app: FastAPI):
     app.state.market_service = get_market_service()
     log.info("  Market Data: service initialized ✓")
 
+    # Warm universe cache on startup (no-op if already cached today)
+    if app.state.mongo_connected:
+        try:
+            from services.universe_cache import get_universe_cached, is_universe_fresh
+            fresh = await is_universe_fresh(app.state.db)
+            if fresh:
+                log.info("  Universe:    cache already fresh for today ✓")
+            else:
+                log.info("  Universe:    warming cache from CSV…")
+                stocks = await get_universe_cached(app.state.db)
+                log.info(f"  Universe:    {len(stocks)} stocks cached ✓")
+        except Exception as e:
+            log.warning(f"  Universe:    cache warm-up skipped — {e}")
+
+        # Start daily 6 PM IST refresh scheduler
+        try:
+            from schedulers.daily_refresh import start_daily_scheduler
+            asyncio.create_task(start_daily_scheduler(app.state.db))
+            log.info("  Scheduler:   daily refresh at 6:00 PM IST ✓")
+        except Exception as e:
+            log.warning(f"  Scheduler:   failed to start — {e}")
+
     log.info("  ─────────────────────────────────────────")
     log.info("  FinAI Edge FastAPI ready! 🚀")
     log.info(f"  Docs: http://localhost:{settings.fastapi_port}/docs")
@@ -73,6 +94,7 @@ async def lifespan(app: FastAPI):
     if app.state.mongo_client:
         app.state.mongo_client.close()
     log.info("FastAPI shutdown complete.")
+
 
 
 # ── App Factory ─────────────────────────────────────────────────────
@@ -95,6 +117,7 @@ allowed_origins = [
     "http://localhost:9002",
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://172.20.10.4:9002",
     settings.frontend_url,
 ]
 
@@ -185,11 +208,13 @@ from api.portfolio import router as portfolio_router
 from api.analytics import router as analytics_router
 from api.market import router as market_router
 from api.ai import router as ai_router
+from api.screener import router as screener_router
 
 app.include_router(portfolio_router, prefix="/api/v2/portfolio", tags=["Portfolio"])
 app.include_router(analytics_router, prefix="/api/v2/analytics", tags=["Analytics"])
 app.include_router(market_router, prefix="/api/v2/market", tags=["Market Data"])
 app.include_router(ai_router, prefix="/api/v2/ai", tags=["AI"])
+app.include_router(screener_router)
 
 
 # ── Direct run ──────────────────────────────────────────────────────
