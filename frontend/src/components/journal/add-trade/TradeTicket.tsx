@@ -19,6 +19,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTradeCapture } from "@/hooks/use-trade-capture";
 import { cn } from "@/lib/utils";
 import {
@@ -713,12 +714,19 @@ export function TradeTicket({
     updateField, addTag, removeTag, saveDraft, saveTrade, createTrade,
   } = useTradeCapture(setups, onSaved);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => { if (e.key === "Escape") onClose(); },
     [onClose]
   );
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <>
       <style>{scopedCSS}</style>
       <div className="tt-overlay" onKeyDown={handleKeyDown} tabIndex={-1}>
@@ -794,7 +802,8 @@ export function TradeTicket({
           </span>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
