@@ -10,6 +10,7 @@ const BADGE_COLORS: Record<string, string> = {
   AI:   'bg-violet-500/15  text-violet-400  border-violet-500/20',
   Beta: 'bg-amber-500/15   text-amber-400   border-amber-500/20',
   New:  'bg-pink-500/15    text-pink-400    border-pink-500/20',
+  'Coming soon': 'bg-slate-500/15 text-slate-400 border-slate-500/20',
 };
 
 export function ModuleDropdown({ mod }: { mod: NavModule }) {

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { screenerService } from "@/services/screenerService";
+import { PlusIcon } from "@heroicons/react/24/outline";
+import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 
 interface FVGZone {
     low: number;
@@ -73,6 +75,19 @@ export default function FVGScannerPage() {
     const [sortKey, setSortKey]       = useState("fvg_count");
     const [sortDir, setSortDir]       = useState<"asc" | "desc">("desc");
     const [expandedSymbol, setExpandedSymbol] = useState<string | null>(null);
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedStock, setSelectedStock] = useState<any>(null);
+
+    const handleAddClick = (stock: FVGStock, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedStock({
+            symbol: stock.symbol,
+            company_name: stock.company_name,
+            price: stock.price
+        });
+        setIsModalOpen(true);
+    };
 
     const fetchData = useCallback(async (f: ReturnType<typeof defaultFilters>) => {
         setLoading(true); setError(null); setPage(1);
@@ -306,6 +321,7 @@ export default function FVGScannerPage() {
                                         <th className="px-4 py-3 text-right cursor-pointer hover:text-white text-purple-400" onClick={() => handleSort("fvg_count")}>FVGs (2yr) <SortIcon col="fvg_count" /></th>
                                         <th className="px-4 py-3 text-right cursor-pointer hover:text-white" onClick={() => handleSort("52wh")}>52W High <SortIcon col="52wh" /></th>
                                         <th className="px-4 py-3 text-center">Zones</th>
+                                        <th className="px-4 py-3 text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -346,6 +362,16 @@ export default function FVGScannerPage() {
                                                     <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{fmtPrice(stock.week52?.high)}</td>
                                                     <td className="px-4 py-2.5 text-center text-gray-600 text-xs hover:text-white">
                                                         {expanded ? "▲" : "▼"}
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-center">
+                                                        <button 
+                                                            onClick={(e) => handleAddClick(stock, e)}
+                                                            className="inline-flex items-center gap-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded text-xs transition-colors"
+                                                            title="Add to Watchlist"
+                                                        >
+                                                            <PlusIcon className="w-3 h-3" />
+                                                            Watchlist
+                                                        </button>
                                                     </td>
                                                 </tr>
 
@@ -430,6 +456,15 @@ export default function FVGScannerPage() {
                     )}
                 </div>
             </div>
+
+            <AddToWatchlistModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                symbol={selectedStock?.symbol}
+                companyName={selectedStock?.company_name}
+                currentPrice={selectedStock?.price}
+                sourceModule="FVG Scanner"
+            />
         </div>
     );
 }
