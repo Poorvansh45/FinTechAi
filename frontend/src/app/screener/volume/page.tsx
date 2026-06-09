@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { screenerService } from "@/services/screenerService";
+import { PlusIcon } from "@heroicons/react/24/outline";
+import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 
 interface SurgeEvent {
     date: string;
@@ -67,6 +69,19 @@ export default function VolumeSurgePage() {
     const [page, setPage]                 = useState(1);
     const [sortKey, setSortKey]           = useState("volume_ratio");
     const [sortDir, setSortDir]           = useState<"asc"|"desc">("desc");
+
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedStock, setSelectedStock] = useState<any>(null);
+
+    const handleAddClick = (stock: VolumeSurgeStock, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedStock({
+            symbol: stock.symbol,
+            company_name: stock.company_name,
+            price: stock.price
+        });
+        setIsModalOpen(true);
+    };
 
     const fetchData = useCallback(async (f: ReturnType<typeof defaultFilters>) => {
         setLoading(true); setError(null); setPage(1);
@@ -253,6 +268,7 @@ export default function VolumeSurgePage() {
                                         <th className="px-4 py-3 text-right text-purple-400">Win Rate 5D</th>
                                         <th className="px-4 py-3 text-right cursor-pointer hover:text-white text-purple-400" onClick={() => handleSort("pos_pct")}>+ve Surge % <SortIcon col="pos_pct"/></th>
                                         <th className="px-4 py-3 text-center">History</th>
+                                        <th className="px-4 py-3 text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -313,6 +329,16 @@ export default function VolumeSurgePage() {
                                                         <span className="text-gray-600 text-xs hover:text-white">
                                                             {expandedSymbol === stock.symbol ? "▲" : "▼"}
                                                         </span>
+                                                    </td>
+                                                    <td className="px-4 py-2.5 text-center">
+                                                        <button 
+                                                            onClick={(e) => handleAddClick(stock, e)}
+                                                            className="inline-flex items-center gap-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded text-xs transition-colors"
+                                                            title="Add to Watchlist"
+                                                        >
+                                                            <PlusIcon className="w-3 h-3" />
+                                                            Watchlist
+                                                        </button>
                                                     </td>
                                                 </tr>
                                                 {/* Expanded surge history */}
@@ -385,6 +411,15 @@ export default function VolumeSurgePage() {
                     )}
                 </div>
             </div>
+
+            <AddToWatchlistModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                symbol={selectedStock?.symbol}
+                companyName={selectedStock?.company_name}
+                currentPrice={selectedStock?.price}
+                sourceModule="Volume Breakouts"
+            />
         </div>
     );
 }

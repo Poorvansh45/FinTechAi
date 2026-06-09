@@ -39,10 +39,12 @@ async def lifespan(app: FastAPI):
 
     # Initialize MongoDB connection
     try:
+        import certifi
         from motor.motor_asyncio import AsyncIOMotorClient
         app.state.mongo_client = AsyncIOMotorClient(
             settings.mongodb_uri,
             serverSelectionTimeoutMS=5000,
+            tlsCAFile=certifi.where()
         )
         # Ping to verify connection
         await app.state.mongo_client.admin.command('ping')
@@ -209,12 +211,16 @@ from api.analytics import router as analytics_router
 from api.market import router as market_router
 from api.ai import router as ai_router
 from api.screener import router as screener_router
+from api.watchlists import router as watchlists_router
+from api.smc import router as smc_router
 
 app.include_router(portfolio_router, prefix="/api/v2/portfolio", tags=["Portfolio"])
 app.include_router(analytics_router, prefix="/api/v2/analytics", tags=["Analytics"])
 app.include_router(market_router, prefix="/api/v2/market", tags=["Market Data"])
 app.include_router(ai_router, prefix="/api/v2/ai", tags=["AI"])
 app.include_router(screener_router)
+app.include_router(watchlists_router)
+app.include_router(smc_router)
 
 
 # ── Direct run ──────────────────────────────────────────────────────

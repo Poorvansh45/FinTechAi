@@ -35,6 +35,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 import pandas as pd
 import pyotp
 import talib
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
