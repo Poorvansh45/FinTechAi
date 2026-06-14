@@ -1,133 +1,192 @@
 """
-FinAI Edge — Scanner Service
-=============================
-Queries the pre-calculated MongoDB screener cache.
+FinAI Edge — Scanner Service (v2)
+====================================
+Queries the pre-calculated MongoDB screener caches.
+Supports all scanner types:
+  - Technical Screener (EMA% distance, RSI, MACD, Volume)
+  - Volume Surge (per-surge history + aggregate stats)
+  - FVG Scanner (ICT-style with scoring)
+  - Momentum Scanner (Momentum Score 0-100)
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 log = logging.getLogger("finai_edge.scanner_service")
 
+
 class ScannerService:
     def __init__(self, db: AsyncIOMotorDatabase):
-        self.db = db
-        self.collection = db.get_collection("screener_cache")
+        self.db         = db
+        self.screener   = db.get_collection("screener_cache")
+        self.fvg_cache  = db.get_collection("fvg_cache")
+        self.surge_cache = db.get_collection("volume_surge_cache")
+        self.momentum   = db.get_collection("momentum_cache")
 
-    async def get_momentum_stocks(self, limit: int = 50) -> List[Dict[str, Any]]:
+    # ── helpers ──────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _range(query: dict, field: str, mn=None, mx=None):
+        q: dict = {}
+        if mn is not None: q["$gte"] = mn
+        if mx is not None: q["$lte"] = mx
+        if q:
+            query[field] = q
+
+    # ── Technical Screener ────────────────────────────────────────────────
+
+    async def get_technical_screener(
+        self,
+        filters: Dict[str, Any],
+        limit: int = 2500,
+    ) -> List[Dict[str, Any]]:
         """
-        Momentum logic: RSI > 70 and Price > EMA20
+        Dynamic technical filter using EMA % distance (cross-stock comparable).
         """
-        cursor = self.collection.find({
-            "indicators.rsi_14": {"$gte": 70},
-            "$expr": { "$gt": ["$price", "$indicators.ema_20"] }
-        }).sort("indicators.rsi_14", -1).limit(limit)
-        
+        query: dict = {}
+        r = self._range
+
+        r(query, "indicators.rsi_14",           filters.get("rsi_min"),          filters.get("rsi_max"))
+        r(query, "indicators.ema_50_dist_pct",  filters.get("ema50_dist_min"),   filters.get("ema50_dist_max"))
+        r(query, "indicators.ema_200_dist_pct", filters.get("ema200_dist_min"),  filters.get("ema200_dist_max"))
+        r(query, "indicators.macd",             filters.get("macd_min"),         filters.get("macd_max"))
+        r(query, "volume",                      filters.get("volume_min"),       filters.get("volume_max"))
+
+        sort_key = filters.get("sort_by", "volume")
+        sort_dir = -1 if filters.get("sort_dir", "desc") == "desc" else 1
+
+        cursor = self.screener.find(query).sort(sort_key, sort_dir).limit(limit)
         return await cursor.to_list(length=limit)
+
+    # ── Volume Breakout (simple) ──────────────────────────────────────────
 
     async def get_volume_breakouts(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """
-        Volume Breakout: Current volume > 3x of average 10d volume
-        """
-        # Assuming avg_volume_10d is populated (we can update cron to populate it)
-        cursor = self.collection.find({
-            "$expr": { "$gt": ["$volume", { "$multiply": ["$avg_volume_10d", 3] }] }
+        cursor = self.screener.find({
+            "$expr": {"$gt": ["$volume", {"$multiply": ["$avg_volume_10d", 3]}]}
         }).sort("volume", -1).limit(limit)
-        
         return await cursor.to_list(length=limit)
 
-    async def get_technical_screener(self, filters: Dict[str, Any], limit: int = 2500) -> List[Dict[str, Any]]:
+    # ── Volume Surge (full per-surge history) ─────────────────────────────
+
+    async def get_volume_surges(
+        self,
+        filters: Dict[str, Any],
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
         """
-        Custom technical filters built dynamically.
-        EMA filters use % distance from price to EMA (cross-stock comparable).
+        Full volume surge scanner with per-surge history.
         """
-        query = {}
+        query: dict = {}
+        r = self._range
 
-        def add_range(field, mn, mx):
-            q = {}
-            if mn is not None: q["$gte"] = mn
-            if mx is not None: q["$lte"] = mx
-            if q: query[field] = q
-
-        add_range("indicators.rsi_14",           filters.get("rsi_min"),          filters.get("rsi_max"))
-        add_range("indicators.ema_50_dist_pct",  filters.get("ema50_dist_min"),   filters.get("ema50_dist_max"))
-        add_range("indicators.ema_200_dist_pct", filters.get("ema200_dist_min"),  filters.get("ema200_dist_max"))
-        add_range("indicators.macd",             filters.get("macd_min"),         filters.get("macd_max"))
-        add_range("volume",                      filters.get("volume_min"),       filters.get("volume_max"))
-
-        cursor = self.collection.find(query).sort("volume", -1).limit(limit)
-        return await cursor.to_list(length=limit)
-
-
-    async def get_fvg_stocks(self, filters: Dict[str, Any] = {}, limit: int = 2500) -> List[Dict[str, Any]]:
-        """
-        FVG Scanner — queries fvg_cache collection with dynamic filters.
-        Falls back to screener_cache if fvg_cache is empty.
-        """
-        col   = self.db.get_collection("fvg_cache")
-        count = await col.count_documents({})
-
-        if count == 0:
-            # Fallback: screener_cache while fvg_cache is being populated
-            cursor = self.collection.find({"fvg.has_fvg_bullish": True}).limit(limit)
-            return await cursor.to_list(length=limit)
-
-        query: Dict[str, Any] = {}
-
-        def add_gte(field, val):
-            if val is not None:
-                query.setdefault(field, {})["$gte"] = val
-
-        def add_lte(field, val):
-            if val is not None:
-                query.setdefault(field, {})["$lte"] = val
-
-        # RSI filter
-        add_gte("indicators.rsi_14", filters.get("rsi_min"))
-        add_lte("indicators.rsi_14", filters.get("rsi_max"))
-
-        # FVG filter
-        if filters.get("has_fvg_only", True):
-            query["fvg.has_fvg_bullish"] = True
-
-        # Min number of FVGs detected
-        add_gte("fvg.total_fvgs_detected", filters.get("min_fvg_count"))
-
-        # Price vs EMA filter
-        add_gte("price", filters.get("price_min"))
-        add_lte("price", filters.get("price_max"))
-
-        cursor = col.find(query).sort("fvg.total_fvgs_detected", -1).limit(limit)
-        return await cursor.to_list(length=limit)
-
-    async def get_volume_surges(self, filters: Dict[str, Any], limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        Volume Surge Scanner — queries volume_surge_cache collection.
-        Dynamically filters by volume_ratio, day_return, 3yr surge stats.
-        """
-        col   = self.db.get_collection("volume_surge_cache")
-        query: Dict[str, Any] = {}
-
-        def add_gte(field, val):
-            if val is not None:
-                query.setdefault(field, {})["$gte"] = val
-
-        def add_lte(field, val):
-            if val is not None:
-                query.setdefault(field, {})["$lte"] = val
-
-        add_gte("volume_ratio",                      filters.get("volume_ratio_min"))
-        add_gte("day_return_pct",                    filters.get("day_return_min"))
-        add_lte("day_return_pct",                    filters.get("day_return_max"))
-        add_gte("surge_stats.total_surge_days_3yr",  filters.get("surges_3yr_min"))
-        add_gte("surge_stats.positive_surge_pct",    filters.get("positive_surge_pct_min"))
+        r(query, "current_volume_ratio",             filters.get("volume_ratio_min"))
+        r(query, "surge_stats.avg_1d_return",        filters.get("avg_1d_min"))
+        r(query, "surge_stats.win_rate_1d",          filters.get("win_rate_min"))
+        r(query, "surge_stats.total_surges",         filters.get("surges_min"))
+        r(query, "surge_stats.max_gain_ever",        filters.get("max_gain_min"))
 
         if filters.get("current_surge_only"):
             query["has_current_surge"] = True
 
-        cursor = col.find(query).sort("volume_ratio", -1).limit(limit)
-        return await cursor.to_list(length=limit)
+        r(query, "ltp", filters.get("price_min"), filters.get("price_max"))
+
+        cursor = self.surge_cache.find(query).sort("current_volume_ratio", -1).limit(limit)
+        results = await cursor.to_list(length=limit)
+        for r_ in results:
+            r_["_id"] = str(r_["_id"])
+        return results
+
+    # ── FVG Scanner ───────────────────────────────────────────────────────
+
+    async def get_fvg_stocks(
+        self,
+        filters: Dict[str, Any],
+        limit: int = 2500,
+    ) -> List[Dict[str, Any]]:
+        """
+        ICT-style FVG scanner with scoring and status filters.
+        """
+        col   = self.fvg_cache
+        count = await col.count_documents({})
+
+        if count == 0:
+            # Graceful fallback while cache is building
+            cursor = self.screener.find({"fvg.has_fvg_bullish": True}).limit(limit)
+            return await cursor.to_list(length=limit)
+
+        query: dict = {}
+        r = self._range
+
+        if filters.get("has_fvg_only", True):
+            query["has_fvg_bullish"] = True
+
+        r(query, "indicators.rsi_14",    filters.get("rsi_min"),   filters.get("rsi_max"))
+        r(query, "best_fvg_score",       filters.get("score_min"))
+        r(query, "ltp",                  filters.get("price_min"), filters.get("price_max"))
+        r(query, "total_fvgs_bullish",   filters.get("min_fvg_count"))
+
+        # Status filter
+        status = filters.get("fvg_status")
+        if status and status != "All":
+            query["top_bullish_fvgs.status"] = status
+
+        # Strength filter
+        strength = filters.get("fvg_strength")
+        if strength and strength != "All":
+            query["top_bullish_fvgs.strength"] = strength
+
+        cursor = col.find(query).sort("best_fvg_score", -1).limit(limit)
+        results = await cursor.to_list(length=limit)
+        for res in results:
+            res["_id"] = str(res["_id"])
+        return results
+
+    # ── Momentum Scanner ──────────────────────────────────────────────────
+
+    async def get_momentum_stocks(
+        self,
+        filters: Dict[str, Any] = {},
+        limit: int = 200,
+    ) -> List[Dict[str, Any]]:
+        """
+        Momentum scanner using pre-computed momentum scores.
+        """
+        col   = self.momentum
+        count = await col.count_documents({})
+
+        if count == 0:
+            # Fallback to screener_cache while momentum cache builds
+            query_fb = {"indicators.rsi_14": {"$gte": 55}}
+            cursor = self.screener.find(query_fb).sort("indicators.rsi_14", -1).limit(limit)
+            return await cursor.to_list(length=limit)
+
+        query: dict = {}
+        r = self._range
+
+        r(query, "momentum_score",     filters.get("score_min"), filters.get("score_max"))
+        r(query, "rsi",                filters.get("rsi_min"),   filters.get("rsi_max"))
+        r(query, "ema_50_dist_pct",    filters.get("ema50_dist_min"))
+        r(query, "ema_200_dist_pct",   filters.get("ema200_dist_min"))
+        r(query, "ltp",                filters.get("price_min"), filters.get("price_max"))
+        r(query, "volume_ratio",       filters.get("volume_ratio_min"))
+        r(query, "week52_high_dist_pct", None, filters.get("week52_dist_max"))
+
+        cat = filters.get("category")
+        if cat and cat != "All":
+            query["category"] = cat
+
+        if filters.get("above_ema50"):
+            query["above_ema50"] = True
+        if filters.get("above_ema200"):
+            query["above_ema200"] = True
+
+        cursor = col.find(query).sort("momentum_score", -1).limit(limit)
+        results = await cursor.to_list(length=limit)
+        for res in results:
+            res["_id"] = str(res["_id"])
+        return results
+
 
 def get_scanner_service(db: AsyncIOMotorDatabase) -> ScannerService:
     return ScannerService(db)
