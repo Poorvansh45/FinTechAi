@@ -18,8 +18,8 @@ export interface NavModule {
   id: string;
   label: string;
   href: string;
-  color: string;        // tailwind text color for active/icon
-  glowColor: string;    // rgba for glow
+  color: string;
+  glowColor: string;
   items?: NavItem[];
 }
 
@@ -47,12 +47,11 @@ export const NAV_MODULES: NavModule[] = [
     color: 'text-emerald-400',
     glowColor: 'rgba(52,211,153,0.15)',
     items: [
-      { href: '/screener',              label: 'Technical Filters',  icon: Filter,     desc: 'RSI, MACD, EMA & more'         },
-      { href: '/screener/smc',          label: 'SMC Scanner',        icon: Layers,     desc: 'Institutional demand zones'    },
-      { href: '/screener/volume',       label: 'Volume Breakouts',   icon: Waves,      desc: 'Unusual volume detection'      },
-      { href: '/screener/fvg',          label: 'FVG Scanner',        icon: ScanLine,   desc: 'Fair value gap opportunities'  },
-      { href: '/screener/watchlists',   label: 'Smart Watchlists',   icon: BookMarked, desc: 'AI-curated watchlists'         },
-      { href: '/screener/custom',       label: 'Custom Conditions',  icon: Layers,     desc: 'Build your own scan logic',    badge: 'Coming soon' },
+      { href: '/screener',              label: 'Technical Screener', icon: Filter,     desc: 'RSI, EMA %, MACD distance'     },
+      { href: '/screener/smc',          label: 'SMC Scanner',        icon: Layers,     desc: 'BOS, CHoCH, demand zones'      },
+      { href: '/screener/volume',       label: 'Volume Surge',       icon: Waves,      desc: 'Per-surge history & stats'     },
+      { href: '/screener/fvg',          label: 'FVG Scanner',        icon: ScanLine,   desc: 'ICT fair value gaps scored'    },
+      { href: '/screener/watchlists',   label: 'Smart Watchlists',   icon: BookMarked, desc: 'Track picks across scanners'   },
     ],
   },
   {
@@ -77,7 +76,7 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { href: '/journal',             label: 'Trading Journal',       icon: BookOpen,  desc: 'Log and review all trades'       },
       { href: '/workspace/history',   label: 'Trade History',         icon: History,   desc: 'Full trade history & filters'    },
-      { href: '/analytics',           label: 'Performance Analytics', icon: LineChart,  desc: 'PnL, win rate & deep stats'     },
+      { href: '/analytics',           label: 'Performance Analytics', icon: LineChart, desc: 'PnL, win rate & deep stats'      },
     ],
   },
   {
@@ -87,10 +86,10 @@ export const NAV_MODULES: NavModule[] = [
     color: 'text-pink-400',
     glowColor: 'rgba(236,72,153,0.15)',
     items: [
-      { href: '/ai-insights',           label: 'AI Trade Review',    icon: Sparkles,      desc: 'AI analysis of your trades',  badge: 'AI' },
-      { href: '/ai-copilot/mistakes',   label: 'Mistake Detection',  icon: AlertTriangle, desc: 'Pattern-based error detection'       },
-      { href: '/ai-copilot/suggest',    label: 'AI Suggestions',     icon: Lightbulb,     desc: 'Personalized improvement tips'       },
-      { href: '/ai-copilot/patterns',   label: 'Pattern Recognition',icon: Eye,           desc: 'Chart & behavioral pattern AI'       },
+      { href: '/ai-insights',           label: 'AI Trade Review',     icon: Sparkles,      desc: 'AI analysis of your trades',  badge: 'AI' },
+      { href: '/ai-copilot/mistakes',   label: 'Mistake Detection',   icon: AlertTriangle, desc: 'Pattern-based error detection'       },
+      { href: '/ai-copilot/suggest',    label: 'AI Suggestions',      icon: Lightbulb,     desc: 'Personalized improvement tips'       },
+      { href: '/ai-copilot/patterns',   label: 'Pattern Recognition', icon: Eye,           desc: 'Chart & behavioral pattern AI'       },
       { href: '/ai-copilot/explain',    label: 'Market Explanation',  icon: Bot,           desc: 'Plain-English market summaries'      },
       { href: '/ai-copilot/chat',       label: 'AI Chat Assistant',   icon: MessageSquare, desc: 'Ask anything about your trades', badge: 'New' },
     ],
