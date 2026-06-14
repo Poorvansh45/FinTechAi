@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
 from typing import List, Dict, Any
+import pandas as pd
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
@@ -334,8 +335,17 @@ class WatchlistService:
         total_stocks = len(stocks)
         avg_ret = total_return / total_stocks if total_stocks > 0 else 0.0
         
-        # Calculate overall watchlist drawdown and volatility from average of components for simplicity
-        overall_volatility = sum(s["volatility_pct"] for s in enriched_stocks) / total_stocks if total_stocks > 0 else 0.0
+        # Calculate overall watchlist volatility using portfolio daily returns to account for correlation
+        overall_volatility = 0.0
+        if not historical_prices.empty:
+            portfolio_cols = [s.symbol for s in stocks if s.symbol in historical_prices.columns]
+            if portfolio_cols:
+                daily_returns_df = historical_prices[portfolio_cols].pct_change().dropna(how="all")
+                if not daily_returns_df.empty:
+                    port_returns = daily_returns_df.mean(axis=1)
+                    if len(port_returns) > 1:
+                        overall_volatility = round(float(port_returns.std() * (252 ** 0.5) * 100), 2)
+                        
         overall_drawdown = sum(s["current_drawdown_pct"] for s in enriched_stocks) / total_stocks if total_stocks > 0 else 0.0
         overall_alpha = sum(s["alpha_vs_nifty"] for s in enriched_stocks) / total_stocks if total_stocks > 0 else 0.0
 
@@ -377,55 +387,121 @@ class WatchlistService:
             
         return {"performance_by_source": perf}
     async def get_watchlist_leaderboard(self) -> List[Dict[str, Any]]:
-        # For leaderboard, we'll fetch details of all non-archived watchlists
+        # Fetch all non-archived watchlists
         cursor = self.watchlists_coll.find({"is_archived": {"$ne": True}})
-        leaderboard = []
-        async for wl in cursor:
-            details = await self.get_watchlist_details(str(wl["_id"]))
-            stats = details.get("stats", {})
-            if stats.get("total_stocks", 0) > 0:
-                avg_ret = stats.get("avg_return_pct", 0)
-                volatility = stats.get("overall_volatility_pct", 0)
-                # Proxy for risk-free rate: 7%
-                risk_free_rate = 7.0
-                risk_adj = (avg_ret - risk_free_rate) / volatility if volatility > 0 else 0
-                
-                leaderboard.append({
-                    "id": str(wl["_id"]),
-                    "name": wl["name"],
-                    "avg_return_pct": avg_ret,
-                    "win_rate_pct": stats.get("win_rate_pct", 0),
-                    "risk_adjusted_return": risk_adj,
-                    "overall_volatility": volatility,
-                    "total_stocks": stats.get("total_stocks", 0)
-                })
+        watchlists = [wl async for wl in cursor]
         
-        # Sort by average return descending
+        if not watchlists:
+            return []
+            
+        wl_ids = [wl["_id"] for wl in watchlists]
+        stocks_cursor = self.stocks_coll.find({"watchlist_id": {"$in": wl_ids}})
+        all_stocks = [WatchlistStockInDB(**s) async for s in stocks_cursor]
+        
+        # Group stocks by watchlist_id
+        wl_stocks_map = {}
+        for s in all_stocks:
+            wl_stocks_map.setdefault(s.watchlist_id, []).append(s)
+            
+        # Get all unique symbols
+        all_symbols = list({s.symbol for s in all_stocks})
+        
+        # Bulk quotes and historical prices
+        quotes = {}
+        historical_prices = pd.DataFrame()
+        if all_symbols:
+            quotes = await self.market_svc.get_bulk_quotes(all_symbols)
+            historical_prices = await self.market_svc.get_bulk_prices(all_symbols, period="1y")
+            
+        leaderboard = []
+        for wl in watchlists:
+            wl_id = wl["_id"]
+            stocks = wl_stocks_map.get(wl_id, [])
+            total_stocks = len(stocks)
+            if total_stocks == 0:
+                continue
+                
+            total_return = 0.0
+            win_count = 0
+            for s in stocks:
+                quote = quotes.get(s.symbol)
+                current_price = quote.price if quote and quote.available and quote.price else s.added_price
+                ret_pct = 0.0
+                if s.added_price > 0:
+                    ret_pct = ((current_price - s.added_price) / s.added_price) * 100
+                total_return += ret_pct
+                if ret_pct > 0:
+                    win_count += 1
+                    
+            avg_ret = total_return / total_stocks
+            
+            # Volatility
+            volatility = 0.0
+            if not historical_prices.empty:
+                portfolio_cols = [s.symbol for s in stocks if s.symbol in historical_prices.columns]
+                if portfolio_cols:
+                    daily_returns_df = historical_prices[portfolio_cols].pct_change().dropna(how="all")
+                    if not daily_returns_df.empty:
+                        port_returns = daily_returns_df.mean(axis=1)
+                        if len(port_returns) > 1:
+                            volatility = float(port_returns.std() * (252 ** 0.5) * 100)
+                            
+            # Risk-adjusted return proxy (RF = 7%)
+            risk_free_rate = 7.0
+            risk_adj = (avg_ret - risk_free_rate) / volatility if volatility > 0 else 0
+            
+            leaderboard.append({
+                "id": str(wl_id),
+                "name": wl["name"],
+                "avg_return_pct": round(avg_ret, 2),
+                "win_rate_pct": round(win_count / total_stocks * 100, 2),
+                "risk_adjusted_return": round(risk_adj, 2),
+                "overall_volatility": round(volatility, 2),
+                "total_stocks": total_stocks
+            })
+            
         leaderboard.sort(key=lambda x: x["avg_return_pct"], reverse=True)
         return leaderboard
 
     async def get_source_performance(self) -> List[Dict[str, Any]]:
-        # Compute across all watchlists and history
-        sources = {}
+        # Fetch all active user watchlists
+        cursor = self.watchlists_coll.find({"is_archived": {"$ne": True}})
+        watchlists = [wl async for wl in cursor]
         
-
+        if not watchlists:
+            return []
             
-        # As a fallback for the UI to work immediately: We aggregate over get_user_watchlists active stocks
-        watchlists = await self.get_user_watchlists()
-        for wl in watchlists:
-            perf = await self.get_watchlist_performance_by_source(wl["id"])
-            for src, data in perf.get("performance_by_source", {}).items():
-                if src not in sources:
-                    sources[src] = {"total_return": 0.0, "count": 0}
-                sources[src]["total_return"] += data["avg_return_pct"] * data["count"]
-                sources[src]["count"] += data["count"]
-
+        wl_ids = [wl["_id"] for wl in watchlists]
+        stocks_cursor = self.stocks_coll.find({"watchlist_id": {"$in": wl_ids}})
+        stocks = [WatchlistStockInDB(**s) async for s in stocks_cursor]
+        
+        if not stocks:
+            return []
+            
+        # Bulk quotes fetch (no need for history to aggregate return by source)
+        symbols = list({s.symbol for s in stocks})
+        quotes = await self.market_svc.get_bulk_quotes(symbols)
+        
+        sources = {}
+        for s in stocks:
+            quote = quotes.get(s.symbol)
+            current_price = quote.price if quote and quote.available and quote.price else s.added_price
+            ret_pct = 0.0
+            if s.added_price > 0:
+                ret_pct = ((current_price - s.added_price) / s.added_price) * 100
+                
+            src = s.source_module or "unknown"
+            if src not in sources:
+                sources[src] = {"total_return": 0.0, "count": 0}
+            sources[src]["total_return"] += ret_pct
+            sources[src]["count"] += 1
+            
         result = []
         for src, data in sources.items():
             if data["count"] > 0:
                 result.append({
                     "source_module": src,
-                    "avg_return_pct": data["total_return"] / data["count"],
+                    "avg_return_pct": round(data["total_return"] / data["count"], 2),
                     "total_stocks": data["count"]
                 })
         

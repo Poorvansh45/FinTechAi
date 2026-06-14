@@ -1,274 +1,321 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { screenerService } from "@/services/screenerService";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import React, { useState, useEffect } from "react";
+import ScannerTable from "@/components/screener/ScannerTable";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 
-interface SMCZoneResult {
-    symbol: string;
-    ltp: number;
-    zone_id: number;
-    zone_high: number;
-    zone_low: number;
-    zone_width_pct: number;
-    distance_pct: number;
-    created_date: string;
-    zone_age_days: number;
-    event: string;
-    status: string;
-}
-
-interface SMCStats {
-    total_active_zones: number;
-    inside_zone: number;
-    within_2_pct: number;
-    within_5_pct: number;
-    avg_distance: number;
-}
+const FASTAPI_URL =
+  typeof window !== "undefined"
+    ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
+    : "http://localhost:8000";
 
 const CATEGORIES = [
-    "All",
-    "Inside Zone",
-    "Near Zone (2%)",
-    "Near Zone (5%)",
-    "Fresh Zones",
-    "CHoCH Zones",
-    "BOS Zones"
+  "All", "Inside Zone", "Near Zone (2%)", "Near Zone (5%)",
+  "Fresh Zones", "BOS Zones", "CHoCH Zones",
+  "Discount", "Premium", "Unmitigated",
 ];
 
-const PAGE_SIZE = 50;
-
-function fmtPrice(n?: number | null) {
-    return n != null ? `₹${n.toFixed(2)}` : "—";
+async function fetchSMC(params: Record<string, any>) {
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== "" && v !== null && v !== undefined && v !== "All") q.set(k, String(v));
+  });
+  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc?${q.toString()}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
-export default function SMCScannerPage() {
-    const [results, setResults] = useState<SMCZoneResult[]>([]);
-    const [stats, setStats] = useState<SMCStats | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [category, setCategory] = useState("All");
-    const [search, setSearch] = useState("");
-    const [page, setPage] = useState(1);
-    
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedStock, setSelectedStock] = useState<any>(null);
+async function fetchStats() {
+  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc/stats`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
-    const handleAddClick = (stock: SMCZoneResult, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setSelectedStock({
-            symbol: stock.symbol,
-            company_name: stock.symbol, // We don't have company name in SMC results right now
-            price: stock.ltp
-        });
-        setIsModalOpen(true);
-    };
+async function fetchZoneProximity(distMax: number) {
+  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc/zone-proximity?distance_pct_max=${distMax}&limit=200`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
-    const fetchData = useCallback(async (cat: string) => {
-        setLoading(true); setError(null); setPage(1);
-        try {
-            const params: any = { limit: 500 };
-            if (cat !== "All") params.category = cat;
-            
-            const [resp, statsResp] = await Promise.all([
-                screenerService.getSMC(params),
-                screenerService.getSMCStats()
-            ]);
-            
-            if (resp.data?.success) setResults(resp.data.data);
-            else setError(resp.data?.error || "Failed to fetch SMC data");
-            
-            if (statsResp.data?.success) setStats(statsResp.data.data);
-        } catch (err: any) {
-            setError(err?.message || "Network error — is FastAPI running?");
-        } finally { setLoading(false); }
-    }, []);
+// ── Zone Proximity Tab ────────────────────────────────────────────────────────
+function ZoneProximityTab() {
+  const [data, setData]         = useState<{ old: any[]; new: any[]; removed: any[] }>({ old: [], new: [], removed: [] });
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [distMax, setDistMax]   = useState(10);
+  const [activeSheet, setActiveSheet] = useState<"old" | "new" | "removed">("new");
+  const [modal, setModal]       = useState<{ open: boolean; symbol: string; name: string; ltp: number } | null>(null);
 
-    useEffect(() => { fetchData(category); }, [category, fetchData]);
+  const run = async () => {
+    setLoading(true); setError(null);
+    try {
+      const json = await fetchZoneProximity(distMax);
+      if (json.success) setData({ old: json.old || [], new: json.new || [], removed: json.removed || [] });
+      else setError(json.error || "Failed");
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  };
 
-    const filtered = useMemo(() => {
-        let rows = results;
-        if (search.trim()) {
-            const q = search.trim().toLowerCase();
-            rows = rows.filter(s => s.symbol.toLowerCase().includes(q));
-        }
-        return rows;
-    }, [results, search]);
+  useEffect(() => { run(); }, []);
 
-    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-    const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const fmtPct = (v?: number | null) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+  const retColor = (v?: number | null) =>
+    v == null ? "text-gray-500" : v > 0 ? "text-emerald-400" : v < 0 ? "text-red-400" : "text-gray-400";
 
-    return (
-        <div className="min-h-screen bg-gray-950 text-white">
-            <div className="max-w-[1600px] mx-auto px-6 py-8 space-y-5">
-                
-                {/* Header & Stats */}
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Institutional Demand Scanner</h1>
-                        <p className="text-gray-400 text-sm mt-1">
-                            Smart Money Concepts (SMC) · Demand Zones · BOS & CHoCH
-                        </p>
-                    </div>
-                </div>
-                
-                {stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                            <div className="text-sm text-gray-400 mb-1">Total Active Zones</div>
-                            <div className="text-2xl font-bold text-white">{stats.total_active_zones}</div>
-                        </div>
-                        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
-                            <div className="text-sm text-green-400/80 mb-1">Inside Zone (0%)</div>
-                            <div className="text-2xl font-bold text-green-400">{stats.inside_zone}</div>
-                        </div>
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
-                            <div className="text-sm text-blue-400/80 mb-1">Near Zone (≤ 2%)</div>
-                            <div className="text-2xl font-bold text-blue-400">{stats.within_2_pct}</div>
-                        </div>
-                        <div className="bg-blue-900/10 border border-blue-900/30 rounded-xl p-4">
-                            <div className="text-sm text-blue-300/80 mb-1">Near Zone (≤ 5%)</div>
-                            <div className="text-2xl font-bold text-blue-300">{stats.within_5_pct}</div>
-                        </div>
-                        <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4">
-                            <div className="text-sm text-purple-400/80 mb-1">Average Distance</div>
-                            <div className="text-2xl font-bold text-purple-400">{stats.avg_distance}%</div>
-                        </div>
-                    </div>
-                )}
+  const SHEETS = [
+    { key: "new"     as const, label: "🆕 New",   color: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300", count: data.new.length },
+    { key: "old"     as const, label: "📘 Active", color: "bg-blue-500/10 border-blue-500/30 text-blue-300",     count: data.old.length },
+    { key: "removed" as const, label: "❌ Removed", color: "bg-red-500/10 border-red-500/30 text-red-300",       count: data.removed.length },
+  ];
 
-                {/* Filter Panel */}
-                <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-                    <div className="flex flex-wrap gap-2 mb-4">
-                        {CATEGORIES.map(cat => (
-                            <button
-                                key={cat}
-                                onClick={() => setCategory(cat)}
-                                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${category === cat ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                        <div className="relative flex-1 max-w-sm">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
-                            <input type="text" placeholder="Search symbol…"
-                                value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-                                className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                            />
-                        </div>
-                    </div>
-                </div>
+  const rows = data[activeSheet];
 
-                {/* Results Table */}
-                <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
-                        <div className="text-sm font-medium text-gray-300">
-                            {filtered.length > 0
-                                ? <>Showing <span className="text-white font-semibold">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}</span> of <span className="text-white font-semibold">{filtered.length.toLocaleString()}</span></>
-                                : "No results"}
-                        </div>
-                    </div>
-
-                    {error ? (
-                        <div className="m-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
-                            <strong>Error:</strong> {error}
-                        </div>
-                    ) : loading ? (
-                        <div className="flex flex-col items-center justify-center py-24 gap-3">
-                            <div className="w-10 h-10 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-                            <p className="text-gray-400 text-sm">Scanning Demand Zones…</p>
-                        </div>
-                    ) : filtered.length === 0 ? (
-                        <div className="flex flex-col items-center py-24 gap-2">
-                            <div className="text-4xl">🔍</div>
-                            <p className="text-gray-400">No stocks match your filters.</p>
-                        </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-gray-800/40 border-b border-gray-800 text-xs text-gray-400 uppercase tracking-wider">
-                                        <th className="px-4 py-3 text-left w-10">#</th>
-                                        <th className="px-4 py-3 text-left">Symbol</th>
-                                        <th className="px-4 py-3 text-right">LTP (₹)</th>
-                                        <th className="px-4 py-3 text-right">Distance %</th>
-                                        <th className="px-4 py-3 text-right">Zone High</th>
-                                        <th className="px-4 py-3 text-right">Zone Low</th>
-                                        <th className="px-4 py-3 text-right">Width %</th>
-                                        <th className="px-4 py-3 text-center">Event</th>
-                                        <th className="px-4 py-3 text-center">Age (Days)</th>
-                                        <th className="px-4 py-3 text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pageRows.map((s, idx) => {
-                                        const absIdx = (page - 1) * PAGE_SIZE + idx + 1;
-                                        return (
-                                            <tr key={s.symbol} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
-                                                <td className="px-4 py-2.5 text-gray-600 text-xs">{absIdx}</td>
-                                                <td className="px-4 py-2.5">
-                                                    <span className="font-bold text-blue-400 text-sm">{s.symbol}</span>
-                                                </td>
-                                                <td className="px-4 py-2.5 text-right font-semibold text-white">{fmtPrice(s.ltp)}</td>
-                                                <td className={`px-4 py-2.5 text-right font-semibold ${s.distance_pct === 0 ? "text-green-400" : s.distance_pct <= 2 ? "text-blue-400" : "text-gray-400"}`}>
-                                                    {s.distance_pct.toFixed(2)}%
-                                                </td>
-                                                <td className="px-4 py-2.5 text-right text-gray-300">{fmtPrice(s.zone_high)}</td>
-                                                <td className="px-4 py-2.5 text-right text-gray-300">{fmtPrice(s.zone_low)}</td>
-                                                <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{s.zone_width_pct.toFixed(2)}%</td>
-                                                <td className="px-4 py-2.5 text-center">
-                                                    <span className={`text-xs px-2 py-0.5 rounded ${s.event === "CHoCH" ? "bg-orange-500/20 text-orange-400 border border-orange-500/30" : "bg-purple-500/20 text-purple-400 border border-purple-500/30"}`}>
-                                                        {s.event}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-2.5 text-center text-gray-400 text-xs">{s.zone_age_days}</td>
-                                                <td className="px-4 py-2.5 text-center">
-                                                    <button 
-                                                        onClick={(e) => handleAddClick(s, e)}
-                                                        className="inline-flex items-center gap-1 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded text-xs transition-colors"
-                                                    >
-                                                        <PlusIcon className="w-3 h-3" />
-                                                        Watchlist
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                    
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between px-5 py-4 border-t border-gray-800">
-                            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                                className="px-4 py-1.5 text-sm rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                                ← Prev
-                            </button>
-                            <span className="text-gray-400 text-xs">Page {page} of {totalPages}</span>
-                            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                                className="px-4 py-1.5 text-sm rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                                Next →
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {selectedStock && (
-                <AddToWatchlistModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    symbol={selectedStock?.symbol}
-                    companyName={selectedStock?.company_name}
-                    currentPrice={selectedStock?.price}
-                    sourceModule="SMC Scanner"
-                />
-            )}
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h3 className="text-base font-semibold text-white">Zone Proximity Scanner</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Stocks within ±{distMax}% of their active SMC demand zone</p>
         </div>
-    );
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <span>Distance ≤</span>
+            <input
+              type="number" value={distMax}
+              onChange={(e) => setDistMax(Number(e.target.value))}
+              className="w-16 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1 text-white text-xs"
+            />
+            <span>%</span>
+          </div>
+          <button onClick={run} disabled={loading}
+            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors disabled:opacity-50">
+            {loading ? "Loading…" : "Refresh"}
+          </button>
+        </div>
+      </div>
+
+      {/* Sheet tabs */}
+      <div className="flex gap-2">
+        {SHEETS.map(({ key, label, color, count }) => (
+          <button key={key} onClick={() => setActiveSheet(key)}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-all ${activeSheet === key ? color : "bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500"}`}>
+            {label} <span className="ml-1 opacity-70">({count})</span>
+          </button>
+        ))}
+      </div>
+
+      {error ? (
+        <div className="text-red-400 p-4 bg-red-400/10 rounded-lg text-sm">{error}</div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-800">
+          {loading ? (
+            <div className="py-16 flex items-center justify-center gap-3 text-gray-500">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Loading zone data…</span>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="py-16 text-center text-gray-600 text-sm">
+              No stocks in this category.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-800/40 border-b border-gray-800 text-xs text-gray-400 uppercase">
+                  <th className="px-4 py-3 text-left">#</th>
+                  <th className="px-4 py-3 text-left">Symbol</th>
+                  <th className="px-4 py-3 text-right">LTP (₹)</th>
+                  <th className="px-4 py-3 text-right">Dist to Zone</th>
+                  <th className="px-4 py-3 text-right">Zone Low</th>
+                  <th className="px-4 py-3 text-right">Zone High</th>
+                  <th className="px-4 py-3 text-left">Event</th>
+                  <th className="px-4 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((s: any, i: number) => (
+                  <tr key={s.symbol || i} className="border-b border-gray-800/50 hover:bg-gray-800/25 transition-colors">
+                    <td className="px-4 py-3 text-gray-600 text-xs">{i + 1}</td>
+                    <td className="px-4 py-3 font-bold text-blue-400">{s.symbol}</td>
+                    <td className="px-4 py-3 text-right font-mono text-white font-semibold">
+                      {s.ltp ? `₹${s.ltp.toFixed(2)}` : "—"}
+                    </td>
+                    <td className={`px-4 py-3 text-right text-xs font-semibold ${s.distance_pct === 0 ? "text-emerald-400" : "text-yellow-400"}`}>
+                      {s.distance_pct === 0 ? "Inside Zone" : `${s.distance_pct?.toFixed(2)}%`}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-300 font-mono text-xs">
+                      {s.zone_low ? `₹${s.zone_low.toFixed(2)}` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-300 font-mono text-xs">
+                      {s.zone_high ? `₹${s.zone_high.toFixed(2)}` : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {s.event ? (
+                        <span className={`px-2 py-0.5 rounded text-[10px] border font-semibold ${
+                          s.event === "BOS"
+                            ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                            : "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                        }`}>{s.event}</span>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setModal({ open: true, symbol: s.symbol, name: s.symbol, ltp: s.ltp || 0 })}
+                        className="text-xs bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/40 px-3 py-1.5 rounded-lg transition-all"
+                      >
+                        + Watch
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {modal && (
+        <AddToWatchlistModal
+          isOpen={modal.open}
+          onClose={() => setModal(null)}
+          symbol={modal.symbol}
+          companyName={modal.name}
+          sourceModule="SMC Scanner"
+          currentPrice={modal.ltp}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Main SMC Page ─────────────────────────────────────────────────────────────
+export default function SMCPage() {
+  const [stocks, setStocks]     = useState<any[]>([]);
+  const [stats, setStats]       = useState<any>({});
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const [category, setCategory] = useState("All");
+  const [minScore, setMinScore] = useState("");
+  const [view, setView]         = useState<"scanner" | "zones">("scanner");
+
+  const run = async () => {
+    setLoading(true); setError(null);
+    try {
+      const params: Record<string, any> = { limit: 200 };
+      if (category !== "All") params.category = category;
+      if (minScore !== "")    params.min_score = minScore;
+      const [json, statsJson] = await Promise.all([fetchSMC(params), fetchStats().catch(() => ({ success: false, data: {} }))]);
+      if (json.success) setStocks(json.data || []);
+      else setError(json.error || "Failed");
+      if (statsJson.success) setStats(statsJson.data || {});
+    } catch (e: any) { setError(e.message || "Network error"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { run(); }, []);
+
+  const tabCls = (active: boolean) =>
+    `px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+      active ? "bg-blue-600/20 text-blue-300 border-blue-500/40" : "bg-gray-800 text-gray-400 border-gray-700 hover:border-gray-500"
+    }`;
+
+  const STAT_CARDS = [
+    { label: "Active Zones",     value: stats.total_active_zones, color: "text-white" },
+    { label: "Inside Zone",      value: stats.inside_zone,        color: "text-emerald-400" },
+    { label: "Within 2%",        value: stats.within_2_pct,       color: "text-blue-400" },
+    { label: "Within 5%",        value: stats.within_5_pct,       color: "text-purple-400" },
+    { label: "BOS Events",       value: stats.bos_count,          color: "text-yellow-400" },
+    { label: "CHoCH Events",     value: stats.choch_count,        color: "text-orange-400" },
+    { label: "High Score (≥70)", value: stats.high_score_count,   color: "text-emerald-300" },
+    { label: "Avg SMC Score",    value: stats.avg_smc_score,      color: "text-blue-300" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">SMC Scanner</h1>
+          <p className="text-gray-500 text-sm mt-0.5">
+            Smart Money Concepts — BOS/CHoCH, Demand Zones, Order Blocks, Premium/Discount
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setView("scanner")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${view === "scanner" ? "bg-blue-600/20 text-blue-300 border-blue-500/40" : "bg-gray-800 text-gray-400 border-gray-700"}`}>
+            Zone Scores
+          </button>
+          <button onClick={() => setView("zones")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${view === "zones" ? "bg-emerald-600/20 text-emerald-300 border-emerald-500/40" : "bg-gray-800 text-gray-400 border-gray-700"}`}>
+            Zone Proximity
+          </button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {STAT_CARDS.map(({ label, value, color }) => (
+          <div key={label} className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center">
+            <div className={`text-xl font-bold ${color}`}>{value ?? "—"}</div>
+            <div className="text-gray-500 text-[10px] mt-0.5 leading-tight">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {view === "zones" ? (
+        <ZoneProximityTab />
+      ) : (
+        <>
+          {/* Category tabs */}
+          <div className="flex flex-wrap gap-2">
+            {CATEGORIES.map((c) => (
+              <button key={c} onClick={() => setCategory(c)} className={tabCls(category === c)}>{c}</button>
+            ))}
+          </div>
+
+          {/* Score filter */}
+          <div className="flex items-center gap-3">
+            <label className="text-xs text-gray-500 font-medium uppercase tracking-wide whitespace-nowrap">Min SMC Score</label>
+            <input type="number" placeholder="0–100" value={minScore}
+              onChange={(e) => setMinScore(e.target.value)}
+              className="w-28 bg-gray-800 text-white rounded-lg px-3 py-1.5 text-sm border border-gray-700 focus:outline-none focus:border-blue-500"
+            />
+            <button onClick={run} disabled={loading}
+              className="px-4 py-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 text-white text-sm transition-colors disabled:opacity-50">
+              Apply
+            </button>
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-blue-500/20 text-blue-300 border border-blue-500/30">BOS</span>
+              Break of Structure
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30">CHoCH</span>
+              Change of Character
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Discount</span>
+              Below equilibrium
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded text-[9px] bg-red-500/20 text-red-300 border border-red-500/30">Premium</span>
+              Above equilibrium
+            </span>
+          </div>
+
+          {/* Results */}
+          {error ? (
+            <div className="text-red-400 p-4 bg-red-400/10 rounded-lg text-sm">{error}</div>
+          ) : (
+            <div>
+              <div className="text-sm text-gray-400 mb-3">{loading ? "Loading…" : `${stocks.length} zones found`}</div>
+              <ScannerTable data={stocks} isLoading={loading} sourceModule="SMC Scanner" mode="smc" />
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
