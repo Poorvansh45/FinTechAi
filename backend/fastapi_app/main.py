@@ -1,22 +1,23 @@
 """
-FinAI Edge — FastAPI Application Entry Point
-==============================================
-Analytics, AI, and portfolio intelligence layer.
+FinAI Edge — FastAPI Application Entry Point (v2)
+====================================================
+Port 8000. Handles: portfolio analytics, AI, market data,
+scanner pipelines, SMC, watchlists.
 
-Runs alongside Express (port 8080) on port 8000.
-Express handles: auth, JWT, sessions, Finnhub market proxy.
-FastAPI handles: portfolio analytics, AI generation, financial intelligence.
+Express (port 8080) handles: auth, JWT, sessions.
 """
 
+import asyncio
 import time
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-import logging
+
 from config import get_settings
 
-# ── Logging ─────────────────────────────────────────────────────────
 settings = get_settings()
 
 logging.basicConfig(
@@ -26,204 +27,188 @@ logging.basicConfig(
 log = logging.getLogger("finai_edge")
 
 
-# ── Lifespan (startup / shutdown) ───────────────────────────────────
+# ── Lifespan ──────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: startup and shutdown events."""
-    log.info("Starting FinAI Edge FastAPI...")
+    log.info("Starting FinAI Edge FastAPI v2…")
     log.info(f"  Environment: {settings.environment}")
-    log.info(f"  Groww API:   {'✓ configured' if settings.groww_available else '✗ not set (using yfinance)'}")
-    log.info(f"  Gemini AI:   {'✓ configured' if settings.gemini_available else '✗ not set (rule-based fallback)'}")
-    log.info(f"  Finnhub:     {'✓ configured' if settings.finnhub_available else '✗ not set'}")
-    log.info(f"  MongoDB:     {settings.mongodb_uri[:40]}...")
+    log.info(f"  Groww API:   {'✓' if settings.groww_available else '✗ (using yfinance)'}")
+    log.info(f"  Gemini AI:   {'✓' if settings.gemini_available else '✗ (rule-based fallback)'}")
+    log.info(f"  Finnhub:     {'✓' if settings.finnhub_available else '✗'}")
 
-    # Initialize MongoDB connection
+    # ── MongoDB ───────────────────────────────────────────────────────
     try:
         import certifi
         from motor.motor_asyncio import AsyncIOMotorClient
+
         app.state.mongo_client = AsyncIOMotorClient(
             settings.mongodb_uri,
             serverSelectionTimeoutMS=5000,
-            tlsCAFile=certifi.where()
+            tlsCAFile=certifi.where(),
         )
-        # Ping to verify connection
-        await app.state.mongo_client.admin.command('ping')
+        await app.state.mongo_client.admin.command("ping")
         app.state.db = app.state.mongo_client.get_default_database("finai_edge")
         app.state.mongo_connected = True
-        log.info("  MongoDB:     connected [OK]")
-    except Exception as mongo_err:
-        log.warning(f"  MongoDB:     connection failed - {mongo_err}")
-        log.warning("  MongoDB:     portfolio save/load features will be disabled")
+        log.info("  MongoDB:     ✓ connected")
+
+        # ── Create indexes ────────────────────────────────────────────
+        try:
+            from scripts.setup_indexes import create_indexes
+            await create_indexes(app.state.db)
+            log.info("  Indexes:     ✓ created/verified")
+        except Exception as e:
+            log.warning(f"  Indexes:     ✗ {e}")
+
+    except Exception as e:
+        log.warning(f"  MongoDB:     ✗ {e}")
         app.state.mongo_client = None
         app.state.db = None
         app.state.mongo_connected = False
 
-    # Initialize Market Data Service
+    # ── Market Service ────────────────────────────────────────────────
     from services.market_service import get_market_service
     app.state.market_service = get_market_service()
-    log.info("  Market Data: service initialized ✓")
+    log.info("  Market:      ✓ service initialized")
 
-    # Warm universe cache on startup (no-op if already cached today)
+    # ── Universe cache ────────────────────────────────────────────────
     if app.state.mongo_connected:
         try:
-            from services.universe_cache import get_universe_cached, is_universe_fresh
-            fresh = await is_universe_fresh(app.state.db)
-            if fresh:
-                log.info("  Universe:    cache already fresh for today ✓")
+            from services.universe_cache import is_universe_fresh, get_universe_cached
+            if await is_universe_fresh(app.state.db):
+                log.info("  Universe:    ✓ cache fresh")
             else:
-                log.info("  Universe:    warming cache from CSV…")
-                stocks = await get_universe_cached(app.state.db)
-                log.info(f"  Universe:    {len(stocks)} stocks cached ✓")
+                symbols = await get_universe_cached(app.state.db)
+                log.info(f"  Universe:    ✓ {len(symbols)} symbols cached")
         except Exception as e:
-            log.warning(f"  Universe:    cache warm-up skipped — {e}")
+            log.warning(f"  Universe:    ✗ {e}")
 
-        # Start daily 6 PM IST refresh scheduler
+        # ── Scheduler ─────────────────────────────────────────────────
         try:
-            from schedulers.daily_refresh import start_daily_scheduler
-            asyncio.create_task(start_daily_scheduler(app.state.db))
-            log.info("  Scheduler:   daily refresh at 6:00 PM IST ✓")
+            from schedulers.daily_refresh import setup_scheduler, maybe_run_on_startup
+            setup_scheduler(app.state)
+            asyncio.create_task(maybe_run_on_startup(app.state))
+            log.info("  Scheduler:   ✓ daily scan at 15:45 IST")
         except Exception as e:
-            log.warning(f"  Scheduler:   failed to start — {e}")
+            log.warning(f"  Scheduler:   ✗ {e}")
 
-    log.info("  ─────────────────────────────────────────")
-    log.info("  FinAI Edge FastAPI ready! 🚀")
-    log.info(f"  Docs: http://localhost:{settings.fastapi_port}/docs")
-    log.info("  ─────────────────────────────────────────")
+    log.info("  FinAI Edge ready 🚀  http://localhost:8000/docs")
 
     yield
 
-    # Shutdown
     if app.state.mongo_client:
         app.state.mongo_client.close()
-    log.info("FastAPI shutdown complete.")
+    log.info("FastAPI shutdown.")
 
 
-
-# ── App Factory ─────────────────────────────────────────────────────
+# ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="FinAI Edge — Portfolio Intelligence API",
     description=(
-        "AI-powered portfolio analytics, optimization, and recommendation engine.\n\n"
-        "**Endpoints:**\n"
-        "- `/api/v2/portfolio` — Holdings analysis, MPT optimization, health check\n"
-        "- `/api/v2/analytics` — Risk, sector, diversification analysis\n"
-        "- `/api/v2/market` — Quotes, search, candles (Groww→yfinance→Finnhub)\n"
-        "- `/api/v2/ai` — AI portfolio generation\n"
+        "AI-powered portfolio analytics, scanner pipelines, SMC, FVG, Momentum, Watchlists.\n\n"
+        "- `/api/v2/portfolio`  — Holdings analysis, MPT, health\n"
+        "- `/api/v2/analytics`  — Risk, sector, diversification\n"
+        "- `/api/v2/market`     — Quotes, candles, search\n"
+        "- `/api/v2/ai`         — AI portfolio generation\n"
+        "- `/api/scanner`       — Technical, Volume, FVG, Momentum scanners\n"
+        "- `/api/v2/scanner`    — SMC scanner, zone proximity, scan control\n"
+        "- `/api/v2/watchlists` — Smart watchlists with full analytics\n"
     ),
     version="2.0.0",
     lifespan=lifespan,
 )
 
-# ── CORS ────────────────────────────────────────────────────────────
-allowed_origins = [
+# ── CORS ──────────────────────────────────────────────────────────────────────
+allowed_origins = list(filter(None, [
     "http://localhost:9002",
     "http://localhost:3000",
     "http://localhost:3001",
-    "http://172.20.10.4:9002",
     settings.frontend_url,
-]
+]))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o for o in allowed_origins if o],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ── Request Timing Middleware ───────────────────────────────────────
+# ── Timing middleware ─────────────────────────────────────────────────────────
 @app.middleware("http")
-async def add_timing_header(request: Request, call_next):
-    """Add X-Process-Time header and log slow requests."""
-    start = time.time()
-    response = await call_next(request)
-    duration = time.time() - start
-    response.headers["X-Process-Time"] = f"{duration:.3f}s"
-
-    # Log slow requests (>2s)
-    if duration > 2.0:
-        log.warning(
-            f"Slow request: {request.method} {request.url.path} → {duration:.2f}s"
-        )
-
-    return response
+async def add_timing(request: Request, call_next):
+    t    = time.time()
+    resp = await call_next(request)
+    dur  = time.time() - t
+    resp.headers["X-Process-Time"] = f"{dur:.3f}s"
+    if dur > 2.0:
+        log.warning(f"Slow: {request.method} {request.url.path} → {dur:.2f}s")
+    return resp
 
 
-# ── Global Exception Handler ───────────────────────────────────────
+# ── Global error handler ──────────────────────────────────────────────────────
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Catch unhandled exceptions and return structured error."""
-    log.error(f"Unhandled error on {request.method} {request.url.path}: {exc}", exc_info=True)
+async def global_exc(request: Request, exc: Exception):
+    log.error(f"Unhandled error: {request.method} {request.url.path}: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={
-            "error": "Internal server error",
-            "detail": str(exc) if not settings.is_production else "An unexpected error occurred.",
-        },
+        content={"error": "Internal server error", "detail": str(exc)},
     )
 
 
-# ── Health Check ────────────────────────────────────────────────────
+# ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/health", tags=["System"])
-async def health_check():
-    """Health check endpoint."""
+async def health():
     return {
         "status": "healthy",
         "service": "finai-edge-fastapi",
         "version": "2.0.0",
         "providers": {
-            "groww": settings.groww_available,
-            "gemini": settings.gemini_available,
+            "groww":   settings.groww_available,
+            "gemini":  settings.gemini_available,
             "finnhub": settings.finnhub_available,
         },
     }
 
 
-# ── System Status Endpoint ──────────────────────────────────────────
 @app.get("/api/v2/status", tags=["System"])
 async def system_status(request: Request):
-    """Full system status: providers, cache, MongoDB, env."""
     from services.market_service import get_market_service
     svc = get_market_service()
     return {
-        "status": "healthy",
-        "service": "finai-edge-fastapi",
-        "version": "2.0.0",
+        "status":      "healthy",
+        "version":     "2.0.0",
         "environment": settings.environment,
-        "mongodb": {
-            "connected": getattr(request.app.state, "mongo_connected", False),
-            "uri_prefix": settings.mongodb_uri[:30] + "...",
-        },
+        "mongodb":     {"connected": getattr(request.app.state, "mongo_connected", False)},
         "api_keys": {
-            "groww": settings.groww_available,
-            "gemini": settings.gemini_available,
+            "groww":   settings.groww_available,
+            "gemini":  settings.gemini_available,
             "finnhub": settings.finnhub_available,
         },
         "providers": svc.get_provider_status(),
-        "cache": svc.get_cache_stats(),
+        "cache":     svc.get_cache_stats(),
     }
 
 
-# ── Register Routers ───────────────────────────────────────────────
-from api.portfolio import router as portfolio_router
-from api.analytics import router as analytics_router
-from api.market import router as market_router
-from api.ai import router as ai_router
-from api.screener import router as screener_router
+# ── Routers ───────────────────────────────────────────────────────────────────
+from api.portfolio  import router as portfolio_router
+from api.analytics  import router as analytics_router
+from api.market     import router as market_router
+from api.ai         import router as ai_router
+from api.screener   import router as screener_router, v2_router as screener_v2_router
 from api.watchlists import router as watchlists_router
-from api.smc import router as smc_router
+from api.smc        import router as smc_router
 
-app.include_router(portfolio_router, prefix="/api/v2/portfolio", tags=["Portfolio"])
-app.include_router(analytics_router, prefix="/api/v2/analytics", tags=["Analytics"])
-app.include_router(market_router, prefix="/api/v2/market", tags=["Market Data"])
-app.include_router(ai_router, prefix="/api/v2/ai", tags=["AI"])
-app.include_router(screener_router)
-app.include_router(watchlists_router)
-app.include_router(smc_router)
+app.include_router(portfolio_router,   prefix="/api/v2/portfolio")
+app.include_router(analytics_router,   prefix="/api/v2/analytics")
+app.include_router(market_router,      prefix="/api/v2/market")
+app.include_router(ai_router,          prefix="/api/v2/ai")
+app.include_router(screener_router)     # /api/scanner/*
+app.include_router(screener_v2_router)  # /api/v2/scanner/scan-status + /trigger-scan
+app.include_router(watchlists_router)   # /api/v2/watchlists
+app.include_router(smc_router)          # /api/v2/scanner/smc + /zone-proximity
 
 
-# ── Direct run ──────────────────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(

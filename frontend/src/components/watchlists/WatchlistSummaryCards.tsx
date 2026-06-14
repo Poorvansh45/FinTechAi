@@ -1,108 +1,91 @@
-import React from "react";
-import { ArrowTrendingUpIcon, ArrowTrendingDownIcon, ChartBarIcon, PresentationChartLineIcon } from '@heroicons/react/24/outline';
+"use client";
 
 interface Stats {
-  total_stocks: number;
-  avg_return_pct: number;
-  win_rate_pct: number;
-  best_performer: { symbol: string; return: number } | null;
-  worst_performer: { symbol: string; return: number } | null;
+  total_stocks?: number;
+  avg_return_pct?: number;
+  win_rate_pct?: number;
+  best_performer?: { symbol: string; return: number } | null;
+  worst_performer?: { symbol: string; return: number } | null;
   overall_volatility_pct?: number;
   overall_drawdown_pct?: number;
   overall_alpha_vs_nifty?: number;
 }
 
-export default function WatchlistSummaryCards({ stats }: { stats: Stats }) {
-  const isPos = (val: number) => val >= 0;
+interface Props { stats: Stats; }
+
+export default function WatchlistSummaryCards({ stats }: Props) {
+  const fmtPct = (v?: number | null) =>
+    v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+
+  const retColor = (v?: number | null) =>
+    v == null ? "text-gray-400"
+    : v > 0   ? "text-emerald-400"
+    : v < 0   ? "text-red-400"
+    : "text-gray-400";
+
+  const cards = [
+    {
+      label: "Avg Return",
+      value: fmtPct(stats.avg_return_pct),
+      color: retColor(stats.avg_return_pct),
+      sub: `${stats.total_stocks ?? 0} stocks`,
+    },
+    {
+      label: "Win Rate",
+      value: stats.win_rate_pct != null ? `${stats.win_rate_pct.toFixed(1)}%` : "—",
+      color: (stats.win_rate_pct ?? 0) >= 50 ? "text-emerald-400" : "text-red-400",
+      sub: "trades profitable",
+    },
+    {
+      label: "Alpha vs Nifty",
+      value: fmtPct(stats.overall_alpha_vs_nifty),
+      color: retColor(stats.overall_alpha_vs_nifty),
+      sub: "excess return",
+    },
+    {
+      label: "Best Pick",
+      value: stats.best_performer?.symbol ?? "—",
+      color: "text-emerald-400",
+      sub: stats.best_performer ? fmtPct(stats.best_performer.return) : "",
+    },
+    {
+      label: "Worst Pick",
+      value: stats.worst_performer?.symbol ?? "—",
+      color: "text-red-400",
+      sub: stats.worst_performer ? fmtPct(stats.worst_performer.return) : "",
+    },
+    {
+      label: "Volatility",
+      value: stats.overall_volatility_pct != null ? `${stats.overall_volatility_pct.toFixed(1)}%` : "—",
+      color: "text-yellow-400",
+      sub: "annualised",
+    },
+    {
+      label: "Drawdown",
+      value: fmtPct(stats.overall_drawdown_pct),
+      color: retColor(stats.overall_drawdown_pct),
+      sub: "from peak",
+    },
+    {
+      label: "Holdings",
+      value: String(stats.total_stocks ?? 0),
+      color: "text-blue-400",
+      sub: "active stocks",
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      {/* Avg Return */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3 text-slate-400 mb-2">
-          <ChartBarIcon className="w-5 h-5 text-indigo-400" />
-          <span className="text-sm font-medium">Avg Return</span>
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+      {cards.map(({ label, value, color, sub }) => (
+        <div
+          key={label}
+          className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center hover:border-gray-700 transition-colors"
+        >
+          <div className={`text-lg font-bold ${color}`}>{value}</div>
+          <div className="text-gray-500 text-[10px] mt-0.5 leading-tight">{label}</div>
+          {sub && <div className="text-gray-600 text-[9px] mt-0.5">{sub}</div>}
         </div>
-        <div className={`text-2xl font-bold ${isPos(stats.avg_return_pct) ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {stats.avg_return_pct > 0 ? '+' : ''}{stats.avg_return_pct.toFixed(2)}%
-        </div>
-      </div>
-
-      {/* Win Rate */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3 text-slate-400 mb-2">
-          <PresentationChartLineIcon className="w-5 h-5 text-blue-400" />
-          <span className="text-sm font-medium">Win Rate</span>
-        </div>
-        <div className="text-2xl font-bold text-white">
-          {stats.win_rate_pct.toFixed(0)}%
-        </div>
-        <div className="text-xs text-slate-500 mt-1">
-          {stats.total_stocks} Total Stocks
-        </div>
-      </div>
-
-      {/* Alpha vs Nifty */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3 text-slate-400 mb-2">
-          <ChartBarIcon className="w-5 h-5 text-amber-400" />
-          <span className="text-sm font-medium">Alpha (Nifty 50)</span>
-        </div>
-        <div className={`text-2xl font-bold ${isPos(stats.overall_alpha_vs_nifty || 0) ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {(stats.overall_alpha_vs_nifty || 0) > 0 ? '+' : ''}{(stats.overall_alpha_vs_nifty || 0).toFixed(2)}%
-        </div>
-      </div>
-
-      {/* Drawdown */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3 text-slate-400 mb-2">
-          <ArrowTrendingDownIcon className="w-5 h-5 text-purple-400" />
-          <span className="text-sm font-medium">Drawdown</span>
-        </div>
-        <div className="text-2xl font-bold text-rose-400">
-          {(stats.overall_drawdown_pct || 0).toFixed(2)}%
-        </div>
-      </div>
-
-      {/* Best Performer */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3 text-slate-400 mb-2">
-          <ArrowTrendingUpIcon className="w-5 h-5 text-emerald-400" />
-          <span className="text-sm font-medium">Best</span>
-        </div>
-        {stats.best_performer ? (
-          <>
-            <div className="text-xl font-bold text-emerald-400">
-              {stats.best_performer.symbol}
-            </div>
-            <div className="text-sm text-emerald-500/80 mt-0.5">
-              +{stats.best_performer.return.toFixed(2)}%
-            </div>
-          </>
-        ) : (
-          <div className="text-slate-600">—</div>
-        )}
-      </div>
-
-      {/* Worst Performer */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
-        <div className="flex items-center gap-3 text-slate-400 mb-2">
-          <ArrowTrendingDownIcon className="w-5 h-5 text-rose-400" />
-          <span className="text-sm font-medium">Worst</span>
-        </div>
-        {stats.worst_performer ? (
-          <>
-            <div className="text-xl font-bold text-rose-400">
-              {stats.worst_performer.symbol}
-            </div>
-            <div className="text-sm text-rose-500/80 mt-0.5">
-              {stats.worst_performer.return.toFixed(2)}%
-            </div>
-          </>
-        ) : (
-          <div className="text-slate-600">—</div>
-        )}
-      </div>
+      ))}
     </div>
   );
 }
