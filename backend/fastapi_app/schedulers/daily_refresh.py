@@ -43,6 +43,9 @@ def _safe(v) -> Optional[float]:
 
 # ── Core per-symbol computation ───────────────────────────────────────────────
 
+# Module-level reference set by run_daily_scan before processing
+_company_name_map: Dict[str, str] = {}
+
 def _compute_symbol_local(
     symbol: str,
     df: pd.DataFrame,
@@ -146,9 +149,20 @@ def _compute_symbol_local(
         surge_data = {}
         try:
             from scanners.volume import detect_volume_surges
-            surge_data = detect_volume_surges(df, symbol)
+            # company_name is injected via a closure variable from the caller
+            cn = _company_name_map.get(symbol, "") if _company_name_map else ""
+            surge_data = detect_volume_surges(df, symbol, company_name=cn)
         except Exception:
             pass
+
+        # ── Pure ICT FVG ──────────────────────────────────────────────
+        fvg_pure_data = {}
+        try:
+            from scanners.fvg import analyze_fvg_for_symbol
+            cn = _company_name_map.get(symbol, "") if _company_name_map else ""
+            fvg_pure_data = analyze_fvg_for_symbol(df, symbol, company_name=cn)
+        except Exception as fe_pure:
+            log.warning(f"[Scheduler] Pure FVG analysis failed for {symbol}: {fe_pure}")
 
         # ── SMC Analysis ──────────────────────────────────────────────
         smc_data = {}
@@ -162,6 +176,8 @@ def _compute_symbol_local(
 
         return {
             "symbol":      symbol,
+            "company_name": _company_name_map.get(symbol, "") if _company_name_map else "",
+            "fvg_pure_data": fvg_pure_data,
             "smc_data":    smc_data,
             "price":       round(ltp, 2),
             "ltp":         round(ltp, 2),
@@ -208,6 +224,7 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
     """
     screener_ops = []
     fvg_ops = []
+    fvg_pure_ops = []
     surge_ops = []
     momentum_ops = []
     smc_ops = []
@@ -215,6 +232,7 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
 
     screener_col = db.get_collection("screener_cache")
     fvg_col      = db.get_collection("fvg_cache")
+    fvg_pure_col = db.get_collection("fvg_scan_results")
     surge_col    = db.get_collection("volume_surge_cache")
     momentum_col = db.get_collection("momentum_cache")
     smc_col      = db.get_collection("smc_scanner_results")
@@ -257,16 +275,43 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
                     {"symbol": sym}, {"$set": fvg_doc}, upsert=True
                 ))
 
+            # ── fvg_scan_results ─────────────────────────────────
+            fvg_pure = result.get("fvg_pure_data")
+            if fvg_pure:
+                fvg_pure_ops.append(UpdateOne(
+                    {"symbol": sym}, {"$set": fvg_pure}, upsert=True
+                ))
+
             # ── volume_surge_cache ───────────────────────────────
-            if result.get("surge_stats") or result.get("surge_history"):
+            # Always write when surge_stats is a dict (even 0 surges)
+            if isinstance(result.get("surge_stats"), dict):
+                # Compute day_return_pct for latest day
+                day_ret = None
+                ltp_val = result.get("ltp", 0)
+                price_val = result.get("price", 0)
+                if ltp_val and price_val and price_val > 0:
+                    # Already have open price in indicators? Use volume_ratio approach
+                    pass  # day_return_pct comes from surge_data
+
+                # Get day_return from latest surge event if available
+                recent_events = result.get("recent_surge_events", [])
+                latest_day_return = recent_events[0].get("day_return") if recent_events else None
+
                 surge_doc = {
                     "symbol":               result["symbol"],
+                    "company_name":         result.get("company_name", ""),
                     "ltp":                  result["ltp"],
-                    "has_current_surge":    result.get("has_current_surge", False),
-                    "current_volume_ratio": result.get("current_volume_ratio"),
-                    "surge_history":        result.get("surge_history", []),
-                    "surge_stats":          result.get("surge_stats", {}),
-                    "updated_at":           result["updated_at"],
+                    "price":                result["ltp"],  # alias for frontend
+                    "volume":               result.get("volume"),
+                    "avg_volume_20d":        result.get("avg_volume_20d"),
+                    "volume_ratio":          result.get("current_volume_ratio") or result.get("volume_ratio"),
+                    "current_volume_ratio":  result.get("current_volume_ratio"),
+                    "day_return_pct":        latest_day_return,
+                    "has_current_surge":     result.get("has_current_surge", False),
+                    "surge_history":         result.get("surge_history", []),
+                    "surge_stats":           result.get("surge_stats", {}),
+                    "recent_surge_events":   recent_events,
+                    "updated_at":            result["updated_at"],
                 }
                 surge_ops.append(UpdateOne(
                     {"symbol": sym}, {"$set": surge_doc}, upsert=True
@@ -324,6 +369,7 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
     try:
         if screener_ops:  await screener_col.bulk_write(screener_ops, ordered=False)
         if fvg_ops:       await fvg_col.bulk_write(fvg_ops, ordered=False)
+        if fvg_pure_ops:  await fvg_pure_col.bulk_write(fvg_pure_ops, ordered=False)
         if surge_ops:     await surge_col.bulk_write(surge_ops, ordered=False)
         if momentum_ops:  await momentum_col.bulk_write(momentum_ops, ordered=False)
         if smc_ops:       await smc_col.bulk_write(smc_ops, ordered=False)
@@ -371,6 +417,23 @@ async def run_daily_scan(app_state, force: bool = False) -> None:
 
         log.info(f"[Scheduler] Loaded database with {len(symbols)} cached tickers")
 
+        # 3. Load company name mapping from stock list CSV
+        company_name_map: Dict[str, str] = {}
+        try:
+            paths = get_downloader_paths()
+            symbols_csv_path = paths["symbols_csv"]
+            if os.path.exists(symbols_csv_path):
+                stock_list_df = pd.read_csv(symbols_csv_path)
+                stock_list_df.columns = stock_list_df.columns.str.strip()
+                for _, row in stock_list_df.iterrows():
+                    sym_raw = str(row.get("trading_symbol", "")).strip()
+                    name = str(row.get("company_name", "")).strip()
+                    if sym_raw and name:
+                        company_name_map[normalize_symbol(sym_raw)] = name
+                log.info(f"[Scheduler] Loaded {len(company_name_map)} company names from stock list")
+        except Exception as e:
+            log.warning(f"[Scheduler] Could not load company names: {e}")
+
         # 4. Check if today's scan already ran
         last_meta = await meta_col.find_one({"_id": "daily_scan"})
         if last_meta and not force:
@@ -410,6 +473,8 @@ async def run_daily_scan(app_state, force: bool = False) -> None:
             log.warning(f"[Scheduler] Nifty baseline load from Stock_Data.csv failed: {e}")
 
         # 6. Compute metrics locally in-memory using cached DataFrames
+        global _company_name_map
+        _company_name_map = company_name_map  # make accessible to _compute_symbol_local
         processed = 0
         errors = 0
         

@@ -133,22 +133,52 @@ def detect_volume_surges(
         wins = sum(1 for v in vals if v > 0)
         return _safe(wins / len(vals) * 100)
 
+    # Positive surge pct: % of surges where the day return was positive
+    day_returns = [s["day_return_pct"] for s in surge_history if s.get("day_return_pct") is not None]
+    positive_surge_pct = _safe(sum(1 for r in day_returns if r > 0) / len(day_returns) * 100) if day_returns else None
+
+    # Max volume ratio ever seen
+    vol_ratios = [s["volume_ratio"] for s in surge_history if s.get("volume_ratio") is not None]
+    max_ratio_3yr = _safe(max(vol_ratios)) if vol_ratios else None
+
+    # Average return on surge day
+    avg_return_on_surge = _safe(sum(day_returns) / len(day_returns)) if day_returns else None
+
     surge_stats = {
-        "total_surges":     len(surge_history),
-        "avg_1d_return":    _avg("return_1d"),
-        "avg_2d_return":    _avg("return_2d"),
-        "avg_3d_return":    _avg("return_3d"),
-        "avg_5d_return":    _avg("return_5d"),
-        "avg_10d_return":   _avg("return_10d"),
-        "avg_20d_return":   _avg("return_20d"),
-        "win_rate_1d":      _win_rate("return_1d"),
-        "win_rate_2d":      _win_rate("return_2d"),
-        "win_rate_5d":      _win_rate("return_5d"),
-        "win_rate_10d":     _win_rate("return_10d"),
-        "win_rate_20d":     _win_rate("return_20d"),
-        "max_gain_ever":    _safe(max((s["max_gain_pct"] for s in surge_history if s["max_gain_pct"] is not None), default=0)),
-        "max_drawdown_ever": _safe(min((s["max_drawdown_pct"] for s in surge_history if s["max_drawdown_pct"] is not None), default=0)),
+        "total_surges":         len(surge_history),
+        "total_surge_days_3yr": len(surge_history),   # alias for frontend
+        "avg_1d_return":        _avg("return_1d"),
+        "avg_2d_return":        _avg("return_2d"),
+        "avg_3d_return":        _avg("return_3d"),
+        "avg_5d_return":        _avg("return_5d"),
+        "avg_10d_return":       _avg("return_10d"),
+        "avg_20d_return":       _avg("return_20d"),
+        "win_rate_1d":          _win_rate("return_1d"),
+        "win_rate_2d":          _win_rate("return_2d"),
+        "win_rate_5d":          _win_rate("return_5d"),
+        "win_rate_10d":         _win_rate("return_10d"),
+        "win_rate_20d":         _win_rate("return_20d"),
+        "positive_surge_pct":   positive_surge_pct,
+        "max_ratio_3yr":        max_ratio_3yr,
+        "avg_return_on_surge":  avg_return_on_surge,
+        "max_gain_ever":        _safe(max((s["max_gain_pct"] for s in surge_history if s["max_gain_pct"] is not None), default=0)),
+        "max_drawdown_ever":    _safe(min((s["max_drawdown_pct"] for s in surge_history if s["max_drawdown_pct"] is not None), default=0)),
     }
+
+    # Recent surge events (last 90 days only)
+    from datetime import datetime as _dt, timedelta as _td
+    cutoff_90d = (_dt.now() - _td(days=90)).strftime("%Y-%m-%d")
+    recent_surge_events = [
+        {
+            "date":         s["surge_date"],
+            "volume":       None,  # populated by scheduler from raw df
+            "volume_ratio": s["volume_ratio"],
+            "day_return":   s["day_return_pct"],
+            "close":        s["surge_price"],
+        }
+        for s in surge_history
+        if s.get("surge_date", "") >= cutoff_90d
+    ]
 
     return {
         "symbol":               symbol,
@@ -158,4 +188,5 @@ def detect_volume_surges(
         "current_volume_ratio": current_vol_ratio,
         "surge_history":        surge_history,
         "surge_stats":          surge_stats,
+        "recent_surge_events":  recent_surge_events,
     }

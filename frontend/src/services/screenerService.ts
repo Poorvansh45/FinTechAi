@@ -20,6 +20,20 @@ export const screenerService = {
         return scannerClient.get("/api/scanner/volume-surge", { params });
     },
 
+    async getVolumeSurgeSummary(params: Record<string, any> = {}) {
+        return scannerClient.get("/api/scanner/volume-surge-summary", { params });
+    },
+
+    async getVolumeSurgeDetail(symbol: string) {
+        return scannerClient.get("/api/scanner/volume-surge", {
+            params: { limit: 1, include_history: true },
+        }).then(resp => {
+            // Find the specific symbol from results
+            const data = resp.data?.data || [];
+            return data.find((s: any) => s.symbol === symbol) || null;
+        });
+    },
+
     async getFVG(params: Record<string, any> = {}) {
         return scannerClient.get("/api/scanner/fvg", { params });
     },

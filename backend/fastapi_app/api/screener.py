@@ -112,24 +112,65 @@ async def volume(request: Request, limit: int = Query(50)):
 @router.get("/volume-surge")
 async def volume_surge(
     request: Request,
-    volume_ratio_min:   float = Query(None),
-    price_min:          float = Query(300),
-    price_max:          float = Query(10000),
-    avg_1d_min:         float = Query(None),
-    win_rate_min:       float = Query(None),
-    surges_min:         int   = Query(None),
-    max_gain_min:       float = Query(None),
-    current_surge_only: bool  = Query(False),
-    limit:              int   = Query(100),
+    volume_ratio_min:         float = Query(None),
+    price_min:                float = Query(None),
+    price_max:                float = Query(None),
+    avg_1d_min:               float = Query(None),
+    win_rate_min:             float = Query(None),
+    surges_min:               int   = Query(None),
+    surges_3yr_min:           int   = Query(None),
+    max_gain_min:             float = Query(None),
+    day_return_min:           float = Query(None),
+    day_return_max:           float = Query(None),
+    positive_surge_pct_min:  float = Query(None),
+    current_surge_only:       bool  = Query(False),
+    include_history:          bool  = Query(True),
+    limit:                    int   = Query(2500),
 ):
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
+    # Merge surges_3yr_min into surges_min (frontend compat)
+    effective_surges_min = surges_min or surges_3yr_min
     filters = {
         "volume_ratio_min": volume_ratio_min, "price_min": price_min, "price_max": price_max,
         "avg_1d_min": avg_1d_min, "win_rate_min": win_rate_min,
-        "surges_min": surges_min, "max_gain_min": max_gain_min,
+        "surges_min": effective_surges_min, "max_gain_min": max_gain_min,
+        "day_return_min": day_return_min, "day_return_max": day_return_max,
+        "positive_surge_pct_min": positive_surge_pct_min,
         "current_surge_only": current_surge_only,
+        "include_history": include_history,
+    }
+    data = await get_scanner_service(db).get_volume_surges(filters, limit)
+    return {"success": True, "count": len(data), "data": data}
+
+
+@router.get("/volume-surge-summary")
+async def volume_surge_summary(
+    request: Request,
+    volume_ratio_min:         float = Query(None),
+    price_min:                float = Query(None),
+    price_max:                float = Query(None),
+    surges_min:               int   = Query(None),
+    surges_3yr_min:           int   = Query(None),
+    day_return_min:           float = Query(None),
+    day_return_max:           float = Query(None),
+    positive_surge_pct_min:  float = Query(None),
+    current_surge_only:       bool  = Query(False),
+    limit:                    int   = Query(2500),
+):
+    """Lightweight endpoint that excludes surge_history for fast page load."""
+    db = _db(request)
+    if db is None:
+        return {"success": False, "error": "Database not connected"}
+    effective_surges_min = surges_min or surges_3yr_min
+    filters = {
+        "volume_ratio_min": volume_ratio_min, "price_min": price_min, "price_max": price_max,
+        "surges_min": effective_surges_min,
+        "day_return_min": day_return_min, "day_return_max": day_return_max,
+        "positive_surge_pct_min": positive_surge_pct_min,
+        "current_surge_only": current_surge_only,
+        "include_history": False,  # key difference: no surge_history
     }
     data = await get_scanner_service(db).get_volume_surges(filters, limit)
     return {"success": True, "count": len(data), "data": data}
@@ -140,25 +181,36 @@ async def volume_surge(
 @router.get("/fvg")
 async def fvg(
     request: Request,
-    rsi_min:       float = Query(None),
-    rsi_max:       float = Query(None),
-    score_min:     int   = Query(None),
-    min_fvg_count: int   = Query(None),
-    price_min:     float = Query(None),
-    price_max:     float = Query(None),
-    has_fvg_only:  bool  = Query(True),
-    fvg_status:    str   = Query(None),
-    fvg_strength:  str   = Query(None),
-    limit:         int   = Query(2500),
+    distance_fvg_min:  float = Query(None),
+    distance_fvg_max:  float = Query(None),
+    price_min:         float = Query(None),
+    price_max:         float = Query(None),
+    distance_high_min: float = Query(None),
+    distance_high_max: float = Query(None),
+    distance_low_min:  float = Query(None),
+    distance_low_max:  float = Query(None),
+    near_52w_high:     bool  = Query(None),
+    near_52w_low:      bool  = Query(None),
+    symbol:            str   = Query(None),
+    has_fvg_only:      bool  = Query(True),
+    limit:             int   = Query(2500),
 ):
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
     filters = {
-        "rsi_min": rsi_min, "rsi_max": rsi_max,
-        "score_min": score_min, "min_fvg_count": min_fvg_count,
-        "price_min": price_min, "price_max": price_max,
-        "has_fvg_only": has_fvg_only, "fvg_status": fvg_status, "fvg_strength": fvg_strength,
+        "distance_fvg_min": distance_fvg_min,
+        "distance_fvg_max": distance_fvg_max,
+        "price_min": price_min,
+        "price_max": price_max,
+        "distance_high_min": distance_high_min,
+        "distance_high_max": distance_high_max,
+        "distance_low_min": distance_low_min,
+        "distance_low_max": distance_low_max,
+        "near_52w_high": near_52w_high,
+        "near_52w_low": near_52w_low,
+        "symbol": symbol,
+        "has_fvg_only": has_fvg_only,
     }
     data = await get_scanner_service(db).get_fvg_stocks(filters, limit)
     return {"success": True, "count": len(data), "data": data}

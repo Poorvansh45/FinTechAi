@@ -72,29 +72,38 @@ class ScannerService:
     async def get_volume_surges(
         self,
         filters: Dict[str, Any],
-        limit: int = 100,
+        limit: int = 2500,
     ) -> List[Dict[str, Any]]:
         """
         Full volume surge scanner with per-surge history.
+        Supports projection to exclude surge_history for fast page loads.
         """
         query: dict = {}
         r = self._range
 
-        r(query, "current_volume_ratio",             filters.get("volume_ratio_min"))
-        r(query, "surge_stats.avg_1d_return",        filters.get("avg_1d_min"))
-        r(query, "surge_stats.win_rate_1d",          filters.get("win_rate_min"))
-        r(query, "surge_stats.total_surges",         filters.get("surges_min"))
-        r(query, "surge_stats.max_gain_ever",        filters.get("max_gain_min"))
+        r(query, "volume_ratio",                      filters.get("volume_ratio_min"))
+        r(query, "surge_stats.avg_1d_return",         filters.get("avg_1d_min"))
+        r(query, "surge_stats.win_rate_1d",           filters.get("win_rate_min"))
+        r(query, "surge_stats.total_surges",          filters.get("surges_min"))
+        r(query, "surge_stats.max_gain_ever",         filters.get("max_gain_min"))
+        r(query, "day_return_pct",                    filters.get("day_return_min"), filters.get("day_return_max"))
+        r(query, "surge_stats.positive_surge_pct",    filters.get("positive_surge_pct_min"))
 
         if filters.get("current_surge_only"):
             query["has_current_surge"] = True
 
         r(query, "ltp", filters.get("price_min"), filters.get("price_max"))
 
-        cursor = self.surge_cache.find(query, {"_id": 0}).sort("current_volume_ratio", -1).limit(limit)
+        # Projection: exclude heavy fields when not needed
+        projection = {"_id": 0}
+        include_history = filters.get("include_history", True)
+        if not include_history:
+            projection["surge_history"] = 0
+
+        cursor = self.surge_cache.find(query, projection).sort("volume_ratio", -1).limit(limit)
         return await cursor.to_list(length=limit)
 
-    # ── FVG Scanner ───────────────────────────────────────────────────────
+    # ── FVG Scanner (ICT Rebuild) ────────────────────────────────────────
 
     async def get_fvg_stocks(
         self,
@@ -102,38 +111,37 @@ class ScannerService:
         limit: int = 2500,
     ) -> List[Dict[str, Any]]:
         """
-        ICT-style FVG scanner with scoring and status filters.
+        Trader-focused Active FVG scanner querying fvg_scan_results cache.
         """
-        col   = self.fvg_cache
-        count = await col.count_documents({})
-
-        if count == 0:
-            # Graceful fallback while cache is building
-            cursor = self.screener.find({"fvg.has_fvg_bullish": True}, {"_id": 0}).limit(limit)
-            return await cursor.to_list(length=limit)
-
+        col = self.db.get_collection("fvg_scan_results")
         query: dict = {}
         r = self._range
 
+        # Filter ranges
+        r(query, "ltp",                      filters.get("price_min"),        filters.get("price_max"))
+        r(query, "nearest_fvg_dist_pct",     filters.get("distance_fvg_min"), filters.get("distance_fvg_max"))
+        
+        # 52W Distance ranges
+        r(query, "distance_high_pct",        filters.get("distance_high_min"), filters.get("distance_high_max"))
+        r(query, "distance_low_pct",         filters.get("distance_low_min"),  filters.get("distance_low_max"))
+
+        # Boolean switches for 52W proximity
+        if filters.get("near_52w_high"):
+            query["distance_high_pct"] = {"$gte": -5.0}
+            
+        if filters.get("near_52w_low"):
+            query["distance_low_pct"] = {"$lte": 5.0}
+
+        # Single symbol query support (for details sidebar panel)
+        symbol = filters.get("symbol")
+        if symbol:
+            query["symbol"] = symbol.strip().upper()
+
+        # Require at least one active FVG unless explicitly disabled
         if filters.get("has_fvg_only", True):
-            query["has_fvg_bullish"] = True
+            query["nearest_fvg_dist_pct"] = {"$ne": None}
 
-        r(query, "indicators.rsi_14",    filters.get("rsi_min"),   filters.get("rsi_max"))
-        r(query, "best_fvg_score",       filters.get("score_min"))
-        r(query, "ltp",                  filters.get("price_min"), filters.get("price_max"))
-        r(query, "total_fvgs_bullish",   filters.get("min_fvg_count"))
-
-        # Status filter
-        status = filters.get("fvg_status")
-        if status and status != "All":
-            query["top_bullish_fvgs.status"] = status
-
-        # Strength filter
-        strength = filters.get("fvg_strength")
-        if strength and strength != "All":
-            query["top_bullish_fvgs.strength"] = strength
-
-        cursor = col.find(query, {"_id": 0}).sort("best_fvg_score", -1).limit(limit)
+        cursor = col.find(query, {"_id": 0}).sort([("nearest_fvg_dist_pct", 1)]).limit(limit)
         return await cursor.to_list(length=limit)
 
     # ── Momentum Scanner ──────────────────────────────────────────────────

@@ -1,295 +1,160 @@
 """
-FinAI Edge — FVG Scanner
-=========================
-ICT-style Fair Value Gap detection with full scoring system.
-
-Bullish FVG Requirements (strict ICT):
-  - Candle 1 High < Candle 3 Low  (the gap between C1 high and C3 low)
-  - Gap size >= ATR threshold
-  - Not fully mitigated (price hasn't closed into the full gap)
-
-Produces FVG Score (0–100) per zone.
+FinAI Edge — FVG Scanner (v2 Rebuild)
+=======================================
+ICT-style Fair Value Gap detection and 52-week High/Low analysis.
+Calculated entirely from local Stock_Data.csv.
 """
 
 import math
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
+MIN_FVG_GAP_PCT = 0.01  # 1% minimum gap size threshold
 
 def _safe(v) -> Optional[float]:
     try:
         f = float(v)
-        return None if (math.isnan(f) or math.isinf(f)) else round(f, 4)
+        return None if (math.isnan(f) or math.isinf(f)) else round(f, 2)
     except Exception:
         return None
 
-
-def _compute_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    high = df["High"]
-    low  = df["Low"]
-    prev_close = df["Close"].shift(1)
-    tr = pd.concat([
-        high - low,
-        (high - prev_close).abs(),
-        (low  - prev_close).abs(),
-    ], axis=1).max(axis=1)
-    return tr.rolling(period, min_periods=1).mean()
-
-
-def detect_bullish_fvgs(
-    df: pd.DataFrame,
-    min_gap_atr_mult: float = 0.3,
-) -> List[Dict[str, Any]]:
+def detect_bullish_fvgs(df: pd.DataFrame, min_gap_pct: float = MIN_FVG_GAP_PCT) -> List[Dict[str, Any]]:
     """
-    True ICT Bullish FVG:
-      - C1.High < C3.Low
-      - Gap = [C1.High, C3.Low]
-      - Gap size >= min_gap_atr_mult * ATR(14)
-
-    Returns list of gap dicts.
+    Detect all bullish FVGs for a single stock's full history, ICT-style:
+    - Candle 2 Low > Candle 1 High
+    - Candle 3 Low > Candle 1 High
+    Gap zone: [Candle1.High, min(Candle2.Low, Candle3.Low)]
+    Minimum Gap Size: (High - Low) >= Candle3.Close * min_gap_pct
+    Returns a list of dicts with levels and dates, sorted oldest to newest.
     """
     df = df.sort_values("Date").reset_index(drop=True)
-    atr = _compute_atr(df)
-    fvgs = []
-
+    results = []
     N = len(df)
     if N < 3:
-        return fvgs
+        return results
+
+    current_time = datetime.now()
 
     for i in range(N - 2):
         c1 = df.iloc[i]
         c2 = df.iloc[i + 1]
         c3 = df.iloc[i + 2]
 
-        # Core ICT rule: C1 High < C3 Low
-        if c3["Low"] <= c1["High"]:
-            continue
+        # ICT-style bullish FVG: both candle 2 low and candle 3 low above candle 1 high
+        if (c2["Low"] > c1["High"]) and (c3["Low"] > c1["High"]):
+            gap_low = float(c1["High"])
+            gap_high = float(min(c2["Low"], c3["Low"]))
 
-        gap_low  = float(c1["High"])
-        gap_high = float(c3["Low"])
-        gap_size = gap_high - gap_low
+            # Enforce a minimum gap size in percentage of Candle 3 close
+            ref_price = float(c3["Close"])
+            min_gap = ref_price * min_gap_pct
 
-        # ATR threshold
-        bar_atr = float(atr.iloc[i + 2])
-        if bar_atr > 0 and gap_size < (min_gap_atr_mult * bar_atr):
-            continue
+            if (gap_high - gap_low) >= min_gap:
+                c3_date = pd.Timestamp(c3["Date"])
+                age_days = (current_time - c3_date.to_pydatetime()).days
+                
+                # Check subsequent candles for mitigation (filling the FVG completely)
+                future_lows = df.iloc[i + 3:]["Low"]
+                is_active = True
+                if not future_lows.empty:
+                    # FVG is active (not completely filled) if subsequent Low > gap_low
+                    is_active = float(future_lows.min()) > gap_low
+                
+                results.append({
+                    "formed_idx": i + 2,
+                    "low": round(gap_low, 2),
+                    "high": round(gap_high, 2),
+                    "gap_pct": round((gap_high - gap_low) / ref_price * 100, 2),
+                    "start_date": c1["Date"].strftime("%Y-%m-%d") if hasattr(c1["Date"], "strftime") else str(c1["Date"]),
+                    "end_date": c3["Date"].strftime("%Y-%m-%d") if hasattr(c3["Date"], "strftime") else str(c3["Date"]),
+                    "age_days": max(0, age_days),
+                    "is_active": is_active,
+                    "is_duplicate": False,
+                })
 
-        # Displacement: C2 should be a strong bullish move
-        c2_body = abs(float(c2["Close"]) - float(c2["Open"]))
-        c2_range = float(c2["High"]) - float(c2["Low"])
-        displacement = (c2_body / c2_range) if c2_range > 0 else 0
+    # Flag duplicate overlapping chains
+    for idx in range(1, len(results)):
+        f1 = results[idx - 1]
+        f2 = results[idx]
+        overlap_low = max(f1["low"], f2["low"])
+        overlap_high = min(f1["high"], f2["high"])
+        if overlap_low < overlap_high:
+            f2["is_duplicate"] = True
 
-        future_df = df.iloc[i + 3:]
-        if not future_df.empty:
-            # Use Close (not Low) for deep failure — ICT considers a gap
-            # mitigated only when the close breaches, not just a wick.
-            min_close_after = float(future_df["Close"].min())
-            if min_close_after < gap_low:
-                # Fully breached by close — skip (deep failure)
-                continue
-            # Mitigation % based on how far Low has entered the gap
-            min_low_after = float(future_df["Low"].min())
-            mitigation_pct = max(0.0, (gap_high - min_low_after) / max(gap_size, 0.01) * 100)
-        else:
-            mitigation_pct = 0.0
+    return results
 
-        # Touch count (partial touches = low enters gap)
-        touch_count = 0
-        if not future_df.empty:
-            touches = future_df[(future_df["Low"] <= gap_high) & (future_df["Low"] >= gap_low)]
-            touch_count = len(touches)
-
-        # Age
-        try:
-            date_c3 = pd.Timestamp(c3["Date"])
-            age_days = (pd.Timestamp.now() - date_c3).days
-        except Exception:
-            age_days = 0
-
-        fvgs.append({
-            "formed_idx":       i + 2,
-            "gap_low":          round(gap_low, 2),
-            "gap_high":         round(gap_high, 2),
-            "gap_mid":          round((gap_low + gap_high) / 2, 2),
-            "gap_size":         round(gap_size, 2),
-            "gap_size_pct":     round(gap_size / max(float(c3["Close"]), 1) * 100, 3),
-            "displacement":     round(displacement, 3),
-            "atr_at_formation": round(bar_atr, 2),
-            "mitigation_pct":   round(mitigation_pct, 1),
-            "touch_count":      touch_count,
-            "age_days":         age_days,
-            "start_date":       c1["Date"],
-            "end_date":         c3["Date"],
-            "status":           _get_fvg_status(mitigation_pct, touch_count),
-        })
-
-    return fvgs
-
-
-def detect_bearish_fvgs(
-    df: pd.DataFrame,
-    min_gap_atr_mult: float = 0.3,
-) -> List[Dict[str, Any]]:
+def analyze_fvg_for_symbol(df: pd.DataFrame, symbol: str, company_name: str = "") -> Dict[str, Any]:
     """
-    Bearish FVG: C1.Low > C3.High
-    Gap = [C3.High, C1.Low]
+    Analyzes historical candles for a single symbol to extract FVG results:
+    - 52-week High/Low
+    - Pure ICT Bullish FVGs (all history)
+    - Distances from High/Low
+    - LTP/latest values
     """
     df = df.sort_values("Date").reset_index(drop=True)
-    atr = _compute_atr(df)
-    fvgs = []
-
     N = len(df)
-    if N < 3:
-        return fvgs
+    if N == 0:
+        return {}
 
-    for i in range(N - 2):
-        c1 = df.iloc[i]
-        c2 = df.iloc[i + 1]
-        c3 = df.iloc[i + 2]
+    # Latest close price (LTP)
+    ltp = float(df.iloc[-1]["Close"])
+    
+    # 52-week High/Low
+    high_window = df["High"].rolling(window=252, min_periods=1).max()
+    low_window = df["Low"].rolling(window=252, min_periods=1).min()
+    
+    wk52_high = float(high_window.iloc[-1])
+    wk52_low = float(low_window.iloc[-1])
 
-        if c3["High"] >= c1["Low"]:
-            continue
+    # Distance % from 52W High and Low
+    distance_high_pct = round(((ltp - wk52_high) / wk52_high) * 100, 2) if wk52_high else 0.0
+    distance_low_pct = round(((ltp - wk52_low) / wk52_low) * 100, 2) if wk52_low else 0.0
 
-        gap_low  = float(c3["High"])
-        gap_high = float(c1["Low"])
-        gap_size = gap_high - gap_low
+    # Detect all bullish FVGs
+    all_fvgs = detect_bullish_fvgs(df)
+    
+    # Filter only active (unmitigated) FVGs
+    active_fvgs = [f for f in all_fvgs if f.get("is_active", True)]
+    
+    # Keep only the last 5 active FVGs (newest first)
+    active_fvgs_desc = active_fvgs[::-1][:5]
+    
+    # Calculate distance for each active FVG
+    for f in active_fvgs_desc:
+        f["distance_pct"] = round(((ltp - f["high"]) / f["high"]) * 100, 2)
 
-        bar_atr = float(atr.iloc[i + 2])
-        if bar_atr > 0 and gap_size < (min_gap_atr_mult * bar_atr):
-            continue
+    # Find the nearest active FVG (min absolute distance)
+    nearest_fvg = None
+    nearest_dist = None
+    for f in active_fvgs_desc:
+        dist = f["distance_pct"]
+        if nearest_dist is None or abs(dist) < abs(nearest_dist):
+            nearest_dist = dist
+            nearest_fvg = f
 
-        c2_body  = abs(float(c2["Close"]) - float(c2["Open"]))
-        c2_range = float(c2["High"]) - float(c2["Low"])
-        displacement = (c2_body / c2_range) if c2_range > 0 else 0
-
-        future_df = df.iloc[i + 3:]
-        if not future_df.empty:
-            # Use Close (not High) for deep failure — ICT considers a gap
-            # mitigated only when the close breaches, not just a wick.
-            max_close_after = float(future_df["Close"].max())
-            if max_close_after > gap_high:
-                continue  # Deep failure
-            # Mitigation % based on how far High has entered the gap
-            max_high_after = float(future_df["High"].max())
-            mitigation_pct = max(0.0, (max_high_after - gap_low) / max(gap_size, 0.01) * 100)
-        else:
-            mitigation_pct = 0.0
-
-        touch_count = 0
-        if not future_df.empty:
-            touches = future_df[(future_df["High"] >= gap_low) & (future_df["High"] <= gap_high)]
-            touch_count = len(touches)
-
-        try:
-            age_days = (pd.Timestamp.now() - pd.Timestamp(c3["Date"])).days
-        except Exception:
-            age_days = 0
-
-        fvgs.append({
-            "formed_idx":       i + 2,
-            "gap_low":          round(gap_low, 2),
-            "gap_high":         round(gap_high, 2),
-            "gap_mid":          round((gap_low + gap_high) / 2, 2),
-            "gap_size":         round(gap_size, 2),
-            "gap_size_pct":     round(gap_size / max(float(c3["Close"]), 1) * 100, 3),
-            "displacement":     round(displacement, 3),
-            "atr_at_formation": round(bar_atr, 2),
-            "mitigation_pct":   round(mitigation_pct, 1),
-            "touch_count":      touch_count,
-            "age_days":         age_days,
-            "start_date":       c1["Date"],
-            "end_date":         c3["Date"],
-            "status":           _get_fvg_status(mitigation_pct, touch_count),
-        })
-
-    return fvgs
-
-
-def _get_fvg_status(mitigation_pct: float, touch_count: int) -> str:
-    if mitigation_pct == 0 and touch_count == 0:
-        return "Untouched"
-    elif mitigation_pct == 0 and touch_count > 0:
-        return "Touched"
-    elif mitigation_pct < 50:
-        return "PartiallyFilled"
-    else:
-        return "MostlyFilled"
-
-
-def compute_fvg_score(
-    fvg: Dict[str, Any],
-    ltp: float,
-    rsi: Optional[float] = None,
-    ema_200_dist: Optional[float] = None,
-) -> int:
-    """
-    FVG Score (0–100):
-      Gap Size pct   (>0.5% = 20pts)
-      Displacement   (>0.7 body ratio = 20pts)
-      Mitigation     (0% = 20pts, partial = 10pts)
-      Touch count    (0 = 15pts, 1 = 8pts)
-      Distance       (≤2% = 15pts, ≤5% = 8pts)
-      EMA alignment  (above EMA200 = 5pts)
-      RSI health     (40-65 = 5pts)
-    """
-    score = 0
-
-    # Gap size
-    gsp = fvg.get("gap_size_pct", 0)
-    if gsp >= 1.0:   score += 20
-    elif gsp >= 0.5: score += 12
-    elif gsp >= 0.2: score += 6
-
-    # Displacement
-    disp = fvg.get("displacement", 0)
-    if disp >= 0.7:  score += 20
-    elif disp >= 0.5: score += 12
-    elif disp >= 0.3: score += 6
-
-    # Mitigation
-    mit = fvg.get("mitigation_pct", 100)
-    if mit == 0:     score += 20
-    elif mit < 25:   score += 14
-    elif mit < 50:   score += 8
-
-    # Touch count
-    tc = fvg.get("touch_count", 0)
-    if tc == 0:      score += 15
-    elif tc == 1:    score += 8
-
-    # Distance from LTP to gap
-    gap_high = fvg.get("gap_high", ltp)
-    gap_low  = fvg.get("gap_low", ltp)
-
-    if ltp > gap_high:
-        dist_pct = (ltp - gap_high) / max(gap_high, 1) * 100
-    elif ltp < gap_low:
-        dist_pct = (gap_low - ltp) / max(gap_low, 1) * 100
-    else:
-        dist_pct = 0.0
-
-    if dist_pct <= 2:    score += 15
-    elif dist_pct <= 5:  score += 8
-    elif dist_pct <= 10: score += 3
-
-    # EMA 200 alignment
-    if ema_200_dist is not None and ema_200_dist > 0:
-        score += 5
-
-    # RSI health
-    if rsi is not None and 40 <= rsi <= 65:
-        score += 5
-
-    return min(score, 100)
-
-
-def score_to_strength(score: int) -> str:
-    if score >= 70: return "Strong"
-    if score >= 45: return "Medium"
-    return "Weak"
-
+    return {
+        "symbol": symbol,
+        "company_name": company_name,
+        "company": company_name,  # support both names for frontend compatibility
+        "ltp": round(ltp, 2),
+        "price": round(ltp, 2),
+        "week52_high": round(wk52_high, 2),
+        "week52_low": round(wk52_low, 2),
+        "52w_high": round(wk52_high, 2),
+        "52w_low": round(wk52_low, 2),
+        "distance_high_pct": distance_high_pct,
+        "distance_low_pct": distance_low_pct,
+        "historical_fvg_count": len(all_fvgs),
+        "active_fvg_count": len(active_fvgs),
+        "fvg_count": len(active_fvgs),  # compatibility field
+        "nearest_fvg_high": nearest_fvg["high"] if nearest_fvg else None,
+        "nearest_fvg_dist_pct": nearest_dist if nearest_dist is not None else None,
+        "fvgs": active_fvgs_desc,
+        "updated_at": datetime.now(timezone.utc),
+        "last_updated": datetime.now(timezone.utc),
+    }
 
 def get_latest_fvgs_for_symbol(
     df: pd.DataFrame,
@@ -300,58 +165,44 @@ def get_latest_fvgs_for_symbol(
     max_fvgs: int = 3,
 ) -> Dict[str, Any]:
     """
-    Runs FVG detection on a symbol's DataFrame and returns the
-    top N bullish FVGs (most recent, not fully mitigated) with scoring.
+    Backward-compatibility wrapper for local OHLC service.
+    Uses the new detect_bullish_fvgs.
     """
     bull_fvgs = detect_bullish_fvgs(df)
-    bear_fvgs = detect_bearish_fvgs(df)
-
-    # Score and enrich
-    for fvg in bull_fvgs:
-        fvg["fvg_score"]    = compute_fvg_score(fvg, ltp, rsi, ema_200_dist)
-        fvg["strength"]     = score_to_strength(fvg["fvg_score"])
-        fvg["direction"]    = "bullish"
-        fvg["distance_pct"] = round(
-            (ltp - fvg["gap_high"]) / max(fvg["gap_high"], 1) * 100
-            if ltp > fvg["gap_high"]
-            else (fvg["gap_low"] - ltp) / max(fvg["gap_low"], 1) * 100
-            if ltp < fvg["gap_low"]
-            else 0.0,
-            2
-        )
-
-    for fvg in bear_fvgs:
-        fvg["fvg_score"]    = compute_fvg_score(fvg, ltp, rsi, ema_200_dist)
-        fvg["strength"]     = score_to_strength(fvg["fvg_score"])
-        fvg["direction"]    = "bearish"
-        fvg["distance_pct"] = round(
-            (fvg["gap_low"] - ltp) / max(fvg["gap_low"], 1) * 100
-            if ltp < fvg["gap_low"]
-            else (ltp - fvg["gap_high"]) / max(fvg["gap_high"], 1) * 100
-            if ltp > fvg["gap_high"]
-            else 0.0,
-            2
-        )
-
-    # Filters: not fully mitigated
-    valid_bull = [f for f in bull_fvgs if f.get("mitigation_pct", 100) < 95]
-    valid_bear = [f for f in bear_fvgs if f.get("mitigation_pct", 100) < 95]
-
-    # Sort by most recent (highest formed_idx)
-    valid_bull.sort(key=lambda x: x["formed_idx"], reverse=True)
-    valid_bear.sort(key=lambda x: x["formed_idx"], reverse=True)
-
-    top_bull = valid_bull[:max_fvgs]
+    
+    # Map to the old structure
+    top_bull = []
+    for f in bull_fvgs[-max_fvgs:]:
+        top_bull.append({
+            "low": f["low"],
+            "high": f["high"],
+            "gap_low": f["low"],
+            "gap_high": f["high"],
+            "gap_mid": (f["low"] + f["high"]) / 2,
+            "gap_size": f["high"] - f["low"],
+            "gap_size_pct": f["gap_pct"],
+            "mitigation_pct": 0.0,
+            "touch_count": 0,
+            "age_days": f["age_days"],
+            "start_date": f["start_date"],
+            "end_date": f["end_date"],
+            "status": "Untouched",
+            "fvg_score": 0,
+            "strength": "Medium",
+            "direction": "bullish"
+        })
+    
+    top_bull = top_bull[::-1]  # most recent first
     nearest_bull = min(top_bull, key=lambda f: abs(ltp - f["gap_mid"])) if top_bull else None
-
+    
     return {
         "symbol":              symbol,
         "has_fvg_bullish":     len(top_bull) > 0,
-        "has_fvg_bearish":     len(valid_bear) > 0,
-        "total_fvgs_bullish":  len(valid_bull),
-        "total_fvgs_bearish":  len(valid_bear),
+        "has_fvg_bearish":     False,
+        "total_fvgs_bullish":  len(bull_fvgs),
+        "total_fvgs_bearish":  0,
         "top_bullish_fvgs":    top_bull,
-        "top_bearish_fvgs":    valid_bear[:max_fvgs],
+        "top_bearish_fvgs":    [],
         "nearest_bullish_fvg": nearest_bull,
-        "best_fvg_score":      max((f["fvg_score"] for f in top_bull), default=0),
+        "best_fvg_score":      0,
     }
