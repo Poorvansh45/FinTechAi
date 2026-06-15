@@ -61,21 +61,14 @@ class SMCService:
     async def run_scan_for_symbol(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
         Full SMC scan for one symbol.
-        Fetches 2 years of daily candles, runs the full pipeline, persists to MongoDB.
+        Loads candles from the local data engine cache, runs the full pipeline, persists to MongoDB.
         """
         try:
-            candles = await self.market_service.get_historical(symbol, interval="1d", period="2y")
-            if not candles:
-                log.warning(f"[SMC] No candles for {symbol}")
-                return None
-
-            df = pd.DataFrame([c.model_dump() for c in candles])
+            from services.ohlc_downloader import load_stock_dataframe
+            df = load_stock_dataframe(symbol)
             if df.empty:
+                log.warning(f"[SMC] No cached candles found for {symbol}")
                 return None
-
-            df.rename(columns={"timestamp": "Date", "date": "Date", "open": "Open", "high": "High",
-                                "low": "Low", "close": "Close", "volume": "Volume"}, inplace=True)
-            df["Date"] = pd.to_datetime(df["Date"])
 
             # Fetch last indicators from screener_cache for RSI/volume_ratio
             cache_doc = await self.db.screener_cache.find_one({"symbol": symbol})

@@ -27,6 +27,7 @@ interface FVGZone {
   mitigation_pct: number;
   distance_pct: number;
   age_days: number;
+  touch_count?: number | null;
 }
 
 interface SurgeStat {

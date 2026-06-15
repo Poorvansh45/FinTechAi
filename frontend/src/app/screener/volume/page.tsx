@@ -1,9 +1,24 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
 import { screenerService } from "@/services/screenerService";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
+import { ScannerContext } from "../context";
+
+const formatISTDate = (isoString: string) => {
+    try {
+        const date = new Date(isoString);
+        const options = { timeZone: "Asia/Kolkata", day: "2-digit" as const, month: "short" as const, year: "numeric" as const, hour: "2-digit" as const, minute: "2-digit" as const, hour12: false };
+        const formatter = new Intl.DateTimeFormat("en-IN", options);
+        const parts = formatter.formatToParts(date);
+        const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+        return `${partMap.day} ${partMap.month} ${partMap.year} ${partMap.hour}:${partMap.minute} IST`;
+    } catch {
+        return "—";
+    }
+};
+
 
 interface SurgeEvent {
     date: string;
@@ -25,6 +40,10 @@ interface VolumeSurgeStock {
         avg_return_on_surge: number;
         total_surge_days_3yr: number;
         positive_surge_pct: number;
+        avg_return_2d?: number | null;
+        avg_return_5d?: number | null;
+        avg_return_10d?: number | null;
+        win_rate_5d?: number | null;
     };
     recent_surge_events: SurgeEvent[];
     has_current_surge: boolean;
@@ -73,6 +92,18 @@ export default function VolumeSurgePage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedStock, setSelectedStock] = useState<any>(null);
 
+    const { scanMeta, registerData, registerRefresh, registerSearch } = useContext(ScannerContext);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        registerSearch(searchInputRef);
+    }, [registerSearch]);
+
+    useEffect(() => {
+        registerData(allStocks);
+    }, [allStocks, registerData]);
+
+
     const handleAddClick = (stock: VolumeSurgeStock, e: React.MouseEvent) => {
         e.stopPropagation();
         setSelectedStock({
@@ -102,6 +133,11 @@ export default function VolumeSurgePage() {
     }, []);
 
     useEffect(() => { fetchData(defaultFilters()); }, [fetchData]);
+
+    useEffect(() => {
+        registerRefresh(() => fetchData(filters));
+    }, [registerRefresh, fetchData, filters]);
+
 
     // Client-side search + sort
     const filtered = useMemo(() => {
@@ -150,9 +186,19 @@ export default function VolumeSurgePage() {
                 <div className="flex items-start justify-between flex-wrap gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Volume Surge Scanner</h1>
-                        <p className="text-gray-400 text-sm mt-1">
-                            {loading ? "Loading…" : `${filtered.length.toLocaleString()} stocks · ${surgingNow} surging today · 3yr historical analysis`}
-                        </p>
+                        <div className="flex items-center gap-4 text-xs text-gray-500 mt-1 flex-wrap">
+                            <span>Last Updated: <span className="text-gray-300 font-semibold">{scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "—"}</span></span>
+                            <span className="text-gray-700">•</span>
+                            <span>Stocks: <span className="text-gray-300 font-semibold">{scanMeta?.record_count ?? scanMeta?.symbols_processed ?? allStocks.length}</span></span>
+                            <span className="text-gray-700">•</span>
+                            <span>Status: <span className={`font-semibold font-mono uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded ${
+                                scanMeta?.status === "RUNNING"
+                                    ? "text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 animate-pulse"
+                                    : scanMeta?.status === "FAILED"
+                                    ? "text-red-400 bg-red-500/10 border border-red-500/20"
+                                    : "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                            }`}>{scanMeta?.status || "Ready"}</span></span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-2 text-center">
@@ -206,7 +252,7 @@ export default function VolumeSurgePage() {
                         {/* Search */}
                         <div className="relative flex-1 max-w-sm">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
-                            <input type="text" placeholder="Search symbol or company…"
+                            <input ref={searchInputRef} type="text" placeholder="Search symbol or company…"
                                 value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
                                 className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-orange-500"
                             />
@@ -237,10 +283,19 @@ export default function VolumeSurgePage() {
                         <div className="m-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
                             <strong>Error:</strong> {error}
                         </div>
-                    ) : loading ? (
-                        <div className="flex flex-col items-center justify-center py-24 gap-3">
-                            <div className="w-10 h-10 rounded-full border-2 border-orange-500 border-t-transparent animate-spin"/>
-                            <p className="text-gray-400 text-sm">Loading 2,100+ stocks…</p>
+                    ) : loading && allStocks.length === 0 ? (
+                        <div className="space-y-3 px-5 py-6">
+                            {[...Array(8)].map((_, i) => (
+                                <div key={i} className="h-12 rounded-xl bg-gray-800/40 border border-gray-800/30 animate-pulse flex items-center justify-between px-4" style={{ opacity: 1 - i * 0.1 }}>
+                                    <div className="w-8 h-4 bg-gray-700/50 rounded" />
+                                    <div className="w-24 h-4 bg-gray-700/50 rounded" />
+                                    <div className="w-40 h-4 bg-gray-700/50 rounded" />
+                                    <div className="w-16 h-4 bg-gray-700/50 rounded" />
+                                    <div className="w-16 h-4 bg-gray-700/50 rounded" />
+                                    <div className="w-12 h-4 bg-gray-700/50 rounded" />
+                                    <div className="w-12 h-4 bg-gray-700/50 rounded" />
+                                </div>
+                            ))}
                         </div>
                     ) : filtered.length === 0 ? (
                         <div className="flex flex-col items-center py-24 gap-2">

@@ -1,11 +1,26 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useContext, useRef } from "react";
 import { screenerService } from "@/services/screenerService";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import SavedFiltersPanel from "@/components/screener/SavedFiltersPanel";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
 import { Download } from "lucide-react";
+import { ScannerContext } from "./context";
+
+const formatISTDate = (isoString: string) => {
+  try {
+    const date = new Date(isoString);
+    const options = { timeZone: "Asia/Kolkata", day: "2-digit" as const, month: "short" as const, year: "numeric" as const, hour: "2-digit" as const, minute: "2-digit" as const, hour12: false };
+    const formatter = new Intl.DateTimeFormat("en-IN", options);
+    const parts = formatter.formatToParts(date);
+    const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return `${partMap.day} ${partMap.month} ${partMap.year} ${partMap.hour}:${partMap.minute} IST`;
+  } catch {
+    return "—";
+  }
+};
+
 
 // ── Filter config ─────────────────────────────────────────────────────────────
 const FILTERS = [
@@ -110,6 +125,17 @@ export default function ScreenerPage() {
   const [selectedStock, setSelectedStock] = useState<any | null>(null);
   const { exportCSV } = useScreenerExport();
 
+  const { scanMeta, registerData, registerRefresh, registerSearch } = useContext(ScannerContext);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    registerSearch(searchInputRef);
+  }, [registerSearch]);
+
+  useEffect(() => {
+    registerData(allStocks);
+  }, [allStocks, registerData]);
+
   const fetchStocks = useCallback(async (f: FilterState) => {
     setLoading(true); setError(null); setPage(1);
     try {
@@ -127,6 +153,11 @@ export default function ScreenerPage() {
   }, []);
 
   useEffect(() => { fetchStocks(defaultFilters()); }, [fetchStocks]);
+
+  useEffect(() => {
+    registerRefresh(() => fetchStocks(filters));
+  }, [registerRefresh, fetchStocks, filters]);
+
 
   const filtered = useMemo(() => {
     let rows = allStocks;
@@ -173,9 +204,19 @@ export default function ScreenerPage() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Technical Screener</h1>
-          <p className="text-gray-500 text-sm mt-1">
-            {loading ? "Loading…" : `${filtered.length.toLocaleString()} stocks · EMA distance % works across all price levels`}
-          </p>
+          <div className="flex items-center gap-4 text-xs text-gray-500 mt-1 flex-wrap">
+            <span>Last Updated: <span className="text-gray-300 font-semibold">{scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "—"}</span></span>
+            <span className="text-gray-700">•</span>
+            <span>Stocks: <span className="text-gray-300 font-semibold">{scanMeta?.record_count ?? scanMeta?.symbols_processed ?? allStocks.length}</span></span>
+            <span className="text-gray-700">•</span>
+            <span>Status: <span className={`font-semibold font-mono uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded ${
+              scanMeta?.status === "RUNNING"
+                ? "text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 animate-pulse"
+                : scanMeta?.status === "FAILED"
+                ? "text-red-400 bg-red-500/10 border border-red-500/20"
+                : "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+            }`}>{scanMeta?.status || "Ready"}</span></span>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {filtered.length > 0 && (
@@ -265,6 +306,7 @@ export default function ScreenerPage() {
           <div className="relative flex-1 max-w-sm">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search symbol or company…"
               value={search}
@@ -303,10 +345,19 @@ export default function ScreenerPage() {
             <strong>Error:</strong> {error}
             <p className="text-red-400/60 text-xs mt-1">Start FastAPI: <code className="bg-gray-800 px-1 rounded">uvicorn main:app --port 8000</code></p>
           </div>
-        ) : loading ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <div className="w-10 h-10 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-            <p className="text-gray-400 text-sm">Scanning NSE universe…</p>
+        ) : loading && allStocks.length === 0 ? (
+          <div className="space-y-3 px-5 py-6">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-gray-800/40 border border-gray-800/30 animate-pulse flex items-center justify-between px-4" style={{ opacity: 1 - i * 0.1 }}>
+                <div className="w-8 h-4 bg-gray-700/50 rounded" />
+                <div className="w-24 h-4 bg-gray-700/50 rounded" />
+                <div className="w-40 h-4 bg-gray-700/50 rounded" />
+                <div className="w-16 h-4 bg-gray-700/50 rounded" />
+                <div className="w-16 h-4 bg-gray-700/50 rounded" />
+                <div className="w-12 h-4 bg-gray-700/50 rounded" />
+                <div className="w-12 h-4 bg-gray-700/50 rounded" />
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-20 gap-3 text-center">

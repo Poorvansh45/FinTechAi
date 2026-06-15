@@ -92,7 +92,8 @@ async def technical(
         "volume_min": volume_min, "volume_max": volume_max,
         "sort_by": sort_by, "sort_dir": sort_dir,
     }
-    return _fmt(await get_scanner_service(db).get_technical_screener(filters, limit))
+    data = await get_scanner_service(db).get_technical_screener(filters, limit)
+    return {"success": True, "count": len(data), "data": data}
 
 
 # ── Volume (simple) ───────────────────────────────────────────────────────────
@@ -102,7 +103,8 @@ async def volume(request: Request, limit: int = Query(50)):
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
-    return _fmt(await get_scanner_service(db).get_volume_breakouts(limit))
+    data = await get_scanner_service(db).get_volume_breakouts(limit)
+    return {"success": True, "count": len(data), "data": data}
 
 
 # ── Volume Surge ──────────────────────────────────────────────────────────────
@@ -129,7 +131,8 @@ async def volume_surge(
         "surges_min": surges_min, "max_gain_min": max_gain_min,
         "current_surge_only": current_surge_only,
     }
-    return _fmt(await get_scanner_service(db).get_volume_surges(filters, limit))
+    data = await get_scanner_service(db).get_volume_surges(filters, limit)
+    return {"success": True, "count": len(data), "data": data}
 
 
 # ── FVG Scanner ───────────────────────────────────────────────────────────────
@@ -157,7 +160,8 @@ async def fvg(
         "price_min": price_min, "price_max": price_max,
         "has_fvg_only": has_fvg_only, "fvg_status": fvg_status, "fvg_strength": fvg_strength,
     }
-    return _fmt(await get_scanner_service(db).get_fvg_stocks(filters, limit))
+    data = await get_scanner_service(db).get_fvg_stocks(filters, limit)
+    return {"success": True, "count": len(data), "data": data}
 
 
 # ── Momentum Scanner ──────────────────────────────────────────────────────────
@@ -191,7 +195,8 @@ async def momentum(
         "volume_ratio_min": volume_ratio_min, "week52_dist_max": week52_dist_max,
         "category": category, "above_ema50": above_ema50, "above_ema200": above_ema200,
     }
-    return _fmt(await get_scanner_service(db).get_momentum_stocks(filters, limit))
+    data = await get_scanner_service(db).get_momentum_stocks(filters, limit)
+    return {"success": True, "count": len(data), "data": data}
 
 
 # ── Scan Status ───────────────────────────────────────────────────────────────

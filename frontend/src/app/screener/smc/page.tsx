@@ -1,8 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import ScannerTable from "@/components/screener/ScannerTable";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
+import { ScannerContext } from "../context";
+
+const formatISTDate = (isoString: string) => {
+  try {
+    const date = new Date(isoString);
+    const options = { timeZone: "Asia/Kolkata", day: "2-digit" as const, month: "short" as const, year: "numeric" as const, hour: "2-digit" as const, minute: "2-digit" as const, hour12: false };
+    const formatter = new Intl.DateTimeFormat("en-IN", options);
+    const parts = formatter.formatToParts(date);
+    const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return `${partMap.day} ${partMap.month} ${partMap.year} ${partMap.hour}:${partMap.minute} IST`;
+  } catch {
+    return "—";
+  }
+};
+
 
 const FASTAPI_URL =
   typeof window !== "undefined"
@@ -108,12 +123,19 @@ function ZoneProximityTab() {
         <div className="text-red-400 p-4 bg-red-400/10 rounded-lg text-sm">{error}</div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-800">
-          {loading ? (
-            <div className="py-16 flex items-center justify-center gap-3 text-gray-500">
-              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <span className="text-sm">Loading zone data…</span>
+          {loading && rows.length === 0 ? (
+            <div className="space-y-3 px-5 py-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-12 rounded-xl bg-gray-800/40 border border-gray-800/30 animate-pulse flex items-center justify-between px-4" style={{ opacity: 1 - i * 0.12 }}>
+                  <div className="w-8 h-4 bg-gray-700/50 rounded" />
+                  <div className="w-24 h-4 bg-gray-700/50 rounded" />
+                  <div className="w-40 h-4 bg-gray-700/50 rounded" />
+                  <div className="w-16 h-4 bg-gray-700/50 rounded" />
+                </div>
+              ))}
             </div>
           ) : rows.length === 0 ? (
+
             <div className="py-16 text-center text-gray-600 text-sm">
               No stocks in this category.
             </div>
@@ -197,6 +219,17 @@ export default function SMCPage() {
   const [minScore, setMinScore] = useState("");
   const [view, setView]         = useState<"scanner" | "zones">("scanner");
 
+  const { scanMeta, registerData, registerRefresh } = useContext(ScannerContext);
+
+  useEffect(() => {
+    registerData(stocks);
+  }, [stocks, registerData]);
+
+  useEffect(() => {
+    registerRefresh(() => { run(); });
+  }, [registerRefresh, category, minScore]);
+
+
   const run = async () => {
     setLoading(true); setError(null);
     try {
@@ -235,9 +268,19 @@ export default function SMCPage() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">SMC Scanner</h1>
-          <p className="text-gray-500 text-sm mt-0.5">
-            Smart Money Concepts — BOS/CHoCH, Demand Zones, Order Blocks, Premium/Discount
-          </p>
+          <div className="flex items-center gap-4 text-xs text-gray-500 mt-1 flex-wrap">
+            <span>Last Updated: <span className="text-gray-300 font-semibold">{scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "—"}</span></span>
+            <span className="text-gray-700">•</span>
+            <span>Stocks: <span className="text-gray-300 font-semibold">{scanMeta?.record_count ?? scanMeta?.symbols_processed ?? stocks.length}</span></span>
+            <span className="text-gray-700">•</span>
+            <span>Status: <span className={`font-semibold font-mono uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded ${
+              scanMeta?.status === "RUNNING"
+                ? "text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 animate-pulse"
+                : scanMeta?.status === "FAILED"
+                ? "text-red-400 bg-red-500/10 border border-red-500/20"
+                : "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+            }`}>{scanMeta?.status || "Ready"}</span></span>
+          </div>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setView("scanner")}
@@ -311,7 +354,7 @@ export default function SMCPage() {
           ) : (
             <div>
               <div className="text-sm text-gray-400 mb-3">{loading ? "Loading…" : `${stocks.length} zones found`}</div>
-              <ScannerTable data={stocks} isLoading={loading} sourceModule="SMC Scanner" mode="smc" />
+              <ScannerTable data={stocks} isLoading={loading && stocks.length === 0} sourceModule="SMC Scanner" mode="smc" />
             </div>
           )}
         </>

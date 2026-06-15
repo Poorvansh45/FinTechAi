@@ -40,8 +40,8 @@ Pre-computed MongoDB cache pipeline with a daily APScheduler job and five indepe
 
 ### Backend Architecture
 
-- `daily_refresh.py` — APScheduler cron at 15:45 IST, startup stale-check (re-runs if >6h old)
-- Batch processing: 10 symbols concurrently with 0.3s rate-limit sleep between batches
+- `daily_refresh.py` — APScheduler cron at 15:45 IST, startup check. Triggers local incremental sync to `Stock_Data.csv` first, then computes scans in-memory.
+- Local Database: Reads EOD historical daily data from `backend/data/Stock_Data.csv` for all screeners, eliminating dynamic API rate limits.
 - Five MongoDB caches: `screener_cache`, `fvg_cache`, `volume_surge_cache`, `momentum_cache`, `smc_scanner_results`
 - `GET /api/v2/scanner/scan-status` — last ran, symbols processed, elapsed seconds
 - `POST /api/v2/scanner/trigger-scan` — manually trigger full scan in background
@@ -115,10 +115,11 @@ Pre-computed MongoDB cache pipeline with a daily APScheduler job and five indepe
 
 ```
 APScheduler (15:45 IST daily) or manual trigger
-  → get_universe()                  [NSE symbol list]
+  → download_incremental_ohlc()     [incremental Groww/yfinance sync to Stock_Data.csv]
+  → Load backend/data/Stock_Data.csv [Pandas DataFrame load]
   → fetch Nifty50 1M return         [baseline for RS]
-  → Batch (10 symbols at a time):
-      → get_historical(2y, 1d)      [yfinance / Groww]
+  → For each Symbol (in-memory):
+      → slice last 2y daily candles from DataFrame
       → compute EMA9/50/200         [pandas EWM]
       → compute RSI14               [delta method]
       → compute MACD(12,26,9)       [pandas EWM]
@@ -127,10 +128,7 @@ APScheduler (15:45 IST daily) or manual trigger
       → run detect_volume_surges()  [per-surge history]
       → run get_latest_fvgs()       [ICT FVG scoring]
       → run compute_momentum_score()
-  → upsert screener_cache
-  → upsert fvg_cache
-  → upsert volume_surge_cache
-  → upsert momentum_cache
+  → bulk upsert MongoDB caches (screener_cache, fvg_cache, volume_surge_cache, momentum_cache, smc_scanner_results)
   → write scan_meta (timestamp, count, elapsed)
 ```
 
@@ -164,7 +162,7 @@ On FastAPI startup, `maybe_run_on_startup()` checks `scan_meta` in MongoDB. If t
 
 APScheduler also fires `run_daily_scan()` every day at 15:45 IST (10:15 UTC) — just after NSE market close.
 
-The scan processes all NSE symbols in batches of 10 concurrently with a 0.3s rate-limit sleep between batches. Each symbol fetches 2 years of daily OHLCV data from yfinance and computes all indicators in a single pass.
+The daily scan first triggers an incremental sync using `ohlc_downloader.py`. This reads your stock list, pulls new daily EOD candles via the Groww API (or yfinance fallback), and appends them to `backend/data/Stock_Data.csv`. Once the local CSV database is updated, the scan executes in-memory using Pandas and computes all Technical, SMC, FVG, Momentum, and Volume Surge screeners locally.
 
 ### MongoDB caches populated
 
@@ -564,7 +562,10 @@ On startup, FastAPI will:
 
 ## 13. Daily Scheduler
 
-The scheduler runs in `backend/fastapi_app/schedulers/daily_refresh.py`.
+The scheduler runs in `backend/fastapi_app/schedulers/daily_refresh.py`. On invocation, it:
+1. Runs the incremental downloader to pull missing candles into `/Users/akarshbhandari/FinTechAi/backend/data/Stock_Data.csv`.
+2. Reads the database CSV file into memory.
+3. Computes and upserts all screener caches (Technical, SMC, FVG, Volume Surge, Momentum) to MongoDB.
 
 **Trigger times:**
 - **On startup:** if last scan > 6h ago or never ran

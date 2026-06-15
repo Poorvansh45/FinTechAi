@@ -22,7 +22,9 @@ log = logging.getLogger("finai_edge.yfinance")
 # ── Synchronous helpers (run in thread pool) ────────────────────────
 
 def _format_symbol_for_yf(symbol: str) -> str:
-    """Ensure symbol has .NS suffix for NSE stocks."""
+    """Ensure symbol has .NS suffix for NSE stocks, unless it is an index."""
+    if symbol.startswith("^"):
+        return symbol
     if "." not in symbol:
         return f"{symbol}.NS"
     return symbol

@@ -86,10 +86,18 @@ async def lifespan(app: FastAPI):
         try:
             from schedulers.daily_refresh import setup_scheduler, maybe_run_on_startup
             setup_scheduler(app.state)
-            asyncio.create_task(maybe_run_on_startup(app.state))
-            log.info("  Scheduler:   ✓ daily scan at 15:45 IST")
+            # asyncio.create_task(maybe_run_on_startup(app.state))
+            log.info("  Scheduler:   ✓ pre-market check at 08:00 IST, daily scan at 15:45 IST")
         except Exception as e:
             log.warning(f"  Scheduler:   ✗ {e}")
+
+        # ── Local OHLC Startup Scan ──────────────────────────────────
+        try:
+            from services.local_ohlc_service import scan_all_local_files
+            # asyncio.create_task(scan_all_local_files(app.state.db, app.state.market_service))
+            log.info("  Local OHLC:  ✓ startup scan disabled on startup")
+        except Exception as e:
+            log.warning(f"  Local OHLC:  ✗ {e}")
 
     log.info("  FinAI Edge ready 🚀  http://localhost:8000/docs")
 
@@ -198,6 +206,7 @@ from api.ai         import router as ai_router
 from api.screener   import router as screener_router, v2_router as screener_v2_router
 from api.watchlists import router as watchlists_router
 from api.smc        import router as smc_router
+from api.local_ohlc import router as local_ohlc_router
 
 app.include_router(portfolio_router,   prefix="/api/v2/portfolio")
 app.include_router(analytics_router,   prefix="/api/v2/analytics")
@@ -207,6 +216,7 @@ app.include_router(screener_router)     # /api/scanner/*
 app.include_router(screener_v2_router)  # /api/v2/scanner/scan-status + /trigger-scan
 app.include_router(watchlists_router)   # /api/v2/watchlists
 app.include_router(smc_router)          # /api/v2/scanner/smc + /zone-proximity
+app.include_router(local_ohlc_router)   # /api/v2/scanner/local-ohlc/*
 
 
 if __name__ == "__main__":

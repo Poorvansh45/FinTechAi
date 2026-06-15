@@ -56,7 +56,7 @@ class ScannerService:
         sort_key = filters.get("sort_by", "volume")
         sort_dir = -1 if filters.get("sort_dir", "desc") == "desc" else 1
 
-        cursor = self.screener.find(query).sort(sort_key, sort_dir).limit(limit)
+        cursor = self.screener.find(query, {"_id": 0}).sort(sort_key, sort_dir).limit(limit)
         return await cursor.to_list(length=limit)
 
     # ── Volume Breakout (simple) ──────────────────────────────────────────
@@ -64,7 +64,7 @@ class ScannerService:
     async def get_volume_breakouts(self, limit: int = 50) -> List[Dict[str, Any]]:
         cursor = self.screener.find({
             "$expr": {"$gt": ["$volume", {"$multiply": ["$avg_volume_10d", 3]}]}
-        }).sort("volume", -1).limit(limit)
+        }, {"_id": 0}).sort("volume", -1).limit(limit)
         return await cursor.to_list(length=limit)
 
     # ── Volume Surge (full per-surge history) ─────────────────────────────
@@ -91,11 +91,8 @@ class ScannerService:
 
         r(query, "ltp", filters.get("price_min"), filters.get("price_max"))
 
-        cursor = self.surge_cache.find(query).sort("current_volume_ratio", -1).limit(limit)
-        results = await cursor.to_list(length=limit)
-        for r_ in results:
-            r_["_id"] = str(r_["_id"])
-        return results
+        cursor = self.surge_cache.find(query, {"_id": 0}).sort("current_volume_ratio", -1).limit(limit)
+        return await cursor.to_list(length=limit)
 
     # ── FVG Scanner ───────────────────────────────────────────────────────
 
@@ -112,7 +109,7 @@ class ScannerService:
 
         if count == 0:
             # Graceful fallback while cache is building
-            cursor = self.screener.find({"fvg.has_fvg_bullish": True}).limit(limit)
+            cursor = self.screener.find({"fvg.has_fvg_bullish": True}, {"_id": 0}).limit(limit)
             return await cursor.to_list(length=limit)
 
         query: dict = {}
@@ -136,11 +133,8 @@ class ScannerService:
         if strength and strength != "All":
             query["top_bullish_fvgs.strength"] = strength
 
-        cursor = col.find(query).sort("best_fvg_score", -1).limit(limit)
-        results = await cursor.to_list(length=limit)
-        for res in results:
-            res["_id"] = str(res["_id"])
-        return results
+        cursor = col.find(query, {"_id": 0}).sort("best_fvg_score", -1).limit(limit)
+        return await cursor.to_list(length=limit)
 
     # ── Momentum Scanner ──────────────────────────────────────────────────
 
@@ -158,7 +152,7 @@ class ScannerService:
         if count == 0:
             # Fallback to screener_cache while momentum cache builds
             query_fb = {"indicators.rsi_14": {"$gte": 55}}
-            cursor = self.screener.find(query_fb).sort("indicators.rsi_14", -1).limit(limit)
+            cursor = self.screener.find(query_fb, {"_id": 0}).sort("indicators.rsi_14", -1).limit(limit)
             return await cursor.to_list(length=limit)
 
         query: dict = {}
@@ -181,11 +175,8 @@ class ScannerService:
         if filters.get("above_ema200"):
             query["above_ema200"] = True
 
-        cursor = col.find(query).sort("momentum_score", -1).limit(limit)
-        results = await cursor.to_list(length=limit)
-        for res in results:
-            res["_id"] = str(res["_id"])
-        return results
+        cursor = col.find(query, {"_id": 0}).sort("momentum_score", -1).limit(limit)
+        return await cursor.to_list(length=limit)
 
 
 def get_scanner_service(db: AsyncIOMotorDatabase) -> ScannerService:

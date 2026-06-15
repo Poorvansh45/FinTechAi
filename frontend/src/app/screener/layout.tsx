@@ -15,11 +15,21 @@ const FASTAPI_URL =
     ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
     : "http://localhost:8000";
 
-const SCANNER_TABS = [
+type ScannerTab = {
+  href: string;
+  label: string;
+  icon: any;
+  activeColor: string;
+  iconColor: string;
+  badge?: string;
+};
+
+const SCANNER_TABS: ScannerTab[] = [
   { href: "/screener",            label: "Technical",  icon: Filter,     activeColor: "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",  iconColor: "text-yellow-400" },
   { href: "/screener/smc",        label: "SMC",        icon: Layers,     activeColor: "bg-purple-500/10 border-purple-500/30 text-purple-300",  iconColor: "text-purple-400" },
   { href: "/screener/volume",     label: "Volume",     icon: Waves,      activeColor: "bg-orange-500/10 border-orange-500/30 text-orange-300",  iconColor: "text-orange-400" },
   { href: "/screener/fvg",        label: "FVG",        icon: ScanLine,   activeColor: "bg-blue-500/10 border-blue-500/30 text-blue-300",       iconColor: "text-blue-400"   },
+  { href: "/screener/local-ohlc", label: "My Stock OHLC", icon: FolderOpen, activeColor: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300", iconColor: "text-emerald-400" },
   { href: "/screener/watchlists", label: "Watchlists", icon: BookMarked, activeColor: "bg-indigo-500/10 border-indigo-500/30 text-indigo-300",  iconColor: "text-indigo-400" },
 ];
 
@@ -54,20 +64,12 @@ function ShortcutHelp({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ── Context for child pages to register scan data ─────────────────────────────
-export const ScannerContext = React.createContext<{
-  registerData: (rows: any[]) => void;
-  registerRefresh: (fn: () => void) => void;
-  registerSearch: (ref: React.RefObject<HTMLInputElement>) => void;
-}>({
-  registerData: () => {},
-  registerRefresh: () => {},
-  registerSearch: () => {},
-});
+import { ScannerContext } from "./context";
 
 export default function ScreenerLayout({ children }: { children: React.ReactNode }) {
   const pathname      = usePathname();
   const [scanMeta, setScanMeta]       = useState<any>(null);
+  const [prevStatus, setPrevStatus]   = useState<string | null>(null);
   const [triggering, setTriggering]   = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [scanData, setScanData]       = useState<any[]>([]);
@@ -81,19 +83,45 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
     t.href === "/screener" ? pathname === "/screener" : pathname.startsWith(t.href)
   )?.label ?? "Scanner";
 
-  // ── Scan status ───────────────────────────────────────────────────
-  useEffect(() => {
+  // ── Scan status & Polling ─────────────────────────────────────────
+  const checkStatus = () => {
     fetch(`${FASTAPI_URL}/api/v2/scanner/scan-status`)
       .then((r) => r.json())
-      .then((d) => { if (d.success) setScanMeta(d.data); })
+      .then((d) => {
+        if (d.success && d.data) {
+          setScanMeta(d.data);
+          const currentStatus = d.data.status?.toUpperCase();
+          if (prevStatus === "RUNNING" && currentStatus === "COMPLETED") {
+            refreshFnRef.current?.();
+          }
+          setPrevStatus(currentStatus);
+        }
+      })
       .catch(() => {});
+  };
+
+  useEffect(() => {
+    checkStatus();
   }, [pathname]);
+
+  // Poll scan status every 3 seconds only when status is RUNNING
+  useEffect(() => {
+    let intervalId: any = null;
+    const status = scanMeta?.status?.toUpperCase();
+    if (status === "RUNNING") {
+      intervalId = setInterval(checkStatus, 3000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [scanMeta?.status, prevStatus]);
 
   const handleTriggerScan = async () => {
     setTriggering(true);
     try {
       await fetch(`${FASTAPI_URL}/api/v2/scanner/trigger-scan`, { method: "POST" });
-      setScanMeta((m: any) => ({ ...m, status: "running" }));
+      setScanMeta((m: any) => ({ ...m, status: "RUNNING", symbols_processed: 0 }));
+      setPrevStatus("RUNNING");
     } catch {}
     finally { setTriggering(false); }
   };
@@ -126,13 +154,17 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
     return () => window.removeEventListener("keydown", handler);
   }, [scanData, scannerName]);
 
-  const fmtAge = (iso?: string) => {
-    if (!iso) return "Never";
-    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-    if (diff < 60)    return `${Math.round(diff)}s ago`;
-    if (diff < 3600)  return `${Math.round(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
-    return `${Math.round(diff / 86400)}d ago`;
+  const formatISTDate = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      const options = { timeZone: "Asia/Kolkata", day: "2-digit" as const, month: "short" as const, year: "numeric" as const, hour: "2-digit" as const, minute: "2-digit" as const, hour12: false };
+      const formatter = new Intl.DateTimeFormat("en-IN", options);
+      const parts = formatter.formatToParts(date);
+      const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+      return `${partMap.day} ${partMap.month} ${partMap.year} ${partMap.hour}:${partMap.minute} IST`;
+    } catch {
+      return "—";
+    }
   };
 
   const isStale = (iso?: string) => {
@@ -149,6 +181,94 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
     registerData:    (rows: any[]) => setScanData(rows),
     registerRefresh: (fn: () => void) => { refreshFnRef.current = fn; },
     registerSearch:  (ref: React.RefObject<HTMLInputElement>) => { searchRef.current = ref.current; },
+    scanMeta,
+  };
+
+  const renderStatus = () => {
+    if (!scanMeta) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <Clock size={12} className="text-gray-600" />
+          <span className="text-gray-500">Loading scan status…</span>
+        </div>
+      );
+    }
+
+    const status = scanMeta.status?.toUpperCase();
+    const updatedStr = scanMeta.last_ran ? formatISTDate(scanMeta.last_ran) : "Never";
+
+    if (status === "RUNNING") {
+      const processed = scanMeta.symbols_processed ?? 0;
+      const total = scanMeta.total_symbols ?? 0;
+      return (
+        <div className="flex items-center gap-4">
+          <div>
+            <span className="text-gray-500">Status:</span>{" "}
+            <span className="text-yellow-400 font-semibold animate-pulse font-mono uppercase tracking-wider text-[11px] bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">Running</span>
+          </div>
+          <div>
+            <span className="text-gray-500 font-medium">Progress:</span>{" "}
+            <span className="text-gray-300 font-medium font-mono">{processed} / {total}</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (status === "COMPLETED" || status === "COMPLETE") {
+      return (
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <span className="text-gray-500">Status:</span>{" "}
+            <span className="text-emerald-400 font-semibold font-mono uppercase tracking-wider text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Completed</span>
+          </div>
+          <div>
+            <span className="text-gray-500 font-medium">Updated:</span>{" "}
+            <span className="text-gray-300 font-semibold">{updatedStr}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 font-medium">Stocks:</span>{" "}
+            <span className="text-gray-300 font-medium font-mono">{(scanMeta.record_count ?? scanMeta.symbols_processed ?? 0).toLocaleString()}</span>
+          </div>
+        </div>
+      );
+    }
+
+    if (status === "FAILED") {
+      return (
+        <div className="flex items-center gap-4 flex-wrap">
+          <div>
+            <span className="text-gray-500">Status:</span>{" "}
+            <span className="text-red-400 font-semibold font-mono uppercase tracking-wider text-[11px] bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">Failed</span>
+          </div>
+          {scanMeta.last_ran && (
+            <div>
+              <span className="text-gray-500 font-medium">Last Attempt:</span>{" "}
+              <span className="text-gray-300 font-semibold">{updatedStr}</span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Default to Ready (IDLE)
+    return (
+      <div className="flex items-center gap-4 flex-wrap">
+        <div>
+          <span className="text-gray-500 font-medium">Status:</span>{" "}
+          <span className="text-emerald-400 font-semibold font-mono uppercase tracking-wider text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Ready</span>
+        </div>
+        {scanMeta.last_ran && (
+          <div>
+            <span className="text-gray-500 font-medium">Last Updated:</span>{" "}
+            <span className="text-gray-300 font-semibold">{updatedStr}</span>
+          </div>
+        )}
+        <div>
+          <span className="text-gray-500 font-medium">Stocks:</span>{" "}
+          <span className="text-gray-300 font-medium font-mono">{(scanMeta.record_count ?? scanMeta.symbols_processed ?? 0).toLocaleString()}</span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -160,30 +280,8 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
         <div className="border-b border-gray-800/60 bg-gray-900/40 px-6 py-2">
           <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4 flex-wrap">
             {/* Left: status */}
-            <div className="flex items-center gap-3 text-xs text-gray-500">
-              {scanMeta?.last_ran ? (
-                <>
-                  {isStale(scanMeta.last_ran) ? (
-                    <>
-                      <AlertTriangle size={12} className="text-amber-500 flex-shrink-0 animate-pulse" />
-                      <span className="text-amber-500 font-semibold">Data Stale (Run &gt;24h ago)</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={12} className="text-emerald-400 flex-shrink-0" />
-                      <span>Last scan: <span className="text-gray-300 font-medium">{fmtAge(scanMeta.last_ran)}</span></span>
-                    </>
-                  )}
-                  {scanMeta.symbols_processed != null && (
-                    <><span className="text-gray-700">·</span><span>{scanMeta.symbols_processed.toLocaleString()} / {(scanMeta.total_symbols ?? 0).toLocaleString()} symbols</span></>
-                  )}
-                  {scanMeta.elapsed_seconds != null && (
-                    <><span className="text-gray-700">·</span><span>{scanMeta.elapsed_seconds}s</span></>
-                  )}
-                </>
-              ) : (
-                <><Clock size={12} className="text-gray-600" /><span className="text-gray-600">No scan data yet</span></>
-              )}
+            <div className="flex items-center gap-6 text-xs text-gray-500 flex-wrap">
+              {renderStatus()}
             </div>
 
             {/* Right: actions */}
@@ -201,17 +299,10 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
                 onClick={handleTriggerScan}
                 disabled={triggering}
                 className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-                title="Refresh data (R)"
+                title="Run scan (R)"
               >
                 <RefreshCw size={11} className={triggering ? "animate-spin" : ""} />
-                {triggering ? "Triggering…" : "Refresh Data"}
-              </button>
-              <button
-                onClick={() => setShowShortcuts(true)}
-                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-gray-300 border border-gray-800 hover:border-gray-600 px-2.5 py-1.5 rounded-lg transition-all"
-                title="Keyboard shortcuts (?)"
-              >
-                <Keyboard size={11} />
+                {triggering ? "Scanning…" : "Run Scan"}
               </button>
             </div>
           </div>

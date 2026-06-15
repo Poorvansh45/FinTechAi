@@ -40,6 +40,23 @@ def clean_ticker(ticker: str) -> str:
     return f"{t}.NS"
 
 
+def normalize_symbol(symbol: str) -> str:
+    """Normalize a ticker symbol: uppercase, trimmed, and strip suffixes if present."""
+    if not symbol:
+        return ""
+    t = symbol.strip().upper()
+    for suffix in (".NS", ".BO", ".NSE", ".BSE"):
+        if t.endswith(suffix):
+            return t[:-len(suffix)]
+    return t
+
+
+def normalizeSymbol(symbol: str) -> str:
+    """CamelCase alias for normalize_symbol."""
+    return normalize_symbol(symbol)
+
+
+
 def validate_ticker_format(ticker: str) -> bool:
     """Lightweight format check for ticker symbols."""
     ticker = ticker.strip()

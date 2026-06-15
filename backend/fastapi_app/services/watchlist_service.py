@@ -168,6 +168,9 @@ class WatchlistService:
         if not wl:
             raise HTTPException(404, "Watchlist not found")
 
+        from utils.helpers import normalize_symbol
+        data.symbol = normalize_symbol(data.symbol)
+
         doc = data.dict()
         doc["watchlist_id"] = wl_id
         doc["added_date"] = datetime.utcnow()
@@ -190,6 +193,9 @@ class WatchlistService:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
+
+        from utils.helpers import normalize_symbol
+        symbol = normalize_symbol(symbol)
 
         stock_doc = await self.stocks_coll.find_one({"watchlist_id": wl_id, "symbol": symbol})
         if not stock_doc:
@@ -234,9 +240,21 @@ class WatchlistService:
         stocks = [WatchlistStockInDB(**s) async for s in stocks_cursor]
 
         # Fetch bulk quotes and historical prices including Nifty 50 benchmark
-        symbols = [s.symbol for s in stocks]
+        from utils.helpers import normalize_symbol
+        symbols = [normalize_symbol(s.symbol) for s in stocks]
         quotes = await self.market_svc.get_bulk_quotes(symbols + ["^NSEI"])
-        historical_prices = await self.market_svc.get_bulk_prices(symbols + ["^NSEI"], period="1y")
+        # Build historical_prices from local cache
+        from services.ohlc_downloader import load_stock_dataframe
+        cache_dfs = {}
+        for sym in (symbols + ["^NSEI"]):
+            clean_sym = normalize_symbol(sym)
+            df_sym = load_stock_dataframe(clean_sym)
+            if not df_sym.empty:
+                df_sym["Date"] = pd.to_datetime(df_sym["Date"])
+                df_sym.set_index("Date", inplace=True)
+                cache_dfs[sym] = df_sym["Close"]
+                cache_dfs[clean_sym] = df_sym["Close"]
+        historical_prices = pd.DataFrame(cache_dfs) if cache_dfs else pd.DataFrame()
 
         enriched_stocks = []
         total_return = 0.0
@@ -398,20 +416,33 @@ class WatchlistService:
         stocks_cursor = self.stocks_coll.find({"watchlist_id": {"$in": wl_ids}})
         all_stocks = [WatchlistStockInDB(**s) async for s in stocks_cursor]
         
+        from utils.helpers import normalize_symbol
         # Group stocks by watchlist_id
         wl_stocks_map = {}
         for s in all_stocks:
+            s.symbol = normalize_symbol(s.symbol)
             wl_stocks_map.setdefault(s.watchlist_id, []).append(s)
             
         # Get all unique symbols
-        all_symbols = list({s.symbol for s in all_stocks})
+        all_symbols = list({normalize_symbol(s.symbol) for s in all_stocks})
         
         # Bulk quotes and historical prices
         quotes = {}
         historical_prices = pd.DataFrame()
         if all_symbols:
             quotes = await self.market_svc.get_bulk_quotes(all_symbols)
-            historical_prices = await self.market_svc.get_bulk_prices(all_symbols, period="1y")
+            # Build historical_prices from local cache
+            from services.ohlc_downloader import load_stock_dataframe
+            cache_dfs = {}
+            for sym in all_symbols:
+                clean_sym = normalize_symbol(sym)
+                df_sym = load_stock_dataframe(clean_sym)
+                if not df_sym.empty:
+                    df_sym["Date"] = pd.to_datetime(df_sym["Date"])
+                    df_sym.set_index("Date", inplace=True)
+                    cache_dfs[sym] = df_sym["Close"]
+                    cache_dfs[clean_sym] = df_sym["Close"]
+            historical_prices = pd.DataFrame(cache_dfs) if cache_dfs else pd.DataFrame()
             
         leaderboard = []
         for wl in watchlists:
@@ -478,13 +509,15 @@ class WatchlistService:
         if not stocks:
             return []
             
+        from utils.helpers import normalize_symbol
         # Bulk quotes fetch (no need for history to aggregate return by source)
-        symbols = list({s.symbol for s in stocks})
+        symbols = list({normalize_symbol(s.symbol) for s in stocks})
         quotes = await self.market_svc.get_bulk_quotes(symbols)
         
         sources = {}
         for s in stocks:
-            quote = quotes.get(s.symbol)
+            norm_sym = normalize_symbol(s.symbol)
+            quote = quotes.get(norm_sym)
             current_price = quote.price if quote and quote.available and quote.price else s.added_price
             ret_pct = 0.0
             if s.added_price > 0:
