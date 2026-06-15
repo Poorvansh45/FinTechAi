@@ -37,4 +37,4 @@ Thumbs.db
 .vscode/
 
 # Temp/System
-.modified
+.modifiedbackend/data/Stock_Data.csv
