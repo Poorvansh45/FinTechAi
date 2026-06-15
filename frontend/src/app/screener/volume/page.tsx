@@ -20,36 +20,55 @@ const formatISTDate = (isoString: string) => {
 };
 
 
+// ── Interface matching actual API response ────────────────────────────────
 interface SurgeEvent {
     date: string;
-    volume: number;
+    volume: number | null;
     volume_ratio: number;
     day_return: number;
     close: number;
 }
+
 interface VolumeSurgeStock {
     symbol: string;
     company_name: string;
+    ltp: number;
     price: number;
-    volume: number;
-    avg_volume_20d: number;
-    volume_ratio: number;
-    day_return_pct: number;
+    volume: number | null;
+    avg_volume_20d: number | null;
+    volume_ratio: number | null;
+    current_volume_ratio: number | null;
+    day_return_pct: number | null;
     surge_stats: {
-        max_ratio_3yr: number;
-        avg_return_on_surge: number;
+        total_surges: number;
         total_surge_days_3yr: number;
-        positive_surge_pct: number;
-        avg_return_2d?: number | null;
-        avg_return_5d?: number | null;
-        avg_return_10d?: number | null;
-        win_rate_5d?: number | null;
+        positive_surge_pct: number | null;
+        max_ratio_3yr: number | null;
+        avg_return_on_surge: number | null;
+        avg_1d_return: number | null;
+        avg_2d_return: number | null;
+        avg_5d_return: number | null;
+        avg_10d_return: number | null;
+        avg_20d_return: number | null;
+        win_rate_1d: number | null;
+        win_rate_5d: number | null;
+        win_rate_10d: number | null;
+        max_gain_ever: number | null;
+        max_drawdown_ever: number | null;
     };
     recent_surge_events: SurgeEvent[];
     has_current_surge: boolean;
 }
 
 const PAGE_SIZE = 50;
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function getPrice(s: VolumeSurgeStock): number {
+    return s.price ?? s.ltp ?? 0;
+}
+function getVolRatio(s: VolumeSurgeStock): number | null {
+    return s.volume_ratio ?? s.current_volume_ratio ?? null;
+}
 
 function fmtVol(n: number | null | undefined): string {
     if (!n) return "—";
@@ -109,22 +128,24 @@ export default function VolumeSurgePage() {
         setSelectedStock({
             symbol: stock.symbol,
             company_name: stock.company_name,
-            price: stock.price
+            price: getPrice(stock)
         });
         setIsModalOpen(true);
     };
 
+    // Use summary endpoint for fast page load (no surge_history in payload)
     const fetchData = useCallback(async (f: ReturnType<typeof defaultFilters>) => {
         setLoading(true); setError(null); setPage(1);
         try {
             const params: Record<string, any> = { limit: 2500 };
-            if (f.volume_ratio_min !== "")       params.volume_ratio_min       = Number(f.volume_ratio_min);
-            if (f.day_return_min !== "")          params.day_return_min          = Number(f.day_return_min);
-            if (f.day_return_max !== "")          params.day_return_max          = Number(f.day_return_max);
-            if (f.surges_3yr_min !== "")          params.surges_3yr_min          = Number(f.surges_3yr_min);
-            if (f.positive_surge_pct_min !== "")  params.positive_surge_pct_min  = Number(f.positive_surge_pct_min);
-            if (f.current_surge_only)             params.current_surge_only      = true;
-            const resp = await screenerService.getVolumeSurges(params);
+            if (f.volume_ratio_min !== "")        params.volume_ratio_min        = Number(f.volume_ratio_min);
+            if (f.day_return_min !== "")           params.day_return_min           = Number(f.day_return_min);
+            if (f.day_return_max !== "")           params.day_return_max           = Number(f.day_return_max);
+            if (f.surges_3yr_min !== "")           params.surges_3yr_min           = Number(f.surges_3yr_min);
+            if (f.positive_surge_pct_min !== "")   params.positive_surge_pct_min   = Number(f.positive_surge_pct_min);
+            if (f.current_surge_only)              params.current_surge_only       = true;
+            // Use summary endpoint for initial load (excludes heavy surge_history)
+            const resp = await screenerService.getVolumeSurgeSummary(params);
             if (resp.data?.success) setAllStocks(resp.data.data);
             else setError(resp.data?.error || "Failed to fetch");
         } catch (err: any) {
@@ -151,11 +172,11 @@ export default function VolumeSurgePage() {
         return [...rows].sort((a, b) => {
             let av: any = 0, bv: any = 0;
             if (sortKey === "symbol")          { av = a.symbol; bv = b.symbol; }
-            else if (sortKey === "price")      { av = a.price ?? 0; bv = b.price ?? 0; }
+            else if (sortKey === "price")      { av = getPrice(a); bv = getPrice(b); }
             else if (sortKey === "volume")     { av = a.volume ?? 0; bv = b.volume ?? 0; }
-            else if (sortKey === "volume_ratio"){ av = a.volume_ratio ?? 0; bv = b.volume_ratio ?? 0; }
+            else if (sortKey === "volume_ratio"){ av = getVolRatio(a) ?? 0; bv = getVolRatio(b) ?? 0; }
             else if (sortKey === "day_return") { av = a.day_return_pct ?? 0; bv = b.day_return_pct ?? 0; }
-            else if (sortKey === "surges_3yr") { av = a.surge_stats?.total_surge_days_3yr ?? 0; bv = b.surge_stats?.total_surge_days_3yr ?? 0; }
+            else if (sortKey === "surges_3yr") { av = a.surge_stats?.total_surge_days_3yr ?? a.surge_stats?.total_surges ?? 0; bv = b.surge_stats?.total_surge_days_3yr ?? b.surge_stats?.total_surges ?? 0; }
             else if (sortKey === "pos_pct")    { av = a.surge_stats?.positive_surge_pct ?? 0; bv = b.surge_stats?.positive_surge_pct ?? 0; }
             if (typeof av === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
             return sortDir === "asc" ? av - bv : bv - av;
@@ -189,7 +210,7 @@ export default function VolumeSurgePage() {
                         <div className="flex items-center gap-4 text-xs text-gray-500 mt-1 flex-wrap">
                             <span>Last Updated: <span className="text-gray-300 font-semibold">{scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "—"}</span></span>
                             <span className="text-gray-700">•</span>
-                            <span>Stocks: <span className="text-gray-300 font-semibold">{scanMeta?.record_count ?? scanMeta?.symbols_processed ?? allStocks.length}</span></span>
+                            <span>Stocks: <span className="text-gray-300 font-semibold">{allStocks.length.toLocaleString()}</span></span>
                             <span className="text-gray-700">•</span>
                             <span>Status: <span className={`font-semibold font-mono uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded ${
                                 scanMeta?.status === "RUNNING"
@@ -220,10 +241,10 @@ export default function VolumeSurgePage() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
                         {[
-                            { key: "volume_ratio_min", label: "Vol Ratio Min", hint: "vs 20d avg",      color: "orange", step: "0.5" },
-                            { key: "day_return_min",   label: "Return % Min",  hint: "on surge day",    color: "green",  step: "0.5" },
-                            { key: "day_return_max",   label: "Return % Max",  hint: "filter extremes", color: "red",    step: "0.5" },
-                            { key: "surges_3yr_min",   label: "Min Surge Days",hint: "in 3 years",      color: "blue",   step: "1"   },
+                            { key: "volume_ratio_min",       label: "Vol Ratio Min", hint: "vs 20d avg",      color: "orange", step: "0.5" },
+                            { key: "day_return_min",         label: "Return % Min",  hint: "on surge day",    color: "green",  step: "0.5" },
+                            { key: "day_return_max",         label: "Return % Max",  hint: "filter extremes", color: "red",    step: "0.5" },
+                            { key: "surges_3yr_min",         label: "Min Surge Days",hint: "in 3 years",      color: "blue",   step: "1"   },
                         ].map(field => (
                             <div key={field.key} className={`rounded-xl p-3 border transition-all ${(filters as any)[field.key] !== "" ? `border-${field.color}-500/50 bg-${field.color}-500/5` : "border-gray-800 bg-gray-800/30"}`}>
                                 <div className="flex justify-between mb-1.5">
@@ -240,7 +261,7 @@ export default function VolumeSurgePage() {
                         {/* Currently Surging toggle */}
                         <div className="rounded-xl p-3 border border-gray-800 bg-gray-800/30 flex flex-col gap-1.5">
                             <span className="text-xs font-semibold text-yellow-400">Currently Surging</span>
-                            <span className="text-xs text-gray-600">today's spike only</span>
+                            <span className="text-xs text-gray-600">today&apos;s spike only</span>
                             <button type="button"
                                 onClick={() => setFilters(f => ({ ...f, current_surge_only: !f.current_surge_only }))}
                                 className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-all border ${filters.current_surge_only ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-300" : "bg-gray-900 border-gray-700 text-gray-400 hover:text-white"}`}>
@@ -329,6 +350,8 @@ export default function VolumeSurgePage() {
                                 <tbody>
                                     {pageRows.map((stock, idx) => {
                                         const absIdx = (page - 1) * PAGE_SIZE + idx + 1;
+                                        const vr = getVolRatio(stock);
+                                        const price = getPrice(stock);
                                         return (
                                             <React.Fragment key={stock.symbol}>
                                                 <tr className={`border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors cursor-pointer ${stock.has_current_surge ? "bg-orange-500/5" : ""}`}
@@ -340,13 +363,13 @@ export default function VolumeSurgePage() {
                                                             {stock.has_current_surge && <span className="text-xs bg-orange-500/20 text-orange-300 border border-orange-500/30 px-1.5 py-0.5 rounded leading-none">⚡</span>}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-2.5 text-gray-300 text-xs max-w-[160px] truncate">{stock.company_name}</td>
+                                                    <td className="px-4 py-2.5 text-gray-300 text-xs max-w-[160px] truncate">{stock.company_name || "—"}</td>
                                                     <td className="px-4 py-2.5 text-right font-semibold text-white text-sm">
-                                                        {stock.price ? `₹${stock.price.toFixed(2)}` : "—"}
+                                                        {price ? `₹${price.toFixed(2)}` : "—"}
                                                     </td>
                                                     <td className="px-4 py-2.5 text-right">
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getRatioBadge(stock.volume_ratio)}`}>
-                                                            {stock.volume_ratio ? `${stock.volume_ratio.toFixed(1)}×` : "—"}
+                                                        <span className={`px-2 py-0.5 rounded text-xs font-semibold ${getRatioBadge(vr)}`}>
+                                                            {vr ? `${vr.toFixed(1)}×` : "—"}
                                                         </span>
                                                     </td>
                                                     <td className="px-4 py-2.5 text-right text-gray-300 text-xs">{fmtVol(stock.volume)}</td>
@@ -355,21 +378,21 @@ export default function VolumeSurgePage() {
                                                         {stock.day_return_pct != null ? `${stock.day_return_pct > 0 ? "+" : ""}${stock.day_return_pct.toFixed(2)}%` : "—"}
                                                     </td>
                                                     <td className="px-4 py-2.5 text-right text-blue-300 text-xs font-medium">
-                                                        {stock.surge_stats?.total_surge_days_3yr ?? "—"}
+                                                        {stock.surge_stats?.total_surge_days_3yr ?? stock.surge_stats?.total_surges ?? "—"}
                                                     </td>
                                                     <td className="px-4 py-2.5 text-right text-xs font-medium">
-                                                        {stock.surge_stats?.avg_return_2d != null
-                                                            ? <span className={stock.surge_stats.avg_return_2d >= 0 ? "text-cyan-400" : "text-red-400"}>{stock.surge_stats.avg_return_2d > 0 ? "+" : ""}{stock.surge_stats.avg_return_2d.toFixed(1)}%</span>
+                                                        {stock.surge_stats?.avg_2d_return != null
+                                                            ? <span className={stock.surge_stats.avg_2d_return >= 0 ? "text-cyan-400" : "text-red-400"}>{stock.surge_stats.avg_2d_return > 0 ? "+" : ""}{stock.surge_stats.avg_2d_return.toFixed(1)}%</span>
                                                             : <span className="text-gray-600">—</span>}
                                                     </td>
                                                     <td className="px-4 py-2.5 text-right text-xs font-medium">
-                                                        {stock.surge_stats?.avg_return_5d != null
-                                                            ? <span className={stock.surge_stats.avg_return_5d >= 0 ? "text-cyan-400" : "text-red-400"}>{stock.surge_stats.avg_return_5d > 0 ? "+" : ""}{stock.surge_stats.avg_return_5d.toFixed(1)}%</span>
+                                                        {stock.surge_stats?.avg_5d_return != null
+                                                            ? <span className={stock.surge_stats.avg_5d_return >= 0 ? "text-cyan-400" : "text-red-400"}>{stock.surge_stats.avg_5d_return > 0 ? "+" : ""}{stock.surge_stats.avg_5d_return.toFixed(1)}%</span>
                                                             : <span className="text-gray-600">—</span>}
                                                     </td>
                                                     <td className="px-4 py-2.5 text-right text-xs font-medium">
-                                                        {stock.surge_stats?.avg_return_10d != null
-                                                            ? <span className={stock.surge_stats.avg_return_10d >= 0 ? "text-cyan-400" : "text-red-400"}>{stock.surge_stats.avg_return_10d > 0 ? "+" : ""}{stock.surge_stats.avg_return_10d.toFixed(1)}%</span>
+                                                        {stock.surge_stats?.avg_10d_return != null
+                                                            ? <span className={stock.surge_stats.avg_10d_return >= 0 ? "text-cyan-400" : "text-red-400"}>{stock.surge_stats.avg_10d_return > 0 ? "+" : ""}{stock.surge_stats.avg_10d_return.toFixed(1)}%</span>
                                                             : <span className="text-gray-600">—</span>}
                                                     </td>
                                                     <td className="px-4 py-2.5 text-right text-xs">
@@ -399,12 +422,12 @@ export default function VolumeSurgePage() {
                                                 {/* Expanded surge history */}
                                                 {expandedSymbol === stock.symbol && (
                                                     <tr className="bg-gray-900/80 border-b border-gray-700">
-                                                        <td colSpan={11} className="px-6 py-4">
+                                                        <td colSpan={16} className="px-6 py-4">
                                                             <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider mb-3">
                                                                 Recent Surge Events (last 90 days)
-                                                                <span className="ml-3 text-gray-600 normal-case font-normal">Max ratio ever: {stock.surge_stats?.max_ratio_3yr?.toFixed(1)}× · Avg return on surge: {stock.surge_stats?.avg_return_on_surge?.toFixed(2)}%</span>
+                                                                <span className="ml-3 text-gray-600 normal-case font-normal">Max ratio ever: {stock.surge_stats?.max_ratio_3yr?.toFixed(1) ?? "—"}× · Avg return on surge: {stock.surge_stats?.avg_return_on_surge?.toFixed(2) ?? "—"}%</span>
                                                             </p>
-                                                            {stock.recent_surge_events.length === 0 ? (
+                                                            {(!stock.recent_surge_events || stock.recent_surge_events.length === 0) ? (
                                                                 <p className="text-gray-600 text-xs">No surge events in last 90 days.</p>
                                                             ) : (
                                                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
