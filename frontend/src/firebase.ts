@@ -6,5 +6,5 @@
 export {};
 
 if (typeof window !== 'undefined') {
-  console.warn('[FinAI Edge] firebase.ts is a removed stub. Update any imports to use @/lib/api/authApi.');
+  console.warn('[FinTechAI] firebase.ts is a removed stub. Update any imports to use @/lib/api/authApi.');
 }

@@ -68,7 +68,7 @@ function AuthLoadingScreen() {
           style={{ background: 'rgba(99,102,241,0.2)', animationDuration: '1.5s' }}
         />
       </div>
-      <h2 className="text-white font-bold text-lg tracking-wide">FinAI Edge</h2>
+      <h2 className="text-white font-bold text-lg tracking-wide">FinTechAI</h2>
       <p className="text-violet-400 text-sm animate-pulse mt-2">Loading your workspace…</p>
       <div className="mt-8 w-48 h-0.5 rounded-full overflow-hidden bg-white/10">
         <div

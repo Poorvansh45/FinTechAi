@@ -25,6 +25,10 @@ interface VolumeSurgeStock {
         avg_return_on_surge: number;
         total_surge_days_3yr: number;
         positive_surge_pct: number;
+        avg_return_2d?: number;
+        avg_return_5d?: number;
+        avg_return_10d?: number;
+        win_rate_5d?: number;
     };
     recent_surge_events: SurgeEvent[];
     has_current_surge: boolean;

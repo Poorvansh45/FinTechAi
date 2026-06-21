@@ -4,17 +4,17 @@ export default function AboutPage() {
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold"
           style={{ background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.25)", color: "#a5b4fc" }}>
-          About FinAI Edge
+          About FinTechAI
         </div>
         <h1 className="text-3xl font-black gradient-text">Built for Serious Traders</h1>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          FinAI Edge is a personal trading performance system designed to help traders
+          FinTechAI is a personal trading performance system designed to help traders
           build discipline, track their edge, and improve through data-driven insights.
         </p>
       </div>
 
       <div className="glass-card p-6 space-y-4">
-        <h2 className="text-base font-bold">Why FinAI Edge?</h2>
+        <h2 className="text-base font-bold">Why FinTechAI?</h2>
         {[
           ["📒 Journal Everything", "Log trades with a 9-step wizard capturing execution, psychology, session, and chart screenshots."],
           ["📊 Understand Your Edge", "Real analytics: profit factor, expectancy, max drawdown, session breakdown — not just win rate."],
@@ -54,7 +54,7 @@ export default function AboutPage() {
       </div>
 
       <div className="text-center text-xs text-muted-foreground">
-        FinAI Edge · Built with ❤️ for retail traders · 2026
+        FinTechAI · Built with ❤️ for retail traders · 2026
       </div>
     </div>
   );

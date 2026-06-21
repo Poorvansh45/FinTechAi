@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * FinAI Edge — AI Portfolio Onboarding
+ * FinTechAI — AI Portfolio Onboarding
  * ======================================
  * Step-by-step AI wealth advisor flow.
  * Calls FastAPI /api/v2/ai/generate-portfolio (Gemini or rule-based fallback).

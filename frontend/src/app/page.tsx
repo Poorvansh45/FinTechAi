@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { LightBeamButton } from "@/components/ui/light-beam-button";
@@ -104,6 +105,25 @@ export default function HomePage() {
   const { user, isAuthenticated, loading } = useAuth();
   const router = useRouter();
   const [activeShowcase, setActiveShowcase] = useState("markets");
+  const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    router.prefetch('/auth');
+
+    const handleExit = () => setIsExiting(true);
+    window.addEventListener('premium-auth-exit', handleExit);
+    return () => window.removeEventListener('premium-auth-exit', handleExit);
+  }, [router]);
+
+  const handleAuthNavigation = (targetUrl: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    setTimeout(() => {
+      setIsExiting(true);
+      setTimeout(() => {
+        router.push(targetUrl);
+      }, 150);
+    }, 120);
+  };
   
   // Spotlight mouse track ref
   const spotlightRef = useRef<HTMLDivElement>(null);
@@ -184,7 +204,7 @@ export default function HomePage() {
       
       {/* ── 2. HERO SECTION WITH CINEMATIC GLOW ── */}
       <div 
-        className="relative pt-24 md:pt-36 pb-0 px-4 overflow-hidden group/hero"
+        className="relative pt-6 md:pt-8 pb-0 px-4 overflow-hidden group/hero"
         onMouseMove={handleMouseMove}
       >
         
@@ -199,15 +219,20 @@ export default function HomePage() {
 
         {/* Glow System Overlays */}
         {/* Soft Radial Glow behind Hero Headline */}
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[600px] h-[350px] rounded-full bg-gradient-to-r from-violet-600/10 to-indigo-600/5 blur-[120px] pointer-events-none -z-10 animate-pulse" />
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 w-[600px] h-[350px] rounded-full bg-gradient-to-r from-violet-600/10 to-indigo-600/5 blur-[120px] pointer-events-none -z-10 animate-pulse" />
         
         {/* Faint Gradient Bloom behind Hero Preview */}
-        <div className="absolute top-[380px] left-1/2 -translate-x-1/2 w-[900px] h-[450px] rounded-full bg-[#8B5CF6]/4 blur-[140px] pointer-events-none -z-10 animate-pulse" />
+        <div className="absolute top-[300px] left-1/2 -translate-x-1/2 w-[900px] h-[450px] rounded-full bg-[#8B5CF6]/4 blur-[140px] pointer-events-none -z-10 animate-pulse" />
         
         {/* Subtle grid pattern overlay */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff03_1px,transparent_1px),linear-gradient(to_bottom,#ffffff03_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none -z-20" />
 
-        <div className="max-w-6xl mx-auto text-center space-y-[40px]">
+        <div className="max-w-6xl mx-auto text-center space-y-6">
+          <motion.div
+            animate={{ opacity: isExiting ? 0 : 1 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="space-y-6"
+          >
           
           {/* Tagline Label */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full backdrop-blur-md bg-white/[0.02] border border-white/[0.08] text-[#94A3B8] shadow-[0_0_15px_rgba(139,92,246,0.05)] hover:border-[#8B5CF6]/30 transition-all duration-300">
@@ -259,7 +284,7 @@ export default function HomePage() {
               </>
             ) : (
               <>
-                <LightBeamButton href="/auth?mode=signup">
+                <LightBeamButton href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')}>
                   Get Started Free <ArrowRight className="w-4 h-4" />
                 </LightBeamButton>
                 
@@ -296,9 +321,14 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        </motion.div>
 
-          {/* Dynamic Mockup Preview with 32px radius (Scaled by 15-20% to max-w-6xl) */}
-          <div className="relative pt-8 md:pt-12 animate-hero-preview max-w-6xl mx-auto">
+        {/* Dynamic Mockup Preview with 32px radius (Scaled by 15-20% to max-w-6xl) */}
+        <motion.div
+          animate={{ opacity: isExiting ? 0 : 1 }}
+          transition={{ duration: 0.25, delay: 0.15, ease: 'easeInOut' }}
+          className="relative pt-8 md:pt-12 animate-hero-preview max-w-6xl mx-auto"
+        >
             <div className={`relative rounded-[32px] border bg-[#0B1020]/80 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.8),_inset_0_1px_0_0_rgba(255,255,255,0.05)] backdrop-blur-xl overflow-hidden transition-all duration-1000 ${
               feedGlow ? 'shadow-[0_24px_80px_rgba(139,92,246,0.15),_inset_0_1px_0_0_rgba(255,255,255,0.08)] border-[#8B5CF6]/20' : 'border-white/[0.08]'
             }`}>
@@ -421,7 +451,7 @@ export default function HomePage() {
             </div>
             {/* Soft atmospheric glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[200px] rounded-full bg-[#8B5CF6]/5 blur-[100px] pointer-events-none -z-10" />
-          </div>
+          </motion.div>
 
         </div>
       </div>
@@ -971,10 +1001,12 @@ export default function HomePage() {
 
             {/* Bottom links */}
             <div className="pt-4 border-t border-white/[0.04] flex items-center justify-between text-[11px] text-[#94A3B8]">
-              <span className="font-mono">FINAI EDGE ENGINE v1.2</span>
-              <Link href="/auth?mode=signup" className="flex items-center gap-1 text-[#8B5CF6] hover:text-[#A78BFA] transition-colors font-semibold">
-                Explore Module <ChevronRight className="w-3 h-3" />
-              </Link>
+              <span className="font-mono">FINTECHAI ENGINE v1.2</span>
+              <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }} className="inline-flex">
+                <Link href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="flex items-center gap-1 text-[#8B5CF6] hover:text-[#A78BFA] transition-colors font-semibold">
+                  Explore Module <ChevronRight className="w-3 h-3" />
+                </Link>
+              </motion.div>
             </div>
 
           </div>
@@ -1076,9 +1108,11 @@ export default function HomePage() {
                 ))}
               </ul>
             </div>
-            <Link href="/auth?mode=signup" className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
-              Get Started Free
-            </Link>
+            <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }}>
+              <Link href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
+                Get Started Free
+              </Link>
+            </motion.div>
           </div>
 
           {/* Pro Card (RECOMMENDED - Highlighted with LightBeamButton) */}
@@ -1113,7 +1147,7 @@ export default function HomePage() {
                 ))}
               </ul>
             </div>
-            <LightBeamButton href="/auth?mode=signup" className="mt-8 w-full">
+            <LightBeamButton href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="mt-8 w-full">
               Upgrade to Pro
             </LightBeamButton>
           </div>
@@ -1146,9 +1180,11 @@ export default function HomePage() {
                 ))}
               </ul>
             </div>
-            <Link href="/auth?mode=signup" className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
-              Join Elite Tier
-            </Link>
+            <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }}>
+              <Link href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
+                Join Elite Tier
+              </Link>
+            </motion.div>
           </div>
 
         </div>

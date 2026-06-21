@@ -1,5 +1,5 @@
 /**
- * FinAI Edge — Environment Configuration
+ * FinTechAI — Environment Configuration
  * ========================================
  * Centralised, type-safe env access with safe defaults.
  *
@@ -12,7 +12,7 @@ function requireEnv(key: string, fallback?: string): string {
     if (typeof window !== 'undefined') {
       // Client-side: warn but don't throw so build still works
       console.warn(
-        `[FinAI Edge] Missing environment variable: ${key}. ` +
+        `[FinTechAI] Missing environment variable: ${key}. ` +
         `Add it to frontend/.env`,
       );
     }

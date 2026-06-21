@@ -15,7 +15,14 @@ const FASTAPI_URL =
     ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
     : "http://localhost:8000";
 
-const SCANNER_TABS = [
+const SCANNER_TABS: {
+  href: string;
+  label: string;
+  icon: any;
+  activeColor: string;
+  iconColor: string;
+  badge?: string;
+}[] = [
   { href: "/screener",            label: "Technical",  icon: Filter,     activeColor: "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",  iconColor: "text-yellow-400" },
   { href: "/screener/smc",        label: "SMC",        icon: Layers,     activeColor: "bg-purple-500/10 border-purple-500/30 text-purple-300",  iconColor: "text-purple-400" },
   { href: "/screener/volume",     label: "Volume",     icon: Waves,      activeColor: "bg-orange-500/10 border-orange-500/30 text-orange-300",  iconColor: "text-orange-400" },
@@ -55,7 +62,7 @@ function ShortcutHelp({ onClose }: { onClose: () => void }) {
 }
 
 // ── Context for child pages to register scan data ─────────────────────────────
-export const ScannerContext = React.createContext<{
+const ScannerContext = React.createContext<{
   registerData: (rows: any[]) => void;
   registerRefresh: (fn: () => void) => void;
   registerSearch: (ref: React.RefObject<HTMLInputElement>) => void;
