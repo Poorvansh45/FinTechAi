@@ -32,11 +32,11 @@ export const NAV_MODULES: NavModule[] = [
     color: 'text-blue-400',
     glowColor: 'rgba(59,130,246,0.15)',
     items: [
-      { href: '/markets',          label: 'Mission Control', icon: Radar,          desc: 'Institutional-grade market command center', badge: 'Live' },
-      { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,       desc: 'Breadth, fear & greed, volume & flow'     },
-      { href: '/markets/movers',   label: 'Top Movers',      icon: Zap,            desc: 'Gainers, losers & volume surges',          badge: 'Live' },
-      { href: '/markets/sectors',  label: 'Sector Heatmap',  icon: Globe,          desc: 'Real-time sector & industry performance'   },
-      { href: '/markets/signals',  label: 'AI Signals',      icon: BarChart2,      desc: 'AI-detected setups & smart alerts',        badge: 'AI'  },
+      { href: '/markets',          label: 'Mission Control', icon: Radar,          desc: 'Institutional market overview', badge: 'Live' },
+      { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,       desc: 'AI narrative and sentiment engine'     },
+      { href: '/markets/movers',   label: 'Top Movers Pro',  icon: TrendingUp,     desc: 'Momentum, volume and opportunities', badge: '⭐' },
+      { href: '/markets/sectors',  label: 'Sector Rotation', icon: RotateCcw,      desc: 'Capital flow and sector leadership'    },
+      { href: '/markets/macro',    label: 'Macro Intel',     icon: Globe,          desc: 'Geopolitics, central banks and risk events'          },
     ],
   },
   {
