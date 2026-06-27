@@ -4,6 +4,7 @@ import {
   FlaskConical, RotateCcw, GitCompare, PieChart, Sigma, AreaChart,
   BookOpen, History, LineChart, Brain, PlayCircle,
   Sparkles, MessageSquare, Eye, AlertTriangle, Lightbulb, Bot, Briefcase,
+  Radar,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -31,13 +32,11 @@ export const NAV_MODULES: NavModule[] = [
     color: 'text-blue-400',
     glowColor: 'rgba(59,130,246,0.15)',
     items: [
-      { href: '/markets',          label: 'Overview',        icon: LayoutDashboard, desc: 'Market intelligence summary'     },
-      { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,        desc: 'Breadth, fear & greed, volume'  },
-      { href: '/markets/sectors',  label: 'Sector Heatmap',  icon: Globe,           desc: 'Real-time sector performance'   },
-      { href: '/markets/trends',   label: 'Trend Analyzer',  icon: TrendingUp,      desc: 'Momentum & breakout signals'    },
-      { href: '/markets/risk',     label: 'Risk Analytics',  icon: ShieldAlert,     desc: 'Volatility & drawdown analysis' },
-      { href: '/markets/movers',   label: 'Top Movers',      icon: Zap,             desc: 'Gainers, losers & volume surges', badge: 'Live' },
-      { href: '/markets/signals',  label: 'AI Signals',      icon: BarChart2,       desc: 'AI-detected setups & alerts',   badge: 'AI'  },
+      { href: '/markets',          label: 'Mission Control', icon: Radar,          desc: 'Institutional market overview', badge: 'Live' },
+      { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,       desc: 'AI narrative and sentiment engine'     },
+      { href: '/markets/movers',   label: 'Top Movers Pro',  icon: TrendingUp,     desc: 'Momentum, volume and opportunities', badge: '⭐' },
+      { href: '/markets/sectors',  label: 'Sector Rotation', icon: RotateCcw,      desc: 'Capital flow and sector leadership'    },
+      { href: '/markets/macro',    label: 'Macro Intel',     icon: Globe,          desc: 'Geopolitics, central banks and risk events'          },
     ],
   },
   {
@@ -61,10 +60,12 @@ export const NAV_MODULES: NavModule[] = [
     color: 'text-violet-400',
     glowColor: 'rgba(139,92,246,0.15)',
     items: [
-      { href: '/quant-lab/optimizer',    label: 'Portfolio Optimizer',  icon: Briefcase,    desc: 'MPT-based portfolio optimization', badge: 'New' },
-      { href: '/quant-lab/research',     label: 'Quant Research',       icon: GitCompare,   desc: 'Asset correlation & statistical analysis' },
-      { href: '/quant-lab/strategies',   label: 'Strategy Lab',         icon: FlaskConical, desc: 'Design & backtest trading strategies' },
-      { href: '/quant-lab/replay',       label: 'Trade Replay',         icon: PlayCircle,   desc: 'Replay and learn from historical trades' },
+      { href: '/quant-lab/optimizer',    label: 'Portfolio Optimizer',  icon: Briefcase,    desc: 'MPT-based portfolio optimization',        badge: 'New' },
+      { href: '/quant-lab/research',     label: 'Quant Research',       icon: GitCompare,   desc: 'Asset correlation & statistical analysis'       },
+      { href: '/quant-lab/strategies',   label: 'Strategy Lab',         icon: FlaskConical, desc: 'Design & backtest trading strategies'           },
+      { href: '/quant-lab/risk',         label: 'Risk Analytics',       icon: ShieldAlert,  desc: 'Volatility, drawdown & tail-risk analysis'      },
+      { href: '/quant-lab/trends',       label: 'Trend Analyzer',       icon: TrendingUp,   desc: 'Momentum, breakout & mean-reversion signals'    },
+      { href: '/quant-lab/replay',       label: 'Trade Replay',         icon: PlayCircle,   desc: 'Replay and learn from historical trades'        },
     ],
   },
   {

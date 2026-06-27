@@ -16,9 +16,27 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'FinAI Edge – Premium Trading Intelligence Platform',
+  title: 'FinTechAI — TRADING INTELLIGENCE',
   description:
-    'AI-powered trading journal, stock screener, analytics, and market insights built for serious traders.',
+    'AI-powered trading intelligence platform for market research, screening, portfolio optimization, quantitative analysis, and AI-assisted decision making.',
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
+  openGraph: {
+    title: 'FinTechAI — TRADING INTELLIGENCE',
+    description:
+      'AI-powered trading intelligence platform for market research, screening, portfolio optimization, quantitative analysis, and AI-assisted decision making.',
+    images: ['/logo.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'FinTechAI — TRADING INTELLIGENCE',
+    description:
+      'AI-powered trading intelligence platform for market research, screening, portfolio optimization, quantitative analysis, and AI-assisted decision making.',
+    images: ['/logo.png'],
+  },
 };
 
 export default function RootLayout({

@@ -1,5 +1,5 @@
 /**
- * FinAI Edge — FastAPI Client
+ * FinTechAI — FastAPI Client
  * =============================
  * Dedicated API client for the Python FastAPI analytics backend.
  * Handles: portfolio analysis, market data, AI generation.

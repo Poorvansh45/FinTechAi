@@ -353,7 +353,7 @@ function LandingScreen({ onAnalyze, onBuild }: { onAnalyze: () => void; onBuild:
                     How would you like to{' '}<span className="gradient-text">start?</span>
                 </h1>
                 <p className="text-slate-400 text-base max-w-lg mx-auto leading-relaxed">
-                    Analyze your current investments or let FinAI Edge build a personalized portfolio for you.
+                    Analyze your current investments or let FinTechAI build a personalized portfolio for you.
                 </p>
             </motion.div>
 
