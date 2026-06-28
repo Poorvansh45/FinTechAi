@@ -202,23 +202,52 @@ def fetch_groww_eod_range(groww_api, groww_symbol, start_dt, end_dt):
         log.warning(f"Groww fetch error for {groww_symbol}: {e}")
         return pd.DataFrame()
 
-    candles = resp.get("candles", [])
-    if not candles:
+    candles = []
+    if isinstance(resp, list):
+        candles = resp
+    elif isinstance(resp, dict):
+        if "candles" in resp:
+            candles = resp["candles"]
+        elif "data" in resp and isinstance(resp["data"], dict):
+            candles = resp["data"].get("candles", [])
+        else:
+            log.warning(f"Unexpected response for {groww_symbol}: {resp}")
+            return pd.DataFrame()
+    else:
+        log.warning(f"Unexpected response type {type(resp)} for {groww_symbol}")
         return pd.DataFrame()
 
-    df = pd.DataFrame(
-        candles,
-        columns=["timestamp", "open", "high", "low", "close", "volume", "oi"]
-    )
+    if not candles:
+        log.info(
+            f"No candles returned for {groww_symbol} | "
+            f"Start={start_dt.strftime('%Y-%m-%d')} End={end_dt.strftime('%Y-%m-%d')}"
+        )
+        return pd.DataFrame()
 
-    if pd.api.types.is_numeric_dtype(df["timestamp"]):
-        df["date"] = pd.to_datetime(df["timestamp"], unit="s", errors="coerce")
-    else:
-        df["date"] = pd.to_datetime(df["timestamp"], errors="coerce")
+    rows = []
+    for c in candles:
+        if len(c) < 6:
+            continue
+        if any(v is None for v in c[:6]):
+            log.warning(f"Skipping incomplete candle for {groww_symbol}: {c}")
+            continue
 
+        row = {
+            "date": pd.to_datetime(c[0], errors="coerce"),
+            "open": float(c[1]),
+            "high": float(c[2]),
+            "low": float(c[3]),
+            "close": float(c[4]),
+            "volume": int(c[5]),
+        }
+        rows.append(row)
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
     df = df.dropna(subset=["date"])
     df["date"] = df["date"].dt.normalize()
-
     return df[["date", "open", "high", "low", "close", "volume"]]
 
 def fetch_groww_incremental(groww_api, groww_symbol, start_dt, end_dt):
@@ -387,7 +416,10 @@ async def download_incremental_ohlc() -> str:
     success_symbols = []
     failed_symbols = []
     missing_symbols = [] # symbols that returned no data or failed
-    up_to_date_count = 0
+    # Use a mutable container for the counter to avoid UnboundLocalError
+    # inside the run_parallel() closure (integers can't be mutated in-place,
+    # but list/dict can).
+    counters = {"up_to_date": 0}
     
     def run_parallel():
         records = []
@@ -410,7 +442,7 @@ async def download_incremental_ohlc() -> str:
                 elif res["status"] == "no_data":
                     missing_symbols.append(sym)
                 elif res["status"] == "up_to_date":
-                    up_to_date_count += 1
+                    counters["up_to_date"] += 1
                     
                 done_count += 1
                 if done_count % 100 == 0 or done_count == len(symbols_df):
@@ -423,6 +455,7 @@ async def download_incremental_ohlc() -> str:
     # Print ingestion reporting summary
     success_count = len(success_symbols)
     failure_count = len(failed_symbols)
+    up_to_date_count = counters["up_to_date"]
     log.info("=========================================")
     log.info("INGESTION ENGINE SUMMARY REPORT")
     log.info(f"  Success count:  {success_count}")

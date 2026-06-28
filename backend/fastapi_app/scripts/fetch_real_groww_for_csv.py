@@ -71,16 +71,53 @@ async def main():
                     candle_interval=groww.CANDLE_INTERVAL_DAY,
                 )
                 
-                candles = resp.get("candles", [])
+                candles = []
+                if isinstance(resp, list):
+                    candles = resp
+                elif isinstance(resp, dict):
+                    if "candles" in resp:
+                        candles = resp["candles"]
+                    elif "data" in resp and isinstance(resp["data"], dict):
+                        candles = resp["data"].get("candles", [])
+                    else:
+                        print(f"Unexpected response for {groww_symbol}: {resp}")
+                        break
+                else:
+                    print(f"Unexpected response type {type(resp)} for {groww_symbol}")
+                    break
+
                 if not candles:
                     print("No candles.")
                     break
                     
-                df_candles = pd.DataFrame(candles, columns=["timestamp", "Open", "High", "Low", "Close", "Volume", "OI"])
-                if pd.api.types.is_numeric_dtype(df_candles["timestamp"]):
-                    df_candles["Date"] = pd.to_datetime(df_candles["timestamp"], unit="s", errors="coerce").dt.normalize()
-                else:
-                    df_candles["Date"] = pd.to_datetime(df_candles["timestamp"], errors="coerce").dt.normalize()
+                rows = []
+                for c in candles:
+                    if len(c) < 6:
+                        continue
+                    if any(v is None for v in c[:6]):
+                        print(f"Skipping incomplete candle for {groww_symbol}: {c}")
+                        continue
+                    
+                    row = {
+                        "Date": pd.to_datetime(c[0], errors="coerce"),
+                        "Open": float(c[1]),
+                        "High": float(c[2]),
+                        "Low": float(c[3]),
+                        "Close": float(c[4]),
+                        "Volume": int(c[5]),
+                    }
+                    if len(c) >= 7:
+                        row["OI"] = c[6]
+                    else:
+                        row["OI"] = 0
+                    rows.append(row)
+
+                if not rows:
+                    print("Empty rows after filtering.")
+                    break
+
+                df_candles = pd.DataFrame(rows)
+                df_candles["Date"] = df_candles["Date"].dt.normalize()
                 
                 # Debug
                 if symbol == demand_symbols[0]:
