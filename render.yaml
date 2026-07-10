@@ -1,4 +1,5 @@
 services:
+  # ── Express / Node backend (auth, JWT, portfolio proxy) ──────────
   - type: web
     name: finai-edge-backend
     env: node
@@ -15,9 +16,47 @@ services:
         value: 8080
       - key: FRONTEND_URL
         sync: false # Set this in Render Dashboard (e.g., https://finai-edge.vercel.app)
+      # -- Required secrets (set in Render Dashboard; sync:false keeps existing values) --
+      - key: MONGODB_URI
+        sync: false # MongoDB Atlas connection string (code also accepts MONGO_URI alias)
+      - key: JWT_SECRET
+        sync: false # Strong random secret, min 32 chars — required in production
+      # -- Firebase (unchanged) --
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_CLIENT_EMAIL
         sync: false
       - key: FIREBASE_PRIVATE_KEY
+        sync: false
+
+  # ── FastAPI backend (AI / analytics / scanners engine) ───────────
+  - type: web
+    name: finai-edge-fastapi
+    env: python
+    plan: free
+    region: ohio # Keep same region as the Node service for low latency
+    rootDir: backend/fastapi_app
+    buildCommand: pip install -r requirements.txt
+    # Render injects $PORT; uvicorn must bind to it (do NOT hardcode 8000 in prod)
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9 # numpy 1.26 / pandas 2.2 require Python 3.11–3.12
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: FRONTEND_URL
+        sync: false # Frontend origin — added to FastAPI CORS allow-list
+      - key: MONGODB_URI
+        sync: false # Same MongoDB Atlas connection string as the Node service
+      # -- Market data / AI providers (all optional — graceful fallback) --
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROWW_API_KEY
+        sync: false
+      - key: GROWW_TOTP_SECRET
+        sync: false
+      - key: FINNHUB_API_KEY
         sync: false
