@@ -107,4 +107,10 @@ async function start() {
   });
 }
 
-start();
+// Only auto-start when run directly (node server.js). When imported by tests,
+// the app is exported without listening or connecting to MongoDB.
+if (require.main === module) {
+  start();
+}
+
+module.exports = app;

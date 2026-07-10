@@ -1,0 +1,5 @@
+# FinAI Edge — FastAPI dev/test dependencies (CI only)
+# Install alongside runtime deps:  pip install -r requirements.txt -r requirements-dev.txt
+# Note: httpx (required by fastapi.testclient) is already in requirements.txt.
+
+pytest>=8.0
