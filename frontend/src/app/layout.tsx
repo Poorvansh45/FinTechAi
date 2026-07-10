@@ -16,6 +16,10 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'http://localhost:9002'
+  ),
   title: 'FinTechAI — TRADING INTELLIGENCE',
   description:
     'AI-powered trading intelligence platform for market research, screening, portfolio optimization, quantitative analysis, and AI-assisted decision making.',

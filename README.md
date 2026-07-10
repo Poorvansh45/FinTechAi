@@ -80,13 +80,114 @@ Express and FastAPI never share code or a process — the only thing they share 
 
 ---
 
+## AI Copilot — Agentic Backend (Phase 2)
+
+The copilot is a **multi-agent LangGraph system**, not a single-prompt chatbot. A
+supervisor classifies each message and routes it to a specialist agent, which calls
+LangChain tools that wrap the **existing Phase 1 analytics engines** — so the AI reasons
+over the user's real portfolio and live market data, not generic knowledge.
+
+### LangGraph flow
+
+```
+User message
+   │
+   ▼
+load_memory ──► supervisor (intent classification)
+                   │
+     ┌─────────────┼─────────────┬───────────────┐
+     ▼             ▼             ▼               ▼
+ Portfolio      Market        Planning        Education
+   Agent         Agent          Agent           Agent
+     └─────────────┴─────────────┴───────────────┘
+                   │
+                   ▼
+                finalize ──► answer + reasoning_summary + suggestions
+              (persists turn, learns profile)
+```
+
+### Agents & tools
+
+| Agent | Handles | Tools (wrap Phase 1) |
+|---|---|---|
+| **Portfolio** | "analyze my portfolio", health score, risk, rebalancing | `analyze_portfolio`, `get_user_holdings`, `get_health_score`, `rebalance_portfolio`, `calculate_risk/cagr/volatility` → `PortfolioService` + analytics engines |
+| **Market** | stock analysis, "TCS vs INFY", sectors | `get_quote`, `get_stock_info`, `compare_stocks`, `sector_analysis` → `MarketDataService` |
+| **Planning** | SIP, goals, retirement, "₹1 crore in 15 years" | `sip_calculator`, `future_value`, `compound_interest`, `risk_profile_mapper` |
+| **Education** | concept explanations (Sharpe, ETF, diversification) | reads/writes the user's saved profile for personalisation |
+
+### Model providers (swappable)
+
+Provider is chosen by env — no model logic is hardcoded. Default is the cheapest reliable
+model (Gemini Flash); switching is a one-line change:
+
+```bash
+AI_MODEL_PROVIDER=gemini   # default — gemini-2.5-flash   (GEMINI_API_KEY)
+AI_MODEL_PROVIDER=groq     # open-source Llama models      (GROQ_API_KEY)
+# openai / claude are recognised placeholders for future wiring
+```
+
+### Memory
+
+- **Short-term**: conversation history per session (`ai_sessions`, `ai_messages`).
+- **Long-term**: a per-user `financial_profiles` document — the copilot remembers stated
+  preferences (risk appetite, horizon, goals) via an explicit tool plus a keyword heuristic,
+  and personalises later answers. Degrades gracefully to stateless when Mongo is unavailable.
+
+### Response guardrails
+
+Prompts forbid guaranteed returns and bare buy/sell calls, and require the copilot to
+explain reasoning, surface risk, and use the user's own data — e.g. *"Adding Reliance raises
+your energy exposure; you're already ~35% energy, so this increases concentration risk."*
+
+### API (`/api/v2/copilot`, JWT-authenticated)
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/chat` | Run a turn → `{ answer, agent_used, tools_called, reasoning_summary, suggestions, session_id }` |
+| `GET` | `/history/{user_id}` | List the caller's sessions (identity from the token, path id ignored) |
+| `DELETE` | `/session/{id}` | Delete one of the caller's sessions |
+| `GET` | `/health` | Provider, graph, and Mongo status (no auth) |
+
+```bash
+curl -X POST https://<fastapi-host>/api/v2/copilot/chat \
+  -H "Authorization: Bearer <jwt>" -H "Content-Type: application/json" \
+  -d '{"message": "Analyze my portfolio and tell me the risks"}'
+```
+
+Identity is always taken from the verified JWT (Phase 6 boundary) — the request body carries
+no `user_id`, so a user can only ever act on their own data.
+
+### Frontend integration (`/ai-copilot`)
+
+The copilot page is wired to the live agentic backend (replacing the earlier single-shot
+route), styled to match the existing dark premium theme:
+
+- **Chat** — real `POST /api/v2/copilot/chat`; each assistant reply renders an **agent badge**
+  (Portfolio / Market / Planning / Education Analyst), **tool badges** (Risk Engine, Health
+  Score, Market Service…), a collapsible **reasoning** panel, **sources**, and clickable
+  **follow-up** suggestions, with copy + regenerate.
+- **Session sidebar** — ChatGPT-style, grouped Today / Yesterday / Previous 7 Days / Older
+  from `GET /history`; New Chat, delete (`DELETE /session/{id}`), plus rename & search
+  (frontend-only: local title overrides + client-side filter, since the backend has no rename
+  endpoint). Collapses to a drawer on mobile.
+- **Input** — Enter to send, Shift+Enter for newline, live character counter, Stop-generation
+  (aborts in-flight or halts the type-out), voice button (UI only), attachment (disabled).
+- **Progress** — a simulated staged loader ("Thinking… → Consulting the analyst… → Running
+  analytics… → Composing…") then a typing animation; real SSE token streaming lands in Phase 2C.
+- Unauthenticated users get a "Sign in to use the Copilot" prompt (the copilot is per-user).
+
+Frontend files live under `src/components/copilot/*`, `src/lib/api/copilot.ts`, and
+`src/lib/copilot/*`; identity uses the shared `authHeader()` bearer token.
+
+---
+
 ## 4. Tech Stack
 
 | Layer | Technology |
 |---|---|
 | **Frontend** | Next.js 15 (App Router), React 18, TypeScript, Tailwind CSS, Radix UI, Recharts, Lightweight Charts |
 | **Backend (Auth)** | Node.js, Express, Mongoose, JSON Web Tokens, bcrypt, Helmet |
-| **AI / Analytics** | FastAPI, Python 3.11, pandas, NumPy, SciPy, scikit-learn, PyJWT, Google Generative AI (Gemini) |
+| **AI / Analytics** | FastAPI, Python 3.11, LangGraph + LangChain (agentic copilot), pandas, NumPy, SciPy, scikit-learn, PyJWT, Gemini / Groq |
 | **Data** | yfinance (primary market data), Groww API and Finnhub (optional fallbacks) |
 | **Database** | MongoDB Atlas — accessed via Mongoose (Express) and Motor (FastAPI) |
 | **DevOps** | GitHub Actions CI, Render (Express + FastAPI), Vercel (frontend) |

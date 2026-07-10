@@ -121,7 +121,7 @@ export function TradeCaptureWorkspace({
                       type="button"
                       onClick={() => updateField("direction", direction)}
                       className={cn(
-                        "flex h-10 items-center justify-center gap-2 rounded-lg border text-xs font-black transition-all duration-300 ease-[cubic-bezier(0.22,_1,_0.36,_1)]",
+                        "flex h-10 items-center justify-center gap-2 rounded-lg border text-xs font-black transition-all duration-300 ease-out",
                         active && direction === "Buy"
                           ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-300"
                           : active

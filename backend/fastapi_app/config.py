@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     finnhub_api_key: Optional[str] = None
 
+    # ── AI Copilot / LLM provider ───────────────────────────────────
+    # Switch providers via AI_MODEL_PROVIDER (gemini | groq | openai | claude).
+    # Default: cheapest reliable model (Gemini Flash).
+    ai_model_provider: str = "gemini"
+    groq_api_key: Optional[str] = None
+    openai_api_key: Optional[str] = None   # placeholder — provider not wired yet
+    gemini_model: str = "gemini-2.5-flash"
+    groq_model: str = "llama-3.3-70b-versatile"
+
     # ── Logging ─────────────────────────────────────────────────────
     log_level: str = "INFO"
 
@@ -60,8 +69,24 @@ class Settings(BaseSettings):
         return bool(self.gemini_api_key)
 
     @property
+    def groq_available(self) -> bool:
+        return bool(self.groq_api_key)
+
+    @property
     def finnhub_available(self) -> bool:
         return bool(self.finnhub_api_key)
+
+    @property
+    def copilot_llm_available(self) -> bool:
+        """True if the configured copilot provider has a usable API key."""
+        provider = (self.ai_model_provider or "gemini").lower()
+        if provider == "gemini":
+            return self.gemini_available
+        if provider == "groq":
+            return self.groq_available
+        if provider == "openai":
+            return bool(self.openai_api_key)
+        return False
 
     model_config = {
         "env_file": "../.env",

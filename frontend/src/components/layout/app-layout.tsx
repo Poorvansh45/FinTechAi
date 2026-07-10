@@ -644,7 +644,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   className={cn(
                     'group relative flex flex-col justify-between h-[130px] p-5 rounded-[18px]',
                     'bg-white/[0.015] border border-white/[0.05] cursor-pointer text-left',
-                    'transition-all duration-[250ms] ease-out',
+                    'transition-all duration-300 ease-out',
                     'hover:border-purple-500/25 hover:bg-white/[0.03]',
                     'hover:-translate-y-1 hover:shadow-[0_15px_50px_rgba(124,92,255,0.12)]'
                   )}

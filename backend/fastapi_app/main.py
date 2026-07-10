@@ -209,6 +209,7 @@ from api.screener   import router as screener_router, v2_router as screener_v2_r
 from api.watchlists import router as watchlists_router
 from api.smc        import router as smc_router
 from api.local_ohlc import router as local_ohlc_router
+from api.copilot     import router as copilot_router
 
 app.include_router(portfolio_router,   prefix="/api/v2/portfolio")
 app.include_router(analytics_router,   prefix="/api/v2/analytics")
@@ -219,6 +220,7 @@ app.include_router(screener_v2_router)  # /api/v2/scanner/scan-status + /trigger
 app.include_router(watchlists_router)   # /api/v2/watchlists
 app.include_router(smc_router)          # /api/v2/scanner/smc + /zone-proximity
 app.include_router(local_ohlc_router)   # /api/v2/scanner/local-ohlc/*
+app.include_router(copilot_router)      # /api/v2/copilot/* (agentic AI copilot)
 
 
 if __name__ == "__main__":
