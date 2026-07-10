@@ -9,11 +9,9 @@ import {
   FolderOpen, X, AlertTriangle,
 } from "lucide-react";
 import { useScreenerExport, useSavedFilters, FilterPreset } from "@/hooks/useScreenerUtils";
+import { env } from "@/config/env";
 
-const FASTAPI_URL =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
-    : "http://localhost:8000";
+const FASTAPI_URL = env.fastapiUrl;
 
 type ScannerTab = {
   href: string;

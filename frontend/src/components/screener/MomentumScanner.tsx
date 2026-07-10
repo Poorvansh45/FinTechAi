@@ -5,13 +5,11 @@ import ScannerTable from "./ScannerTable";
 import SavedFiltersPanel from "./SavedFiltersPanel";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
 import { Download } from "lucide-react";
+import { env } from "@/config/env";
 
 const CATEGORIES = ["All", "Strong Momentum", "Emerging Momentum", "Breakout Candidate", "Watch"];
 
-const FASTAPI_URL =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
-    : "http://localhost:8000";
+const FASTAPI_URL = env.fastapiUrl;
 
 async function fetchMomentum(params: Record<string, any>) {
   const q = new URLSearchParams();

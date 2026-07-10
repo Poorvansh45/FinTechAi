@@ -4,6 +4,7 @@ import React, { useState, useEffect, useContext } from "react";
 import ScannerTable from "@/components/screener/ScannerTable";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
+import { env } from "@/config/env";
 
 const formatISTDate = (isoString: string) => {
   try {
@@ -19,10 +20,7 @@ const formatISTDate = (isoString: string) => {
 };
 
 
-const FASTAPI_URL =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
-    : "http://localhost:8000";
+const FASTAPI_URL = env.fastapiUrl;
 
 const CATEGORIES = [
   "All", "Inside Zone", "Near Zone (2%)", "Near Zone (5%)",

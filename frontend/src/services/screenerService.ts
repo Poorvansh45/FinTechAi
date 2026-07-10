@@ -1,6 +1,7 @@
 import axios from "axios";
+import { env } from "@/config/env";
 
-const API_URL = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
+const API_URL = env.fastapiUrl;
 
 const scannerClient = axios.create({
     baseURL: API_URL,

@@ -5,11 +5,9 @@ import ScannerTable from "./ScannerTable";
 import SavedFiltersPanel from "./SavedFiltersPanel";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
 import { Download } from "lucide-react";
+import { env } from "@/config/env";
 
-const FASTAPI_URL =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
-    : "http://localhost:8000";
+const FASTAPI_URL = env.fastapiUrl;
 
 const STATUS_OPTIONS   = ["All", "Untouched", "Touched", "PartiallyFilled", "MostlyFilled"];
 const STRENGTH_OPTIONS = ["All", "Strong", "Medium", "Weak"];

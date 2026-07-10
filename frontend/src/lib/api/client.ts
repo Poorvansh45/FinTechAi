@@ -20,7 +20,7 @@ export class ApiError<TPayload = unknown> extends Error {
 
 function resolveUrl(path: string, backend = false): string {
   if (/^https?:\/\//i.test(path)) return path;
-  if (backend) return `${env.backendApiUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  if (backend) return `${env.apiUrl}${path.startsWith('/') ? path : `/${path}`}`;
   return path;
 }
 

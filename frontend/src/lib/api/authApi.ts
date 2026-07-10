@@ -3,7 +3,9 @@
 // All requests include credentials so the HTTP-only JWT cookie is sent.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+import { env } from '@/config/env';
+
+const API_BASE = env.apiUrl;
 
 export interface AuthUser {
   id: string;

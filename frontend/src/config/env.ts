@@ -1,39 +1,51 @@
 /**
- * FinTechAI — Environment Configuration
- * ========================================
- * Centralised, type-safe env access with safe defaults.
+ * FinTechAI — Frontend Environment Configuration
+ * ================================================
+ * Single source of truth for all frontend configuration.
  *
- * COPY TO: frontend/src/config/env.ts
+ * Import `env` from here — never read `process.env` directly in app code:
+ *
+ *   import { env } from "@/config/env";
+ *   fetch(`${env.fastapiUrl}/api/v2/...`);
+ *
+ * Note: NEXT_PUBLIC_* variables are inlined at build time by Next.js, so
+ * this module is safe to import from both Server and Client Components.
  */
 
-function requireEnv(key: string, fallback?: string): string {
-  const value = process.env[key] ?? fallback;
-  if (!value) {
-    if (typeof window !== 'undefined') {
-      // Client-side: warn but don't throw so build still works
-      console.warn(
-        `[FinTechAI] Missing environment variable: ${key}. ` +
-        `Add it to frontend/.env`,
-      );
-    }
-    return '';
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+/**
+ * Read a NEXT_PUBLIC_* variable with a development-only fallback.
+ *
+ * In production a missing value logs a loud warning — a localhost fallback
+ * must never silently reach production — but still returns the fallback so
+ * the build / SSR does not crash. Always returns a string (type-safe).
+ */
+function readPublicEnv(key: string, devFallback: string): string {
+  const value = process.env[key];
+  if (value && value.length > 0) return value;
+
+  if (IS_PROD) {
+    console.warn(
+      `[FinTechAI] Missing ${key} in production — falling back to "${devFallback}". ` +
+      `Set ${key} in the frontend deployment environment (it is inlined at build time).`,
+    );
   }
-  return value;
+  return devFallback;
 }
 
 export const env = {
   /**
-   * Express backend — auth, markets proxy.
-   * Reads NEXT_PUBLIC_API_URL (must have NEXT_PUBLIC_ prefix to be
-   * available in the browser bundle).
+   * Express backend — auth, JWT, markets proxy.
+   * Reads NEXT_PUBLIC_API_URL (NEXT_PUBLIC_ prefix required for the browser bundle).
    */
-  backendApiUrl: requireEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8080'),
+  apiUrl: readPublicEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8080'),
 
   /**
-   * FastAPI backend — portfolio analytics, AI generation.
+   * FastAPI backend — portfolio analytics, AI generation, scanners.
    * Reads NEXT_PUBLIC_FASTAPI_URL.
    */
-  fastapiUrl: requireEnv('NEXT_PUBLIC_FASTAPI_URL', 'http://localhost:8000'),
+  fastapiUrl: readPublicEnv('NEXT_PUBLIC_FASTAPI_URL', 'http://localhost:8000'),
 
   /**
    * Firebase — optional, app works without it.
@@ -50,5 +62,5 @@ export const env = {
 
   /** Current deployment environment. */
   isDev: process.env.NODE_ENV === 'development',
-  isProd: process.env.NODE_ENV === 'production',
+  isProd: IS_PROD,
 } as const;

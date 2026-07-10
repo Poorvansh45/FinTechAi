@@ -1,9 +1,6 @@
-const FASTAPI_URL =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000")
-    : "http://localhost:8000";
+import { env } from "@/config/env";
 
-const API_BASE_URL = `${FASTAPI_URL}/api/v2`;
+const API_BASE_URL = `${env.fastapiUrl}/api/v2`;
 
 export interface Watchlist {
   id: string;
