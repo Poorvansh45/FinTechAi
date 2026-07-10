@@ -157,11 +157,13 @@ async def add_timing(request: Request, call_next):
 # ── Global error handler ──────────────────────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exc(request: Request, exc: Exception):
+    # Always log full detail (with traceback) server-side
     log.error(f"Unhandled error: {request.method} {request.url.path}: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"error": "Internal server error", "detail": str(exc)},
-    )
+    # Only expose exception detail to clients outside production
+    content = {"error": "Internal server error"}
+    if not settings.is_production:
+        content["detail"] = str(exc)
+    return JSONResponse(status_code=500, content=content)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

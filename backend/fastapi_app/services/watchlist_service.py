@@ -34,7 +34,7 @@ class WatchlistService:
         await self.stocks_coll.create_index("source_module")
         await self.history_coll.create_index("watchlist_id")
 
-    async def create_watchlist(self, data: WatchlistCreate, user_id: str = "default_user") -> WatchlistInDB:
+    async def create_watchlist(self, data: WatchlistCreate, user_id: str) -> WatchlistInDB:
         doc = {
             "name": data.name,
             "created_at": datetime.utcnow(),
@@ -45,7 +45,7 @@ class WatchlistService:
         doc["_id"] = res.inserted_id
         return WatchlistInDB(**doc)
 
-    async def get_user_watchlists(self, user_id: str = "default_user") -> List[Dict[str, Any]]:
+    async def get_user_watchlists(self, user_id: str) -> List[Dict[str, Any]]:
         cursor = self.watchlists_coll.find({"created_by": user_id}).sort("created_at", -1)
         watchlists = []
         async for wl in cursor:
@@ -408,9 +408,9 @@ class WatchlistService:
             }
             
         return {"performance_by_source": perf}
-    async def get_watchlist_leaderboard(self) -> List[Dict[str, Any]]:
-        # Fetch all non-archived watchlists
-        cursor = self.watchlists_coll.find({"is_archived": {"$ne": True}})
+    async def get_watchlist_leaderboard(self, user_id: str) -> List[Dict[str, Any]]:
+        # Watchlists are private — only rank the authenticated user's own watchlists
+        cursor = self.watchlists_coll.find({"is_archived": {"$ne": True}, "created_by": user_id})
         watchlists = [wl async for wl in cursor]
         
         if not watchlists:

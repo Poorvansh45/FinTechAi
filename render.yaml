@@ -21,13 +21,6 @@ services:
         sync: false # MongoDB Atlas connection string (code also accepts MONGO_URI alias)
       - key: JWT_SECRET
         sync: false # Strong random secret, min 32 chars — required in production
-      # -- Firebase (unchanged) --
-      - key: FIREBASE_PROJECT_ID
-        sync: false
-      - key: FIREBASE_CLIENT_EMAIL
-        sync: false
-      - key: FIREBASE_PRIVATE_KEY
-        sync: false
 
   # ── FastAPI backend (AI / analytics / scanners engine) ───────────
   - type: web

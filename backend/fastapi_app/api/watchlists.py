@@ -27,7 +27,7 @@ async def get_watchlists(request: Request, user_id: str = Depends(get_current_us
 @router.get("/leaderboard")
 async def get_watchlist_leaderboard(request: Request, user_id: str = Depends(get_current_user)):
     svc = get_service(request)
-    leaderboard = await svc.get_watchlist_leaderboard()
+    leaderboard = await svc.get_watchlist_leaderboard(user_id)
     return {"success": True, "leaderboard": leaderboard}
 
 @router.get("/source-performance")
