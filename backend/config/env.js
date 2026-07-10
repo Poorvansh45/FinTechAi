@@ -12,7 +12,10 @@ const env = {
 
 env.isProduction = env.nodeEnv === 'production';
 
-if (!process.env.JWT_SECRET && !env.isProduction) {
+if (!process.env.JWT_SECRET) {
+  if (env.isProduction) {
+    throw new Error('[FATAL] JWT_SECRET is not set. Refusing to start in production with an insecure default.');
+  }
   console.warn('[WARN] JWT_SECRET not set in .env — using insecure default. Set it before deploying.');
 }
 
