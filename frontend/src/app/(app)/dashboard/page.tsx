@@ -339,7 +339,7 @@ export default function DashboardPage(){
               </div>
             ))}
           </div>
-          <Link href="/ai-insights" className="mt-3 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-indigo-400" style={{background:'rgba(99,102,241,0.07)',border:'1px solid rgba(99,102,241,0.15)'}}>
+          <Link href="/ai-copilot" className="mt-3 flex items-center justify-center gap-1 py-2 rounded-xl text-xs font-medium text-indigo-400" style={{background:'rgba(99,102,241,0.07)',border:'1px solid rgba(99,102,241,0.15)'}}>
             Full Analysis <ChevronRight className="w-3.5 h-3.5"/>
           </Link>
         </div>

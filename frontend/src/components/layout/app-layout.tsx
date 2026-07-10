@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 const PANEL_WIDTHS: Record<string, number> = {
   markets:   780,
   screener:  720,
-  quant:     680,
+  portfolio: 680,
   workspace: 640,
   copilot:   760,
 };
@@ -38,9 +38,9 @@ const MODULE_INFOS_DATA = [
     moduleIndex: 1,
   },
   {
-    id: 'quant',
-    label: 'Quant Lab',
-    subtitle: 'Design, optimize and backtest trading strategies',
+    id: 'portfolio',
+    label: 'Portfolio',
+    subtitle: "Whether you already have investments or you're starting from scratch, FinTechAI helps you build, analyze and improve your portfolio.",
     moduleIndex: 2,
   },
   {
@@ -269,7 +269,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [search, setSearch] = useState('');
   const [scrolled, setScrolled] = useState(false);
 
   const isAuthPage = pathname === '/auth' || pathname === '/login' || pathname === '/onboarding';
@@ -277,7 +276,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const marketsActive = pathname.startsWith('/markets');
   const screenerActive = pathname.startsWith('/screener');
-  const quantActive = pathname.startsWith('/quant-lab');
+  const portfolioActive = pathname.startsWith('/portfolio');
   const workspaceActive = pathname.startsWith('/journal') || pathname.startsWith('/workspace') || pathname.startsWith('/analytics');
   const copilotActive = pathname.startsWith('/ai-');
 
@@ -307,10 +306,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [menuLeft, setMenuLeft] = useState<number>(0);
 
   // Refs for each trigger button (for centering the panel)
-  const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({
+  const triggerRefs = useRef<Record<string, HTMLButtonElement | HTMLAnchorElement | null>>({
     markets: null,
     screener: null,
-    quant: null,
+    portfolio: null,
     workspace: null,
     copilot: null,
   });
@@ -408,9 +407,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const NAV_TRIGGERS = [
     { id: 'markets',   label: 'Markets',    isActive: marketsActive   },
     { id: 'screener',  label: 'Screener',   isActive: screenerActive  },
-    { id: 'quant',     label: 'Quant Lab',  isActive: quantActive     },
+    { id: 'portfolio', label: 'Portfolio',  isActive: portfolioActive },
     { id: 'workspace', label: 'Workspace',  isActive: workspaceActive },
-    { id: 'copilot',   label: 'AI Copilot', isActive: copilotActive   },
+    { id: 'copilot',   label: 'FinTechAI Copilot', isActive: copilotActive   },
   ];
 
   return (
@@ -478,6 +477,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {/* ── Premium Mega Menu Triggers ── */}
                   <div className="hidden lg:flex items-center gap-1 ml-3">
                     {NAV_TRIGGERS.map(({ id, label, isActive }) => {
+                      if (id === 'portfolio' || id === 'copilot') {
+                        const href = id === 'portfolio' ? '/portfolio' : '/ai-copilot';
+                        return (
+                          <Link
+                            key={id}
+                            href={href}
+                            ref={(el) => { triggerRefs.current[id] = el; }}
+                            className={cn(
+                              'relative h-9 px-4 rounded-full border text-[13px] font-medium',
+                              'transition-colors duration-200 inline-flex items-center gap-1.5',
+                              'focus:outline-none select-none',
+                              isActive
+                                ? 'bg-purple-500/[0.12] border-purple-500/[0.20] text-purple-300'
+                                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                            )}
+                          >
+                            {label}
+                          </Link>
+                        );
+                      }
                       const isOpen = activeMenu === id;
                       const highlighted = isOpen || (!activeMenu && isActive);
                       return (
@@ -551,16 +570,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               ) : (
                 <>
-                  {/* Search */}
-                  <div className="relative hidden md:flex items-center">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
-                    <input
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      placeholder="Search stocks, setups, sectors…"
-                      className="h-8 pl-8 pr-3 w-48 xl:w-56 text-[13px] rounded-lg transition-all focus:w-64 xl:focus:w-72 focus:outline-none text-slate-900 dark:text-white/80 placeholder:text-slate-500 dark:placeholder:text-slate-600 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 focus:border-violet-500/40"
-                    />
-                  </div>
+
 
                   {/* Notifications */}
                   <button className="relative p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-black/5 dark:hover:text-white dark:hover:bg-white/5 transition-colors">

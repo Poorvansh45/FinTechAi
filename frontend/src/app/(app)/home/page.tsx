@@ -336,13 +336,13 @@ export default function AppHomePage() {
           </div>
         </motion.div>
 
-        {/* ROW 1 CARD 4: Quant Lab Allocation */}
+        {/* ROW 1 CARD 4: Portfolio Allocation */}
         <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-6 flex flex-col justify-between min-h-[220px]">
           <div>
             <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
               <div className="flex items-center gap-2">
                 <FlaskConical className="w-4 h-4 text-violet-400" />
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Quant Lab Weights</span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Portfolio Allocation</span>
               </div>
               <span className="text-[9px] font-mono text-slate-400 bg-white/5 px-1 py-0.5 rounded">MPT Optimized</span>
             </div>

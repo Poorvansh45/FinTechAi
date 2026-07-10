@@ -68,7 +68,7 @@ const TESTIMONIALS = [
     avatar: "AD"
   },
   {
-    quote: "FinAI Edge cut down my capital drawdown by 40% in two weeks. The Quant Lab correlation matrix completely changed how I allocate portfolio weights and sector exposure.",
+    quote: "FinAI Edge cut down my capital drawdown by 40% in two weeks. The Portfolio Optimizer correlation matrix completely changed how I allocate portfolio weights and sector exposure.",
     name: "Dr. Sarah Chen",
     role: "Quantitative Researcher",
     style: "Systematic Futures",
@@ -159,7 +159,7 @@ export default function HomePage() {
     },
     {
       title: "🎯 Strategy Executed",
-      body: "Quant Lab optimized weight trigger active on tech sector.",
+      body: "Portfolio optimized weight trigger active on tech sector.",
       color: "text-[#A78BFA]",
       bg: "bg-[#8B5CF6]/5 border-[#8B5CF6]/10"
     }
@@ -258,8 +258,6 @@ export default function HomePage() {
               <span>Markets Monitor</span>
               <span className="text-white/10">•</span>
               <span>SMC Zone Screener</span>
-              <span className="text-white/10">•</span>
-              <span>Quant Strategy Lab</span>
               <span className="text-white/10">•</span>
               <span>Portfolio Optimizer</span>
               <span className="text-white/10">•</span>
@@ -377,7 +375,7 @@ export default function HomePage() {
                 <div className="md:col-span-2 rounded-[16px] bg-white/[0.02] border border-white/[0.04] p-3 flex flex-col justify-between min-h-[300px] relative">
                   <div className="flex items-center justify-between z-10">
                     <div>
-                      <span className="text-[10px] font-bold tracking-widest text-[#94A3B8] uppercase font-mono">QUANT STRATEGY LAB</span>
+                      <span className="text-[10px] font-bold tracking-widest text-[#94A3B8] uppercase font-mono">PORTFOLIO OPTIMIZER</span>
                       <h4 className="text-sm font-bold text-[#F8FAFC] mt-0.5">SMC Order Block Scanner</h4>
                     </div>
                     <span className="px-2 py-0.5 rounded text-[8px] font-mono bg-[#8B5CF6]/10 text-[#A78BFA] border border-[#8B5CF6]/20">5M INTERVAL</span>
@@ -585,8 +583,8 @@ export default function HomePage() {
             </div>
           </Link>
 
-          {/* Card 3: Quant Lab */}
-          <Link href="/quant-lab/optimizer" className="glass-card p-6 flex flex-col justify-between min-h-[300px] md:col-span-1 group/card" style={{ textDecoration: 'none' }}>
+          {/* Card 3: Portfolio */}
+          <Link href="/portfolio" className="glass-card p-6 flex flex-col justify-between min-h-[300px] md:col-span-1 group/card" style={{ textDecoration: 'none' }}>
             <div className="space-y-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -594,14 +592,14 @@ export default function HomePage() {
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-[#F8FAFC]">Quant Lab</h3>
-                    <span className="text-[9px] font-mono text-violet-400 tracking-wider">MATHEMATICAL MODELS</span>
+                    <h3 className="text-base font-bold text-[#F8FAFC]">Portfolio</h3>
+                    <span className="text-[9px] font-mono text-violet-400 tracking-wider">MPT & AI ENGINE</span>
                   </div>
                 </div>
                 <span className="px-2 py-0.5 rounded text-[8px] font-mono bg-violet-500/10 text-violet-400 border border-violet-500/20">OPTIMIZER</span>
               </div>
               <p className="text-xs text-[#94A3B8] leading-relaxed">
-                Optimize your portfolio weights utilizing Modern Portfolio Theory, backtest strategy rules, and replay index histories.
+                Optimize weight allocation utilizing Modern Portfolio Theory, analyze asset metrics, and build personalized portfolios with AI.
               </p>
             </div>
 
@@ -693,7 +691,7 @@ export default function HomePage() {
           </Link>
 
           {/* Card 5: AI Copilot (Colspan: 3 on MD - Flagship Highlight) */}
-          <Link href="/ai-insights" className="glass-card p-8 flex flex-col justify-between relative overflow-hidden md:col-span-3 border-[#8B5CF6]/20 bg-gradient-to-br from-[#0B1020] to-[#121829] shadow-[0_0_30px_rgba(139,92,246,0.08)] group/card" style={{ textDecoration: 'none' }}>
+          <Link href="/ai-copilot" className="glass-card p-8 flex flex-col justify-between relative overflow-hidden md:col-span-3 border-[#8B5CF6]/20 bg-gradient-to-br from-[#0B1020] to-[#121829] shadow-[0_0_30px_rgba(139,92,246,0.08)] group/card" style={{ textDecoration: 'none' }}>
             <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-violet-600/5 blur-3xl pointer-events-none -z-10" />
             
             <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-center">
@@ -836,7 +834,7 @@ export default function HomePage() {
             {[
               { id: "markets", label: "Markets Monitor", icon: Globe, badge: "LIVE DATA" },
               { id: "screener", label: "SMC Scanner", icon: ScanLine, badge: "ACTIVE" },
-              { id: "quant-lab", label: "Quant Strategy Lab", icon: Briefcase, badge: "RUNNING" },
+              { id: "portfolio", label: "Portfolio Optimizer", icon: Briefcase, badge: "RUNNING" },
               { id: "workspace", label: "Execution Journal", icon: BookOpen, badge: "CORE" },
               { id: "ai-copilot", label: "Gemini AI Copilot", icon: Sparkles, badge: "AI PRO" }
             ].map(tab => {
@@ -925,8 +923,8 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Quant Lab showcase content */}
-            {activeShowcase === "quant-lab" && (
+            {/* Portfolio showcase content */}
+            {activeShowcase === "portfolio" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-white/[0.04] pb-3">
                   <h4 className="text-sm font-bold text-slate-200">Modern Portfolio Theory Optimizer</h4>

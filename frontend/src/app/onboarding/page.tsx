@@ -416,7 +416,7 @@ function PortfolioResult({
       {/* CTA */}
       <div className="flex gap-3">
         <button
-          onClick={() => router.push('/dashboard/portfolio')}
+          onClick={() => router.push('/portfolio')}
           className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl text-[13px] font-bold text-white transition-all"
           style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
         >

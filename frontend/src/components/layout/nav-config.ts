@@ -54,18 +54,13 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
   {
-    id: 'quant-lab',
-    label: 'Quant Lab',
-    href: '/quant-lab',
+    id: 'portfolio',
+    label: 'Portfolio',
+    href: '/portfolio',
     color: 'text-violet-400',
     glowColor: 'rgba(139,92,246,0.15)',
     items: [
-      { href: '/quant-lab/optimizer',    label: 'Portfolio Optimizer',  icon: Briefcase,    desc: 'MPT-based portfolio optimization',        badge: 'New' },
-      { href: '/quant-lab/research',     label: 'Quant Research',       icon: GitCompare,   desc: 'Asset correlation & statistical analysis'       },
-      { href: '/quant-lab/strategies',   label: 'Strategy Lab',         icon: FlaskConical, desc: 'Design & backtest trading strategies'           },
-      { href: '/quant-lab/risk',         label: 'Risk Analytics',       icon: ShieldAlert,  desc: 'Volatility, drawdown & tail-risk analysis'      },
-      { href: '/quant-lab/trends',       label: 'Trend Analyzer',       icon: TrendingUp,   desc: 'Momentum, breakout & mean-reversion signals'    },
-      { href: '/quant-lab/replay',       label: 'Trade Replay',         icon: PlayCircle,   desc: 'Replay and learn from historical trades'        },
+      { href: '/portfolio', label: 'Portfolio Optimizer', icon: Briefcase, desc: 'Analyze or build your portfolio', badge: 'New' },
     ],
   },
   {
@@ -82,17 +77,12 @@ export const NAV_MODULES: NavModule[] = [
   },
   {
     id: 'ai-copilot',
-    label: 'AI Copilot',
+    label: 'FinTechAI Copilot',
     href: '/ai-copilot',
     color: 'text-pink-400',
     glowColor: 'rgba(236,72,153,0.15)',
     items: [
-      { href: '/ai-insights',           label: 'AI Trade Review',     icon: Sparkles,      desc: 'AI analysis of your trades',  badge: 'AI' },
-      { href: '/ai-copilot/mistakes',   label: 'Mistake Detection',   icon: AlertTriangle, desc: 'Pattern-based error detection'       },
-      { href: '/ai-copilot/suggest',    label: 'AI Suggestions',      icon: Lightbulb,     desc: 'Personalized improvement tips'       },
-      { href: '/ai-copilot/patterns',   label: 'Pattern Recognition', icon: Eye,           desc: 'Chart & behavioral pattern AI'       },
-      { href: '/ai-copilot/explain',    label: 'Market Explanation',  icon: Bot,           desc: 'Plain-English market summaries'      },
-      { href: '/ai-copilot/chat',       label: 'AI Chat Assistant',   icon: MessageSquare, desc: 'Ask anything about your trades', badge: 'New' },
+      { href: '/ai-copilot', label: 'FinTechAI Copilot', icon: Brain, desc: 'Your all-in-one AI financial analyst', badge: 'AI' }
     ],
   },
 ];
@@ -100,6 +90,6 @@ export const NAV_MODULES: NavModule[] = [
 export const MOBILE_TABS = [
   { href: '/markets',     label: 'Markets',   icon: LayoutDashboard },
   { href: '/screener',    label: 'Screener',  icon: ScanLine        },
-  { href: '/ai-insights', label: 'AI',        icon: Sparkles        },
+  { href: '/ai-copilot',  label: 'AI',        icon: Sparkles        },
   { href: '/journal',     label: 'Journal',   icon: BookOpen        },
 ];
