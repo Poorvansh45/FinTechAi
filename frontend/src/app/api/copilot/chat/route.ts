@@ -1,15 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isRateLimited, rateLimitKey, verifyAuth } from "@/lib/api/aiRouteGuard";
+
+const MAX_MESSAGES = 50;
+const MAX_MESSAGE_LENGTH = 4000;
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await verifyAuth(req);
+    if (!userId) {
+      return NextResponse.json({ text: "Not authorized." }, { status: 401 });
+    }
+    if (isRateLimited(rateLimitKey(req, userId))) {
+      return NextResponse.json({ text: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const body = await req.json();
     const { messages } = body || {};
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ text: "No message content provided." }, { status: 400 });
     }
+    if (messages.length > MAX_MESSAGES) {
+      return NextResponse.json({ text: "Too many messages in this request." }, { status: 400 });
+    }
+    for (const m of messages) {
+      if (typeof m?.text !== "string" || m.text.length === 0) {
+        return NextResponse.json({ text: "Invalid message payload." }, { status: 400 });
+      }
+      if (m.text.length > MAX_MESSAGE_LENGTH) {
+        return NextResponse.json({ text: "Message is too long." }, { status: 400 });
+      }
+    }
 
-    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 
     // Convert messages to Gemini API format (user / model roles)
     const contents = messages.map((m: any) => ({

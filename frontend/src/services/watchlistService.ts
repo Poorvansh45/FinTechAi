@@ -1,6 +1,16 @@
 import { env } from "@/config/env";
+import { authHeader } from "@/lib/api/authToken";
 
 const API_BASE_URL = `${env.fastapiUrl}/api/v2`;
+
+/** fetch wrapper that attaches Authorization: Bearer <token> — watchlists are user-owned data. */
+const wlFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const auth = await authHeader();
+  return fetch(url, {
+    ...options,
+    headers: { ...auth, ...options.headers },
+  });
+};
 
 export interface Watchlist {
   id: string;
@@ -60,14 +70,14 @@ const handleError = async (res: Response, fallback: string) => {
 
 export const watchlistService = {
   getWatchlists: async (): Promise<Watchlist[]> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists`);
+    const res = await wlFetch(`${API_BASE_URL}/watchlists`);
     await handleError(res, "Failed to fetch watchlists");
     const data = await res.json();
     return data.data;
   },
 
   createWatchlist: async (name: string): Promise<Watchlist> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists`, {
+    const res = await wlFetch(`${API_BASE_URL}/watchlists`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -78,7 +88,7 @@ export const watchlistService = {
   },
 
   getWatchlistDetails: async (id: string): Promise<WatchlistDetails> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/${id}`);
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/${id}`);
     await handleError(res, "Failed to fetch watchlist details");
     return res.json();
   },
@@ -93,7 +103,7 @@ export const watchlistService = {
     added_ema200?: number | null;
     added_volume?: number | null;
   }): Promise<any> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/${watchlistId}/stocks`, {
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/${watchlistId}/stocks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(stock),
@@ -103,14 +113,14 @@ export const watchlistService = {
   },
 
   removeStock: async (watchlistId: string, symbol: string): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/${watchlistId}/stocks/${symbol}`, {
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/${watchlistId}/stocks/${symbol}`, {
       method: "DELETE",
     });
     await handleError(res, "Failed to remove stock");
   },
 
   renameWatchlist: async (watchlistId: string, name: string): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/${watchlistId}`, {
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/${watchlistId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -119,33 +129,33 @@ export const watchlistService = {
   },
 
   deleteWatchlist: async (watchlistId: string): Promise<void> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/${watchlistId}`, { method: "DELETE" });
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/${watchlistId}`, { method: "DELETE" });
     await handleError(res, "Failed to delete watchlist");
   },
 
   duplicateWatchlist: async (watchlistId: string): Promise<Watchlist> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/${watchlistId}/duplicate`, { method: "POST" });
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/${watchlistId}/duplicate`, { method: "POST" });
     await handleError(res, "Failed to duplicate watchlist");
     const data = await res.json();
     return { ...data.watchlist, id: data.watchlist._id || data.watchlist.id, stock_count: 0 };
   },
 
   getLeaderboard: async (): Promise<any[]> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/leaderboard`);
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/leaderboard`);
     await handleError(res, "Failed to fetch leaderboard");
     const data = await res.json();
     return data.leaderboard;
   },
 
   getSourcePerformance: async (): Promise<any[]> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/source-performance`);
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/source-performance`);
     await handleError(res, "Failed to fetch source performance");
     const data = await res.json();
     return data.source_performance;
   },
 
   getPerformanceBySource: async (watchlistId: string): Promise<any> => {
-    const res = await fetch(`${API_BASE_URL}/watchlists/${watchlistId}/performance`);
+    const res = await wlFetch(`${API_BASE_URL}/watchlists/${watchlistId}/performance`);
     await handleError(res, "Failed to fetch performance");
     const data = await res.json();
     return data.performance_by_source;

@@ -7,6 +7,7 @@ import {
   RefreshCw, ShieldAlert, ArrowLeft, Send
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { authHeader } from "@/lib/api/authToken";
 
 interface ChatMessage {
   role: "user" | "ai";
@@ -110,7 +111,7 @@ export default function AICopilotPage() {
     try {
       const res = await fetch("/api/copilot/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({ messages: updatedMessages }),
       });
 

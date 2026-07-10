@@ -5,7 +5,7 @@ Portfolio analysis, health check, rebalancing, and persistence endpoints.
 """
 
 import logging
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends
 from schemas.portfolio import (
     AnalyzeHoldingsRequest,
     AnalyzePortfolioRequest,
@@ -13,6 +13,7 @@ from schemas.portfolio import (
     RebalanceRequest,
 )
 from services.portfolio_service import get_portfolio_service
+from utils.auth import get_current_user
 
 log = logging.getLogger("finai_edge.api.portfolio")
 router = APIRouter()
@@ -99,7 +100,7 @@ async def rebalance_suggestions(req: RebalanceRequest):
 
 
 @router.post("/save")
-async def save_portfolio(request: Request):
+async def save_portfolio(request: Request, user_id: str = Depends(get_current_user)):
     """Save portfolio to MongoDB."""
     try:
         if not getattr(request.app.state, "mongo_connected", False):
@@ -111,7 +112,6 @@ async def save_portfolio(request: Request):
         from models.portfolio import save_portfolio as db_save
 
         body = await request.json()
-        user_id = body.get("user_id", "anonymous")
         name = body.get("name", "My Portfolio")
         holdings = body.get("holdings", [])
 
@@ -136,8 +136,8 @@ async def save_portfolio(request: Request):
 
 
 @router.get("/saved")
-async def list_saved_portfolios(request: Request, user_id: str = "anonymous"):
-    """List saved portfolios for a user."""
+async def list_saved_portfolios(request: Request, user_id: str = Depends(get_current_user)):
+    """List saved portfolios for the authenticated user."""
     try:
         from models.portfolio import get_portfolios
 

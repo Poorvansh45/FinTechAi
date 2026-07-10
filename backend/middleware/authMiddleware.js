@@ -52,6 +52,7 @@ const protect = asyncHandler(async (req, res, next) => {
     }
 
     req.user = user;
+    req.token = token; // raw JWT string — used by GET /api/auth/token
     if (typeof next === 'function') {
       next();
     }

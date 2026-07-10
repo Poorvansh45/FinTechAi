@@ -51,6 +51,8 @@ services:
         sync: false # Frontend origin — added to FastAPI CORS allow-list
       - key: MONGODB_URI
         sync: false # Same MongoDB Atlas connection string as the Node service
+      - key: JWT_SECRET
+        sync: false # Same secret as the Node service — verifies Express-issued JWTs
       # -- Market data / AI providers (all optional — graceful fallback) --
       - key: GEMINI_API_KEY
         sync: false

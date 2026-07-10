@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Download, RefreshCw, Sparkles } from "lucide-react";
 import type { Trade } from "@/lib/journal/types";
 import { derive } from "@/lib/journal/types";
+import { authHeader } from "@/lib/api/authToken";
 
 // Recharts (ensure installed: npm i recharts)
 import {
@@ -135,7 +136,7 @@ export function AIJournalAnalyzer({ trades, setupName }: { trades: Trade[]; setu
       setAiText("");
       const res = await fetch("/api/journal/analyze", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({ trades, kpi }),
       });
       const data = await res.json();

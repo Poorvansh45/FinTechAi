@@ -99,4 +99,22 @@ export async function apiUpdateUsername(username: string): Promise<AuthResponse>
   });
 }
 
+/**
+ * Fetch the raw JWT for the current session (same token as the httpOnly
+ * cookie). Needed because that cookie is host-only to this Express origin —
+ * FastAPI and this app's own /api routes run on different origins in
+ * production and never see it. Returns null if not authenticated.
+ */
+export async function apiGetToken(): Promise<string | null> {
+  try {
+    const data = await apiFetch<{ success: boolean; token: string }>('/api/auth/token');
+    return data.token;
+  } catch (err) {
+    if (err instanceof AuthApiError && err.status === 401) {
+      return null;
+    }
+    throw err;
+  }
+}
+
 export { AuthApiError };

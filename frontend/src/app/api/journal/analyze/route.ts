@@ -1,11 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isRateLimited, rateLimitKey, verifyAuth } from "@/lib/api/aiRouteGuard";
+
+const MAX_TRADES = 500;
 
 export async function POST(req: NextRequest) {
   try {
+    const userId = await verifyAuth(req);
+    if (!userId) {
+      return NextResponse.json({ text: "Not authorized." }, { status: 401 });
+    }
+    if (isRateLimited(rateLimitKey(req, userId))) {
+      return NextResponse.json({ text: "Too many requests. Please slow down." }, { status: 429 });
+    }
+
     const body = await req.json();
     const { trades, kpi } = body || {};
 
-    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (trades !== undefined && !Array.isArray(trades)) {
+      return NextResponse.json({ text: "Invalid trades payload." }, { status: 400 });
+    }
+    if (Array.isArray(trades) && trades.length > MAX_TRADES) {
+      return NextResponse.json({ text: "Too many trades in this request." }, { status: 400 });
+    }
+
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     const prompt = buildPrompt(trades || [], kpi || {});
 
     if (!apiKey) {

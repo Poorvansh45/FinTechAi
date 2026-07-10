@@ -11,12 +11,14 @@ import React, {
 import type { AuthUser } from '@/lib/api/authApi';
 import {
   apiGetMe,
+  apiGetToken,
   apiLogin,
   apiLogout,
   apiRegister,
   apiUpdateUsername,
   AuthApiError,
 } from '@/lib/api/authApi';
+import { setCachedAuthToken } from '@/lib/api/authToken';
 import { useToast } from '@/hooks/use-toast';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -106,11 +108,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function restoreSession() {
       try {
         const me = await apiGetMe();
+        setCachedAuthToken(me ? await apiGetToken() : null);
         if (!cancelled) {
           setUser(me);
           setStatus(me ? 'authenticated' : 'unauthenticated');
         }
       } catch {
+        setCachedAuthToken(null);
         if (!cancelled) {
           setUser(null);
           setStatus('unauthenticated');
@@ -127,12 +131,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const data = await apiLogin(email, password);
+    setCachedAuthToken(await apiGetToken());
     setUser(data.user);
     setStatus('authenticated');
   }, []);
 
   const register = useCallback(async (username: string, email: string, password: string) => {
     const data = await apiRegister(username, email, password);
+    setCachedAuthToken(await apiGetToken());
     setUser(data.user);
     setStatus('authenticated');
   }, []);
@@ -143,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Even if server fails, clear local state
     }
+    setCachedAuthToken(null);
     setUser(null);
     setStatus('unauthenticated');
   }, []);
@@ -156,9 +163,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const me = await apiGetMe();
+      setCachedAuthToken(me ? await apiGetToken() : null);
       setUser(me);
       setStatus(me ? 'authenticated' : 'unauthenticated');
     } catch {
+      setCachedAuthToken(null);
       setUser(null);
       setStatus('unauthenticated');
     }

@@ -60,39 +60,39 @@ class WatchlistService:
             })
         return watchlists
 
-    async def rename_watchlist(self, watchlist_id: str, new_name: str) -> None:
+    async def rename_watchlist(self, watchlist_id: str, new_name: str, user_id: str) -> None:
         try:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
-            
+
         res = await self.watchlists_coll.update_one(
-            {"_id": wl_id},
+            {"_id": wl_id, "created_by": user_id},
             {"$set": {"name": new_name, "updated_at": datetime.utcnow()}}
         )
         if res.matched_count == 0:
             raise HTTPException(404, "Watchlist not found")
 
-    async def archive_watchlist(self, watchlist_id: str) -> None:
+    async def archive_watchlist(self, watchlist_id: str, user_id: str) -> None:
         try:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
-            
+
         res = await self.watchlists_coll.update_one(
-            {"_id": wl_id},
+            {"_id": wl_id, "created_by": user_id},
             {"$set": {"is_archived": True, "updated_at": datetime.utcnow()}}
         )
         if res.matched_count == 0:
             raise HTTPException(404, "Watchlist not found")
 
-    async def delete_watchlist(self, watchlist_id: str) -> None:
+    async def delete_watchlist(self, watchlist_id: str, user_id: str) -> None:
         try:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
-        
-        wl = await self.watchlists_coll.find_one({"_id": wl_id})
+
+        wl = await self.watchlists_coll.find_one({"_id": wl_id, "created_by": user_id})
         if not wl:
             raise HTTPException(404, "Watchlist not found")
             
@@ -127,13 +127,13 @@ class WatchlistService:
         await self.stocks_coll.delete_many({"watchlist_id": wl_id})
         await self.watchlists_coll.delete_one({"_id": wl_id})
 
-    async def duplicate_watchlist(self, watchlist_id: str) -> WatchlistInDB:
+    async def duplicate_watchlist(self, watchlist_id: str, user_id: str) -> WatchlistInDB:
         try:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
-            
-        wl = await self.watchlists_coll.find_one({"_id": wl_id})
+
+        wl = await self.watchlists_coll.find_one({"_id": wl_id, "created_by": user_id})
         if not wl:
             raise HTTPException(404, "Watchlist not found")
             
@@ -158,13 +158,13 @@ class WatchlistService:
         new_doc["_id"] = new_wl_id
         return WatchlistInDB(**new_doc)
 
-    async def add_stock(self, watchlist_id: str, data: WatchlistStockCreate) -> WatchlistStockInDB:
+    async def add_stock(self, watchlist_id: str, data: WatchlistStockCreate, user_id: str) -> WatchlistStockInDB:
         try:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
-            
-        wl = await self.watchlists_coll.find_one({"_id": wl_id})
+
+        wl = await self.watchlists_coll.find_one({"_id": wl_id, "created_by": user_id})
         if not wl:
             raise HTTPException(404, "Watchlist not found")
 
@@ -188,11 +188,15 @@ class WatchlistService:
                 raise HTTPException(400, f"Stock {data.symbol} is already in this watchlist")
             raise HTTPException(500, "Failed to add stock")
 
-    async def remove_stock(self, watchlist_id: str, symbol: str) -> None:
+    async def remove_stock(self, watchlist_id: str, symbol: str, user_id: str) -> None:
         try:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
+
+        wl = await self.watchlists_coll.find_one({"_id": wl_id, "created_by": user_id})
+        if not wl:
+            raise HTTPException(404, "Watchlist not found")
 
         from utils.helpers import normalize_symbol
         symbol = normalize_symbol(symbol)
@@ -226,13 +230,13 @@ class WatchlistService:
         await self.history_coll.insert_one(history_doc)
         await self.stocks_coll.delete_one({"_id": stock_doc["_id"]})
 
-    async def get_watchlist_details(self, watchlist_id: str) -> Dict[str, Any]:
+    async def get_watchlist_details(self, watchlist_id: str, user_id: str) -> Dict[str, Any]:
         try:
             wl_id = ObjectId(watchlist_id)
         except:
             raise HTTPException(400, "Invalid watchlist ID")
 
-        wl = await self.watchlists_coll.find_one({"_id": wl_id})
+        wl = await self.watchlists_coll.find_one({"_id": wl_id, "created_by": user_id})
         if not wl:
             raise HTTPException(404, "Watchlist not found")
 
@@ -384,8 +388,8 @@ class WatchlistService:
             "stats": stats
         }
 
-    async def get_watchlist_performance_by_source(self, watchlist_id: str) -> Dict[str, Any]:
-        details = await self.get_watchlist_details(watchlist_id)
+    async def get_watchlist_performance_by_source(self, watchlist_id: str, user_id: str) -> Dict[str, Any]:
+        details = await self.get_watchlist_details(watchlist_id, user_id)
         stocks = details.get("stocks", [])
         
         sources = {}

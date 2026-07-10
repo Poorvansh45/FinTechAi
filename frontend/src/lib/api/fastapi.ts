@@ -11,6 +11,7 @@
  */
 
 import { env } from '@/config/env';
+import { authHeader } from '@/lib/api/authToken';
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -176,6 +177,7 @@ async function fastapiFetch<T>(
 ): Promise<T> {
   const url = `${env.fastapiUrl}${path.startsWith('/') ? path : `/${path}`}`;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const auth = await authHeader(); // {} if unauthenticated — public endpoints still work
 
   let lastError: Error = new Error('Unknown error');
 
@@ -190,6 +192,7 @@ async function fastapiFetch<T>(
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          ...auth,
           ...options.headers,
         },
       });

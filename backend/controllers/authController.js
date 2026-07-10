@@ -198,4 +198,25 @@ const updateUsername = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { register, login, logout, getMe, updateUsername };
+// ─────────────────────────────────────────────
+// @desc    Return the raw JWT for the current session, so the frontend can
+//          attach it as "Authorization: Bearer <token>" when calling other
+//          services (FastAPI, Next.js API routes) that cannot see Express's
+//          host-only httpOnly cookie. Does not create or change the token —
+//          it is the same JWT already issued at login.
+// @route   GET /api/auth/token
+// @access  Private
+// ─────────────────────────────────────────────
+const getToken = asyncHandler(async (req, res, next) => {
+  try {
+    res.status(200).json({ success: true, token: req.token });
+  } catch (error) {
+    if (typeof next === 'function') {
+      next(error);
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+module.exports = { register, login, logout, getMe, updateUsername, getToken };
