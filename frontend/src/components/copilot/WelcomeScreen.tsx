@@ -24,7 +24,7 @@ export function WelcomeScreen({
   disabled?: boolean;
 }) {
   return (
-    <div className="max-w-4xl mx-auto w-full px-6 flex flex-col items-center justify-start pt-8 pb-10 md:pt-10 md:pb-12 space-y-6 md:space-y-7 animate-fadeIn relative">
+    <div className="max-w-4xl mx-auto w-full px-4 md:px-6 flex flex-col items-center justify-start pt-6 pb-8 md:pt-10 md:pb-12 space-y-5 md:space-y-7 animate-fadeIn relative">
       {/* Animated Glowing Backdrop */}
       <div className="absolute top-[110px] left-1/2 -translate-x-1/2 w-[600px] h-[150px] bg-gradient-to-r from-violet-500/15 via-fuchsia-500/10 to-indigo-500/15 blur-[90px] rounded-full pointer-events-none -z-10 animate-pulse" style={{ animationDuration: "5s" }} />
 

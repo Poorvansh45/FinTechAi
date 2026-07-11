@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
   PieChart, Scale, HeartPulse, GitCompare, PiggyBank, Layers, ShieldAlert, type LucideIcon,
 } from "lucide-react";
@@ -24,19 +25,24 @@ export function SuggestedPrompts({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 max-w-3xl">
-      {SUGGESTED_PROMPTS.map((chip) => {
+      {SUGGESTED_PROMPTS.map((chip, i) => {
         const Icon = chip.icon;
         return (
-          <button
+          <motion.button
             key={chip.label}
             type="button"
             disabled={disabled}
             onClick={() => onPick(chip.prompt)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-white/[0.05] bg-[#090D1A]/50 hover:bg-white/[0.02] hover:border-violet-500/20 text-[11px] text-slate-400 hover:text-white transition-all active:scale-[0.98] hover:shadow-[0_0_15px_rgba(139,92,246,0.04)] disabled:opacity-40 disabled:cursor-not-allowed"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.05 * i, ease: [0.16, 1, 0.3, 1] }}
+            whileHover={disabled ? undefined : { y: -2, scale: 1.02 }}
+            whileTap={disabled ? undefined : { scale: 0.97 }}
+            className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-white/[0.05] bg-[#090D1A]/50 hover:bg-white/[0.035] hover:border-violet-500/25 text-[11px] text-slate-400 hover:text-white transition-colors duration-200 hover:shadow-[0_6px_20px_rgba(139,92,246,0.1)] disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <Icon className="w-3 h-3 text-slate-500" />
+            <Icon className="w-3 h-3 text-slate-500 group-hover:text-violet-300 transition-colors duration-200" />
             <span>{chip.label}</span>
-          </button>
+          </motion.button>
         );
       })}
     </div>

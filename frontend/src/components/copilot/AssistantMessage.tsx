@@ -9,6 +9,7 @@ import { AgentBadge } from "./AgentBadge";
 import { ToolBadges } from "./ToolBadges";
 import { Sources } from "./Sources";
 import { FollowUps } from "./FollowUps";
+import { MarkdownContent } from "./MarkdownContent";
 
 function formatTime(ts: string): string {
   try {
@@ -45,7 +46,7 @@ export function AssistantMessage({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="flex gap-4 p-5 rounded-2xl border bg-[#090D1A]/50 border-white/[0.05] mr-12"
+      className="flex gap-4 p-4 md:p-5 rounded-2xl border bg-[#090D1A]/50 backdrop-blur-sm border-white/[0.05] mr-3 md:mr-12"
     >
       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-violet-500/10 border border-violet-500/20 text-violet-400">
         <Bot className="w-4 h-4" />
@@ -78,11 +79,10 @@ export function AssistantMessage({
           )}
         </div>
 
-        {/* Answer */}
-        <p className="text-xs md:text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap select-text markdown-render">
-          {message.text}
-          {streaming && <span className="inline-block w-1.5 h-3.5 ml-0.5 -mb-0.5 bg-violet-400 animate-pulse" />}
-        </p>
+        {/* Answer — rendered as themed GitHub-Flavored Markdown */}
+        <div className="select-text">
+          <MarkdownContent text={streaming ? `${message.text}▌` : message.text} />
+        </div>
 
         {/* Metadata (only once the response is complete) */}
         {!streaming && (

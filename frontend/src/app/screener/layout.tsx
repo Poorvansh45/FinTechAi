@@ -4,11 +4,10 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Filter, Layers, Waves, ScanLine, TrendingUp, BookMarked,
-  RefreshCw, CheckCircle2, Clock, Download, Keyboard, Save,
-  FolderOpen, X, AlertTriangle,
+  Filter, Waves, BookMarked, RefreshCw, Clock, Download, Keyboard, X,
+  Rocket, Shield, BarChart3
 } from "lucide-react";
-import { useScreenerExport, useSavedFilters, FilterPreset } from "@/hooks/useScreenerUtils";
+import { useScreenerExport } from "@/hooks/useScreenerUtils";
 import { env } from "@/config/env";
 
 const FASTAPI_URL = env.fastapiUrl;
@@ -23,17 +22,17 @@ type ScannerTab = {
 };
 
 const SCANNER_TABS: ScannerTab[] = [
-  { href: "/screener",            label: "Technical",  icon: Filter,     activeColor: "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",  iconColor: "text-yellow-400" },
-  { href: "/screener/smc",        label: "SMC",        icon: Layers,     activeColor: "bg-purple-500/10 border-purple-500/30 text-purple-300",  iconColor: "text-purple-400" },
-  { href: "/screener/volume",     label: "Volume",     icon: Waves,      activeColor: "bg-orange-500/10 border-orange-500/30 text-orange-300",  iconColor: "text-orange-400" },
-  { href: "/screener/fvg",        label: "FVG",        icon: ScanLine,   activeColor: "bg-blue-500/10 border-blue-500/30 text-blue-300",       iconColor: "text-blue-400"   },
-  { href: "/screener/local-ohlc", label: "My Stock OHLC", icon: FolderOpen, activeColor: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300", iconColor: "text-emerald-400" },
-  { href: "/screener/watchlists", label: "Watchlists", icon: BookMarked, activeColor: "bg-indigo-500/10 border-indigo-500/30 text-indigo-300",  iconColor: "text-indigo-400" },
+  { href: "/screener",            label: "Overview",           icon: BarChart3,  activeColor: "bg-indigo-500/10 border-indigo-500/30 text-indigo-350",  iconColor: "text-indigo-400" },
+  { href: "/screener/launchpad",  label: "🚀 LaunchPad",       icon: Rocket,     activeColor: "bg-purple-500/10 border-purple-500/30 text-purple-300",  iconColor: "text-purple-400" },
+  { href: "/screener/alpha-zone", label: "🔷 Alpha Zone",       icon: Shield,     activeColor: "bg-blue-500/10 border-blue-500/30 text-blue-300",     iconColor: "text-blue-400"   },
+  { href: "/screener/technical",  label: "📊 Technical Scanner", icon: Filter,     activeColor: "bg-yellow-500/10 border-yellow-500/30 text-yellow-300", iconColor: "text-yellow-400" },
+  { href: "/screener/volume",     label: "📈 Volume Scanner",   icon: Waves,      activeColor: "bg-orange-500/10 border-orange-500/30 text-orange-300",  iconColor: "text-orange-400" },
+  { href: "/screener/watchlists", label: "⭐ Watchlists",       icon: BookMarked, activeColor: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300", iconColor: "text-emerald-400" },
 ];
 
 // ── Keyboard Shortcut Help ────────────────────────────────────────────────────
 const SHORTCUTS = [
-  { key: "1 – 5",    desc: "Switch scanner tab" },
+  { key: "1 – 6",    desc: "Switch scanner tab" },
   { key: "R",        desc: "Refresh / run scan" },
   { key: "E",        desc: "Export CSV" },
   { key: "S",        desc: "Save current preset" },

@@ -73,9 +73,12 @@ def _compute_symbol_local(
         ltp    = float(close[-1])
 
         # ── Indicators ──────────────────────────────────────────────────
+        # Canonical EMA from the Indicator Engine (single source of truth;
+        # replaces the previously inline EMA). Same math → identical values.
+        from engines.indicators import ema as _ema_engine
+
         def ema(arr, period):
-            s = pd.Series(arr)
-            return s.ewm(span=period, adjust=False).mean().values
+            return _ema_engine(pd.Series(arr), period).values
 
         ema_9   = ema(close, 9)
         ema_50  = ema(close, 50)
@@ -539,6 +542,22 @@ async def run_daily_scan(app_state, force: bool = False) -> None:
             log.info("[Scheduler] Zone proximity search updated successfully")
         except Exception as e:
             log.error(f"[Scheduler] Zone proximity search update failed: {e}")
+
+        # ── Proprietary strategy caches (LaunchPad, Alpha Zone) ───────────
+        # Built from the freshly-updated screener/fvg/smc caches via the
+        # Strategy Engine — real, engine-derived values (no fabrication).
+        try:
+            from engines.strategies.runner import (
+                run_launchpad_scan,
+                run_alphazone_scan,
+            )
+            lp_count = await run_launchpad_scan(db)
+            az_count = await run_alphazone_scan(db)
+            log.info(
+                f"[Scheduler] Strategy caches built — LaunchPad: {lp_count}, Alpha Zone: {az_count}"
+            )
+        except Exception as e:
+            log.error(f"[Scheduler] Strategy cache build failed: {e}")
 
         elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
         

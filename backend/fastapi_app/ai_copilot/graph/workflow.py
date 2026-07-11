@@ -27,7 +27,7 @@ from ..agents import (
     portfolio_agent,
 )
 from ..memory.memory_manager import MemoryManager
-from ..models.llm_provider import get_chat_model
+from ..models.llm_provider import get_llm_manager
 from .router import route_selector, supervisor_node
 from .state import CopilotState
 
@@ -113,10 +113,10 @@ async def load_memory_node(state: CopilotState, config=None) -> dict:
 
 def _make_agent_node(agent_module):
     async def node(state: CopilotState, config=None) -> dict:
-        model = get_chat_model()
+        llm_manager = get_llm_manager()
         extra = _profile_context(state.get("profile") or {})
         result = await agent_module.run(
-            model,
+            llm_manager,
             state.get("history", []),
             state.get("message", ""),
             config,
@@ -124,6 +124,7 @@ def _make_agent_node(agent_module):
         )
         return {
             "agent_used": agent_module.NAME,
+            "provider_used": result.get("provider_used"),
             "tools_called": result.get("tools_called", []),
             "answer": result.get("answer", ""),
             "token_usage": result.get("token_usage", {}),
@@ -157,6 +158,7 @@ async def finalize_node(state: CopilotState, config=None) -> dict:
 
     return {
         "answer": answer,
+        "provider_used": state.get("provider_used") or "none",
         "reasoning_summary": _reasoning_summary(state),
         "suggestions": _SUGGESTIONS.get(state.get("route", "education"), []),
     }

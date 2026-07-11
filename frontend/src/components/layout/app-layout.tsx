@@ -477,8 +477,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {/* ── Premium Mega Menu Triggers ── */}
                   <div className="hidden lg:flex items-center gap-1 ml-3">
                     {NAV_TRIGGERS.map(({ id, label, isActive }) => {
-                      if (id === 'portfolio' || id === 'copilot') {
-                        const href = id === 'portfolio' ? '/portfolio' : '/ai-copilot';
+                      if (id === 'portfolio' || id === 'copilot' || id === 'screener') {
+                        const href = id === 'portfolio' ? '/portfolio' : id === 'screener' ? '/screener' : '/ai-copilot';
                         return (
                           <Link
                             key={id}

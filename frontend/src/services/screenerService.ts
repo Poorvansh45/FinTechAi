@@ -55,6 +55,14 @@ export const screenerService = {
         return scannerClient.get(`/api/v2/scanner/smc/${symbol}/details`);
     },
 
+    async getLaunchPad(params: Record<string, any> = {}) {
+        return scannerClient.get("/api/scanner/launchpad", { params });
+    },
+
+    async getAlphaZone(params: Record<string, any> = {}) {
+        return scannerClient.get("/api/scanner/alpha-zone", { params });
+    },
+
     async triggerScan() {
         return scannerClient.post("/api/v2/scanner/trigger-scan");
     },

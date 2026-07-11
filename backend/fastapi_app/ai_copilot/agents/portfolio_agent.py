@@ -10,10 +10,10 @@ NAME = "portfolio"
 TOOLS = [*PORTFOLIO_TOOLS, *ANALYTICS_TOOLS, *PROFILE_TOOLS]
 
 
-async def run(model, history, user_message, config=None, extra_context=""):
+async def run(llm_manager, history, user_message, config=None, extra_context=""):
     return await run_agent(
         agent_name=NAME,
-        model=model,
+        llm_manager=llm_manager,
         tools=TOOLS,
         system_prompt=PORTFOLIO_AGENT_PROMPT,
         history=history,

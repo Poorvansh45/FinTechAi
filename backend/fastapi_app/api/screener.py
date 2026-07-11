@@ -251,6 +251,179 @@ async def momentum(
     return {"success": True, "count": len(data), "data": data}
 
 
+# ── Nifty Index Universes for Branded Strategies ──────────────────────────────
+
+NIFTY_50 = {
+    "ADANIENT", "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT", "AXISBANK", "BAJAJ-AUTO",
+    "BAJFINANCE", "BAJAJFINSV", "BEL", "BHARTIARTL", "BPCL", "BRITANNIA", "CIPLA",
+    "COALINDIA", "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HCLTECH", "HDFCBANK",
+    "HDFCLIFE", "HEROMOTOCO", "HINDALCO", "HINDUNILVR", "ICICIBANK", "INDUSINDBK",
+    "INFY", "ITC", "JSWSTEEL", "KOTAKBANK", "LT", "LTIM", "M&M", "MARUTI", "NESTLEIND",
+    "NTPC", "ONGC", "POWERGRID", "RELIANCE", "SBILIFE", "SBIN", "SUNPHARMA", "TATACONSUM",
+    "TATAMOTORS", "TATASTEEL", "TCS", "TECHM", "TITAN", "ULTRACEMCO", "WIPRO"
+}
+
+NIFTY_NEXT_50 = {
+    "ABB", "ACC", "ADANIENSOL", "ADANIGREEN", "ADANIPOWER", "AMBUJACEM", "COLPAL",
+    "DLF", "DMART", "GAIL", "HAL", "HAVELLS", "INDIGO", "IOC", "IRCTC", "JIOFIN",
+    "LICI", "MARICO", "MUTHOOTFIN", "NAUKRI", "PFC", "PIDILITIND", "PNB", "RECLTD",
+    "SHREECEM", "SRF", "TATACOMM", "TATAPOWER", "TRENT", "TVSMOTOR", "UNITDSPR",
+    "VBL", "SIEMENS", "BOSCHLTD", "ZOMATO", "BANKBARODA", "CANBK", "CHOLAFIN",
+    "ICICIPRULI", "ICICIGI", "JINDALSTEL", "MAXHEALTH", "NHPC", "OBEROIRLTY",
+    "POLYCAB", "SBICARD", "SHAFTLER", "SOLARINDS", "SJVN", "YESBANK"
+}
+
+
+# ── Proprietary: LaunchPad Strategy ───────────────────────────────────────────
+
+def _risk_label(risk_pct) -> str:
+    rp = risk_pct or 0.0
+    if rp < 3.0:
+        return "Low"
+    if rp < 6.0:
+        return "Medium"
+    return "High"
+
+
+def _launchpad_response(d: dict) -> dict:
+    """Map a launchpad_cache doc → API row: keep the rich fields (signal_strength,
+    confidence_breakdown, ATR-based trade) AND add legacy aliases the existing
+    frontend consumes (risk label, expected_return, risk_reward string, rsi)."""
+    entry = d.get("entry") or 0.0
+    reward = d.get("reward_per_share") or 0.0
+    expected_return = round(reward / entry * 100.0, 1) if entry else 0.0
+    return {
+        **d,
+        "risk": _risk_label(d.get("risk_pct")),
+        "expected_return": expected_return,
+        "holding_period": "5-7",                       # renders as "5-7 Days"
+        "risk_reward": f"1:{d.get('risk_reward', 2.0)}",
+        "rsi": d.get("rsi_14"),
+        "ema_200_dist": d.get("ema_200_dist_pct"),
+        "nearest_fvg_dist": d.get("fvg_dist_pct"),
+    }
+
+
+@router.get("/launchpad")
+async def get_launchpad(
+    request: Request,
+    market:          str   = Query("all"),
+    price_min:       float = Query(None),
+    price_max:       float = Query(None),
+    min_return:      float = Query(None),
+    min_confidence:  float = Query(None),
+    limit:           int   = Query(100),
+):
+    """
+    LaunchPad — momentum-swing continuation (5-7 day hold). Reads the
+    precomputed `launchpad_cache` (built by the Strategy Engine): price holding
+    just above a fresh unmitigated bullish FVG, inside the EMA200 band
+    [-10%, +20%]. All trade/confidence values are engine-derived (no placeholders).
+    """
+    db = _db(request)
+    if db is None:
+        return {"success": False, "error": "Database not connected"}
+
+    col = db.get_collection("launchpad_cache")
+    # Lazy build if the cache hasn't been populated yet (first run before a scan).
+    if await col.count_documents({}) == 0:
+        try:
+            from engines.strategies.runner import run_launchpad_scan
+            await run_launchpad_scan(db)
+        except Exception as e:
+            return {"success": False, "error": f"LaunchPad cache unavailable: {e}"}
+
+    query: dict = {}
+    if min_confidence is not None:
+        query["confidence"] = {"$gte": min_confidence}
+    price_q: dict = {}
+    if price_min is not None:
+        price_q["$gte"] = price_min
+    if price_max is not None:
+        price_q["$lte"] = price_max
+    if price_q:
+        query["cmp"] = price_q
+
+    docs = await col.find(query, {"_id": 0}).sort("confidence", -1).to_list(length=2000)
+
+    out = []
+    for d in docs:
+        symbol = d.get("symbol", "")
+        if market == "nifty50" and symbol not in NIFTY_50:
+            continue
+        if market == "nifty_next50" and symbol not in NIFTY_NEXT_50:
+            continue
+        if market == "nifty200" and symbol not in NIFTY_50 and symbol not in NIFTY_NEXT_50:
+            continue
+        row = _launchpad_response(d)
+        if min_return is not None and row["expected_return"] < min_return:
+            continue
+        out.append(row)
+
+    return {"success": True, "count": len(out[:limit]), "data": _fmt(out[:limit])["data"]}
+
+
+# ── Proprietary: Alpha Zone Strategy ──────────────────────────────────────────
+
+@router.get("/alpha-zone")
+async def get_alpha_zone(
+    request: Request,
+    freshness:       str   = Query("all"),
+    distance:        str   = Query("all"),
+    min_return:      float = Query(None),
+    holding_period:  int   = Query(None),
+    limit:           int   = Query(100),
+):
+    """
+    Alpha Zone proprietary institutional swing strategy.
+    Criteria:
+      - Entry near or inside demand zone (unmitigated order blocks)
+    """
+    db = _db(request)
+    if db is None:
+        return {"success": False, "error": "Database not connected"}
+
+    col = db.get_collection("alpha_zone_cache")
+    if await col.count_documents({}) == 0:
+        try:
+            from engines.strategies.runner import run_alphazone_scan
+            await run_alphazone_scan(db)
+        except Exception as e:
+            return {"success": False, "error": f"Alpha Zone cache unavailable: {e}"}
+
+    query: dict = {}
+    # Freshness filter (on the derived zone_type)
+    if freshness == "fresh":
+        query["zone_type"] = "Fresh"
+    elif freshness == "retested":
+        query["zone_type"] = {"$in": ["Retested Once", "Retested"]}
+    # Distance filter
+    if distance == "inside":
+        query["distance_pct"] = {"$lte": 0.0}
+    elif distance == "within_2":
+        query["distance_pct"] = {"$lte": 2.0}
+    elif distance == "within_5":
+        query["distance_pct"] = {"$lte": 5.0}
+    if min_return is not None:
+        query["projected_return"] = {"$gte": min_return}
+
+    docs = await col.find(query, {"_id": 0}).sort("institutional_score", -1).to_list(length=2000)
+
+    out = []
+    for d in docs:
+        if holding_period is not None:
+            eh = d.get("expected_holding", 0)
+            if holding_period == 30 and eh > 40:
+                continue
+            if holding_period == 60 and (eh < 40 or eh > 75):
+                continue
+            if holding_period == 90 and eh < 75:
+                continue
+        out.append(d)
+
+    return {"success": True, "count": len(out[:limit]), "data": _fmt(out[:limit])["data"]}
+
+
 # ── Scan Status ───────────────────────────────────────────────────────────────
 
 @v2_router.get("/scan-status")

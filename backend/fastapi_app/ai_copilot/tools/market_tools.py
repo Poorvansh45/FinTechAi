@@ -23,7 +23,11 @@ def _svc():
 
 def _fmt_quote(q) -> str:
     if not getattr(q, "available", False) or q.price is None:
-        return f"{getattr(q, 'ticker', '?')}: quote unavailable right now."
+        return (
+            f"No live quote available for '{getattr(q, 'ticker', '?')}' right now — "
+            f"the symbol may be wrong or data is temporarily unavailable. Try get_stock_info "
+            f"to confirm the correct ticker."
+        )
     return (
         f"{q.ticker}: ₹{q.price:,.2f} ({q.change_pct:+.2f}%), "
         f"day range ₹{q.low or 0:,.2f}–₹{q.high or 0:,.2f}, "
@@ -40,25 +44,31 @@ async def get_quote(symbol: str) -> str:
         return _fmt_quote(q)
     except Exception as e:
         log.warning(f"[tool] get_quote({symbol}) failed: {e}")
-        return f"Could not fetch a quote for {symbol}."
+        return f"Could not fetch a quote for '{symbol}' — the symbol may be incorrect."
 
 
 @tool
 async def get_stock_info(query: str) -> str:
     """Look up basic instrument info (name, sector, exchange) for a company or ticker
-    query. Use to identify a stock and its sector before deeper analysis."""
+    query. Returns up to 5 candidate matches. Use this FIRST whenever a company name is
+    ambiguous, unfamiliar, or you're not certain of the exact ticker, so you can present
+    the real options to the user instead of guessing."""
     try:
-        results = await _svc().search(query, limit=3)
+        results = await _svc().search(query, limit=5)
         if not results:
-            return f"No instrument found for '{query}'."
+            return (
+                f"No instrument found for '{query}'. It may be misspelled, delisted, or "
+                f"not covered by this data source — suggest the user double-check the name "
+                f"or try the full company name."
+            )
         lines = [
             f"- {r.ticker} — {r.name} ({r.sector}, {r.exchange}, {r.instrument_type})"
             for r in results
         ]
-        return "Matches:\n" + "\n".join(lines)
+        return f"Possible matches for '{query}':\n" + "\n".join(lines)
     except Exception as e:
         log.warning(f"[tool] get_stock_info({query}) failed: {e}")
-        return f"Could not look up '{query}'."
+        return f"Could not look up '{query}' right now."
 
 
 @tool

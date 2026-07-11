@@ -9,7 +9,7 @@ export function UserMessage({ text }: { text: string }) {
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25 }}
-      className="flex gap-4 p-5 rounded-2xl border bg-white/[0.015] border-white/[0.03] ml-12"
+      className="flex gap-4 p-4 md:p-5 rounded-2xl border bg-white/[0.015] backdrop-blur-sm border-white/[0.03] ml-3 md:ml-12"
     >
       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-blue-500/10 border border-blue-500/20 text-blue-400">
         <User className="w-4 h-4" />

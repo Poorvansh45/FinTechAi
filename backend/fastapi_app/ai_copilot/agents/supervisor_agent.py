@@ -13,6 +13,7 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from ..prompts.prompts import SUPERVISOR_PROMPT
+from .base import extract_answer_text
 
 log = logging.getLogger("finai_edge.copilot.supervisor")
 
@@ -35,14 +36,15 @@ def _heuristic_route(message: str) -> str:
     return "education"
 
 
-async def classify(model, user_message: str, config=None) -> str:
-    """Return one of ROUTES for the given message."""
+async def classify(llm_manager, user_message: str, config=None) -> str:
+    """Return one of ROUTES for the given message. `llm_manager` is an
+    LLMManager — Gemini -> Groq failover is handled transparently inside it."""
     try:
-        resp = await model.ainvoke(
+        resp, _provider = await llm_manager.ainvoke(
             [SystemMessage(content=SUPERVISOR_PROMPT), HumanMessage(content=user_message)],
             config=config,
         )
-        raw = (resp.content if isinstance(resp.content, str) else str(resp.content)).strip().lower()
+        raw = extract_answer_text(resp.content).strip().lower()
         for route in ROUTES:
             if route in raw:
                 log.info(f"[copilot] supervisor route='{route}' (llm)")

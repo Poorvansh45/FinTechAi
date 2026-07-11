@@ -24,7 +24,7 @@ export function ThinkingStages() {
   }, []);
 
   return (
-    <div className="flex gap-4 p-5 rounded-2xl border bg-[#090D1A]/50 border-white/[0.05] mr-12">
+    <div className="flex gap-4 p-4 md:p-5 rounded-2xl border bg-[#090D1A]/50 backdrop-blur-sm border-white/[0.05] mr-3 md:mr-12">
       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-violet-500/10 border border-violet-500/20 text-violet-400">
         <Bot className="w-4 h-4" />
       </div>

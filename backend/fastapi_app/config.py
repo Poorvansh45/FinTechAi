@@ -33,8 +33,9 @@ class Settings(BaseSettings):
     finnhub_api_key: Optional[str] = None
 
     # ── AI Copilot / LLM provider ───────────────────────────────────
-    # Switch providers via AI_MODEL_PROVIDER (gemini | groq | openai | claude).
-    # Default: cheapest reliable model (Gemini Flash).
+    # LLMManager always tries Gemini first, then fails over to Groq (see
+    # services/llm/). This flag is not consulted by the manager itself; it's
+    # kept for any tooling that still wants to force a single provider.
     ai_model_provider: str = "gemini"
     groq_api_key: Optional[str] = None
     openai_api_key: Optional[str] = None   # placeholder — provider not wired yet
@@ -78,15 +79,9 @@ class Settings(BaseSettings):
 
     @property
     def copilot_llm_available(self) -> bool:
-        """True if the configured copilot provider has a usable API key."""
-        provider = (self.ai_model_provider or "gemini").lower()
-        if provider == "gemini":
-            return self.gemini_available
-        if provider == "groq":
-            return self.groq_available
-        if provider == "openai":
-            return bool(self.openai_api_key)
-        return False
+        """True if at least one LLM provider (Gemini or Groq) has a usable key —
+        LLMManager fails over automatically, so either is sufficient."""
+        return self.gemini_available or self.groq_available
 
     model_config = {
         "env_file": "../.env",

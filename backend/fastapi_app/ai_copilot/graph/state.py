@@ -18,6 +18,7 @@ class CopilotState(TypedDict, total=False):
     # Set by supervisor / agents
     route: str               # portfolio | market | planning | education
     agent_used: str
+    provider_used: str       # gemini | groq | ... — whichever LLM answered
     tools_called: list[str]
     answer: str
     token_usage: dict

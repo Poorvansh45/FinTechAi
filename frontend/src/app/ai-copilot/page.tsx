@@ -28,6 +28,7 @@ export default function AICopilotPage() {
   const [authError, setAuthError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [, forceRender] = useState(0);
+  const [promptTriggered, setPromptTriggered] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const typeTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -136,6 +137,23 @@ export default function AICopilotPage() {
     },
     [thinking, streamingMessage, currentSessionId, refreshSessions],
   );
+
+  useEffect(() => {
+    if (status === "authenticated" && !promptTriggered && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const prompt = params.get("prompt");
+      if (prompt) {
+        setPromptTriggered(true);
+        // Clear query parameters so refresh doesn't trigger again
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+
+        setTimeout(() => {
+          runTurn(prompt);
+        }, 500);
+      }
+    }
+  }, [status, promptTriggered, runTurn]);
 
   const handleSend = (text: string) => {
     setInput("");

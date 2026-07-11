@@ -81,12 +81,14 @@ async def chat(
     tokens = (result.get("token_usage") or {}).get("total_tokens", 0)
     log.info(
         f"[copilot] chat user={user_id} agent={result.get('agent_used')} "
-        f"tools={result.get('tools_called')} tokens={tokens} {latency_ms:.0f}ms"
+        f"provider={result.get('provider_used')} tools={result.get('tools_called')} "
+        f"tokens={tokens} {latency_ms:.0f}ms"
     )
 
     return ChatResponse(
         answer=result.get("answer", ""),
         agent_used=result.get("agent_used", "none"),
+        provider_used=result.get("provider_used") or "none",
         tools_called=result.get("tools_called", []),
         reasoning_summary=result.get("reasoning_summary", ""),
         suggestions=result.get("suggestions", []),
@@ -142,8 +144,8 @@ async def copilot_health(request: Request):
     return {
         "status": "healthy",
         "service": "finai-edge-copilot",
-        "provider": status.get("provider"),
-        "model": status.get("model"),
+        "llm_priority": status.get("priority"),
+        "llm_providers": status.get("providers"),
         "llm_configured": status.get("configured"),
         "graph_compiled": graph_ok,
         "mongo_connected": getattr(request.app.state, "mongo_connected", False),

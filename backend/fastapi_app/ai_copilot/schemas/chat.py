@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     agent_used: str
+    provider_used: str = "none"  # which LLM answered — gemini | groq | ... (failover is transparent)
     tools_called: list[str] = Field(default_factory=list)
     reasoning_summary: str = ""
     suggestions: list[str] = Field(default_factory=list)

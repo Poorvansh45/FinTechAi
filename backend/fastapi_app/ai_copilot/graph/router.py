@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from ..agents import supervisor_agent
-from ..models.llm_provider import get_chat_model
+from ..models.llm_provider import get_llm_manager
 from .state import CopilotState
 
 log = logging.getLogger("finai_edge.copilot.router")
@@ -20,8 +20,8 @@ VALID_ROUTES = ["portfolio", "market", "planning", "education"]
 
 
 async def supervisor_node(state: CopilotState, config=None) -> dict:
-    model = get_chat_model()
-    route = await supervisor_agent.classify(model, state.get("message", ""), config)
+    llm_manager = get_llm_manager()
+    route = await supervisor_agent.classify(llm_manager, state.get("message", ""), config)
     if route not in VALID_ROUTES:
         route = "education"
     return {"route": route}

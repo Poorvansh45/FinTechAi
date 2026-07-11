@@ -18,11 +18,11 @@ from typing import List, Optional
 
 import pytest
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
 from ai_copilot.models.llm_provider import (
-    get_chat_model,
+    get_llm_manager,
     set_model_override,
     provider_status,
 )
@@ -145,6 +145,13 @@ def scripted(*messages: AIMessage) -> ScriptedChatModel:
     return ScriptedChatModel(scripted=list(messages))
 
 
+def manager_for(model: ScriptedChatModel):
+    """Wrap a scripted model as a single-provider LLMManager, exactly how the
+    production code obtains one via get_llm_manager() when an override is set."""
+    set_model_override(model)
+    return get_llm_manager()
+
+
 def tool_call(name: str, args: Optional[dict] = None, call_id: str = "c1") -> AIMessage:
     return AIMessage(content="", tool_calls=[{"name": name, "args": args or {}, "id": call_id}])
 
@@ -156,12 +163,81 @@ def _clear_override():
     set_model_override(None)
 
 
+# ── Content extraction (Gemini list-of-content-blocks bug) ──────────────────────
+def test_extract_answer_text_handles_plain_string():
+    from ai_copilot.agents.base import extract_answer_text
+
+    assert extract_answer_text("Hello **world**") == "Hello **world**"
+
+
+def test_extract_answer_text_handles_list_of_text_blocks():
+    from ai_copilot.agents.base import extract_answer_text
+
+    # This is the exact shape Gemini/langchain-google-genai can return instead
+    # of a plain string — the bug this fixes.
+    content = [{"type": "text", "text": "## Analysis\n\nYour portfolio is diversified."}]
+    result = extract_answer_text(content)
+    assert result == "## Analysis\n\nYour portfolio is diversified."
+    # Must never leak the raw block structure.
+    assert "{" not in result and "'type'" not in result and '"type"' not in result
+
+
+def test_extract_answer_text_joins_multiple_text_blocks_and_skips_non_text():
+    from ai_copilot.agents.base import extract_answer_text
+
+    content = [
+        {"type": "text", "text": "Part one. "},
+        {"type": "thinking", "text": "internal reasoning — must not leak"},
+        {"type": "text", "text": "Part two."},
+    ]
+    result = extract_answer_text(content)
+    assert result == "Part one. Part two."
+    assert "internal reasoning" not in result
+
+
+def test_extract_answer_text_handles_none_and_unexpected_types():
+    from ai_copilot.agents.base import extract_answer_text
+
+    assert extract_answer_text(None) == ""
+    assert extract_answer_text(42) == ""  # never crashes, never leaks a raw repr
+
+
+def test_run_agent_with_list_content_response_returns_clean_markdown():
+    """End-to-end: a scripted model whose final message uses Gemini's list-content
+    shape must still produce a clean Markdown string in the agent's answer."""
+    from ai_copilot.agents.base import run_agent
+
+    mgr = manager_for(scripted(
+        AIMessage(content=[{"type": "text", "text": "**Reliance** trades at ₹2,500.\n\n- Sector: Energy"}]),
+    ))
+    result = asyncio.run(
+        run_agent(
+            agent_name="market",
+            llm_manager=mgr,
+            tools=[],
+            system_prompt="You are a market agent.",
+            history=[],
+            user_message="price of reliance",
+        )
+    )
+    assert result["answer"] == "**Reliance** trades at ₹2,500.\n\n- Sector: Energy"
+    assert "[{" not in result["answer"] and "'type':" not in result["answer"]
+
+
+def test_supervisor_classify_handles_list_content():
+    from ai_copilot.agents import supervisor_agent
+
+    mgr = manager_for(scripted(AIMessage(content=[{"type": "text", "text": "market"}])))
+    route = asyncio.run(supervisor_agent.classify(mgr, "price of TCS"))
+    assert route == "market"
+
+
 # ── Supervisor routing ──────────────────────────────────────────────────────────
 def test_supervisor_routes_each_intent():
     from ai_copilot.agents import supervisor_agent
 
     async def classify(word):
-        return await supervisor_agent.classify(scripted(AIMessage(content=word)), "any message")
+        return await supervisor_agent.classify(manager_for(scripted(AIMessage(content=word))), "any message")
 
     assert asyncio.run(classify("portfolio")) == "portfolio"
     assert asyncio.run(classify("market")) == "market"
@@ -173,8 +249,9 @@ def test_supervisor_heuristic_fallback_on_bad_llm_output():
     from ai_copilot.agents import supervisor_agent
 
     # Model returns junk -> falls back to keyword heuristic on the message text.
+    mgr = manager_for(scripted(AIMessage(content="???")))
     route = asyncio.run(
-        supervisor_agent.classify(scripted(AIMessage(content="???")), "How much should I invest monthly for retirement?")
+        supervisor_agent.classify(mgr, "How much should I invest monthly for retirement?")
     )
     assert route == "planning"
 
@@ -286,21 +363,26 @@ def test_heuristic_profile_learning_in_graph():
 
 
 # ── Provider abstraction / fallback ──────────────────────────────────────────────
-def test_provider_override_and_placeholders():
+def test_llm_manager_override_wraps_raw_model():
     fake = scripted(AIMessage(content="x"))
     set_model_override(fake)
-    assert get_chat_model() is fake  # override wins regardless of provider
+    mgr = get_llm_manager()
+    assert mgr.provider_names == ["test-override"]
+
+    msg, provider = asyncio.run(mgr.ainvoke([HumanMessage(content="hi")]))
+    assert provider == "test-override"
+    assert msg.content == "x"
 
     set_model_override(None)
-    with pytest.raises(NotImplementedError):
-        get_chat_model("openai")
-    with pytest.raises(ValueError):
-        get_chat_model("does-not-exist")
+    mgr2 = get_llm_manager()
+    assert mgr2.provider_names == ["gemini", "groq"]
 
 
 def test_provider_status_shape():
     status = provider_status()
-    assert "provider" in status and "configured" in status
+    assert "priority" in status and status["priority"] == ["gemini", "groq"]
+    assert "providers" in status and "gemini" in status["providers"] and "groq" in status["providers"]
+    assert "configured" in status
 
 
 # ── HTTP endpoints ───────────────────────────────────────────────────────────────

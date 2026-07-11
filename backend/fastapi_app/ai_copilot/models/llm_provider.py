@@ -1,119 +1,116 @@
 """
-LLM Provider Abstraction
-========================
-A single factory, `get_chat_model()`, returns a LangChain `BaseChatModel`
-selected by the `AI_MODEL_PROVIDER` environment variable. Model choice is never
-hardcoded in the agents — switching providers is a one-line env change:
+LLM Manager Wiring
+==================
+Builds the production `LLMManager` — Gemini (primary) with automatic failover
+to Groq (fallback) — from settings, and exposes the test-override hook that
+lets the test suite inject a deterministic fake model without any agent code
+knowing the difference.
 
-    AI_MODEL_PROVIDER=gemini   # default (cheapest reliable — Gemini 2.5 Flash)
-    AI_MODEL_PROVIDER=groq     # open-source models (Llama / Mixtral) via Groq
-
-Adding OpenAI / Claude later means implementing one more branch here — no agent,
-tool, or graph code changes.
+Adding a new provider (OpenAI, Claude, DeepSeek, a local Ollama model, ...)
+means writing one class in `services/llm/` and appending it to the provider
+list in `get_llm_manager()` below — no agent, tool, or graph code changes.
 
 Design rules:
-- No API key is required at import time (keys are read lazily, per call), so the
-  app and its test suite import cleanly without any provider configured.
-- The active model can be overridden per call (e.g. tests inject a fake model),
+- No API key is required at import time (keys are read lazily, per call), so
+  the app and its test suite import cleanly without any provider configured.
+- The active model can be overridden per call (tests inject a fake model),
   keeping every downstream component provider-agnostic and unit-testable.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Optional, Sequence
 
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.runnables import RunnableConfig
 
 from config import get_settings
+from services.llm.base import BaseLLMProvider
+from services.llm.gemini_provider import GeminiProvider
+from services.llm.groq_provider import GroqProvider
+from services.llm.llm_manager import LLMManager
 
 log = logging.getLogger("finai_edge.copilot.llm")
 
-# Supported providers. "openai"/"claude" are recognised but not yet wired.
-SUPPORTED = {"gemini", "groq"}
-PLACEHOLDER = {"openai", "claude"}
-
-# Process-wide override, primarily for tests: when set, get_chat_model() returns
-# it regardless of provider/env. Keeps the whole graph deterministic in CI.
+# Process-wide override, primarily for tests: when set, get_llm_manager()
+# returns a single-provider manager wrapping this raw LangChain model instead
+# of building the real Gemini -> Groq chain. Keeps the whole graph deterministic
+# in CI with zero API keys.
 _override_model: Optional[BaseChatModel] = None
 
 
 def set_model_override(model: Optional[BaseChatModel]) -> None:
-    """Force get_chat_model() to return `model` (or clear with None). Test hook."""
+    """Force get_llm_manager() to use `model` directly (or clear with None)."""
     global _override_model
     _override_model = model
 
 
-def _build_gemini(model_name: str, temperature: float) -> BaseChatModel:
-    from langchain_google_genai import ChatGoogleGenerativeAI
-
-    settings = get_settings()
-    return ChatGoogleGenerativeAI(
-        model=model_name,
-        google_api_key=settings.gemini_api_key,
-        temperature=temperature,
-    )
-
-
-def _build_groq(model_name: str, temperature: float) -> BaseChatModel:
-    from langchain_groq import ChatGroq
-
-    settings = get_settings()
-    return ChatGroq(
-        model=model_name,
-        api_key=settings.groq_api_key,
-        temperature=temperature,
-    )
-
-
-def get_chat_model(
-    provider: Optional[str] = None,
-    *,
-    model: Optional[str] = None,
-    temperature: float = 0.3,
-) -> BaseChatModel:
+class _RawModelProvider(BaseLLMProvider):
     """
-    Return a LangChain chat model for the requested (or configured) provider.
+    Wraps an already-constructed LangChain chat model as a single provider.
+    Used only for `set_model_override()` (tests / manual injection) — never
+    part of the production Gemini -> Groq chain.
+    """
 
-    Args:
-        provider: override AI_MODEL_PROVIDER for this call (e.g. "groq").
-        model:    override the provider's default model name.
-        temperature: sampling temperature (low default — this is an analyst, not
-                     a creative writer).
+    provider_name = "test-override"
 
-    Raises:
-        NotImplementedError: for recognised-but-unwired providers (openai/claude).
-        ValueError: for unknown providers.
+    def __init__(self, model: BaseChatModel):
+        self._model = model
+
+    async def ainvoke(
+        self,
+        messages: Sequence[BaseMessage],
+        *,
+        tools: Optional[list] = None,
+        config: Optional[RunnableConfig] = None,
+    ) -> AIMessage:
+        bound = self._model.bind_tools(tools) if tools else self._model
+        return await bound.ainvoke(messages, config=config)
+
+    def invoke(
+        self,
+        messages: Sequence[BaseMessage],
+        *,
+        tools: Optional[list] = None,
+        config: Optional[RunnableConfig] = None,
+    ) -> AIMessage:
+        bound = self._model.bind_tools(tools) if tools else self._model
+        return bound.invoke(messages, config=config)
+
+    async def health_check(self) -> bool:
+        return True
+
+
+def get_llm_manager() -> LLMManager:
+    """
+    Build the provider-agnostic LLM layer used by every agent and the
+    supervisor: Gemini (primary) -> Groq (fallback). Both providers are always
+    registered (each is a no-op/fails-fast if its key is unset) so the chain
+    degrades gracefully rather than needing an env var to pick "the" provider.
     """
     if _override_model is not None:
-        return _override_model
+        return LLMManager([_RawModelProvider(_override_model)])
 
     settings = get_settings()
-    provider = (provider or settings.ai_model_provider or "gemini").lower()
-
-    if provider == "gemini":
-        return _build_gemini(model or settings.gemini_model, temperature)
-    if provider == "groq":
-        return _build_groq(model or settings.groq_model, temperature)
-    if provider in PLACEHOLDER:
-        raise NotImplementedError(
-            f"Provider '{provider}' is a placeholder — install the matching "
-            f"langchain integration (e.g. langchain-openai) and add a branch in "
-            f"llm_provider.py to enable it."
-        )
-    raise ValueError(
-        f"Unknown AI_MODEL_PROVIDER '{provider}'. Supported: {sorted(SUPPORTED)}; "
-        f"placeholders: {sorted(PLACEHOLDER)}."
-    )
+    providers: list[BaseLLMProvider] = [
+        GeminiProvider(api_key=settings.gemini_api_key, model=settings.gemini_model),
+        GroqProvider(api_key=settings.groq_api_key, model=settings.groq_model),
+        # Future: OpenAIProvider(...), ClaudeProvider(...), OllamaProvider(...)
+    ]
+    return LLMManager(providers)
 
 
 def provider_status() -> dict:
-    """Lightweight status for the /copilot/health endpoint (no key required)."""
+    """Status for the /copilot/health endpoint (no key required)."""
     settings = get_settings()
-    provider = (settings.ai_model_provider or "gemini").lower()
     return {
-        "provider": provider,
-        "model": settings.gemini_model if provider == "gemini" else settings.groq_model,
+        "priority": ["gemini", "groq"],
+        "providers": {
+            "gemini": {"configured": settings.gemini_available, "model": settings.gemini_model},
+            "groq": {"configured": settings.groq_available, "model": settings.groq_model},
+        },
         "configured": settings.copilot_llm_available,
         "override_active": _override_model is not None,
     }

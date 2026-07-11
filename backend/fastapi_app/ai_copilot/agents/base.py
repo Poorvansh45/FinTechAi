@@ -7,8 +7,9 @@ loop. It is intentionally transparent so we can hook observability (per-tool
 logs, latency, token usage) and keep it fully deterministic under a scripted
 fake model in tests.
 
-Flow: bind tools → invoke model → if the model returns tool_calls, execute them
-(async), append ToolMessages, loop; otherwise return the final answer.
+Flow: invoke the LLMManager (which itself fails over Gemini -> Groq internally)
+→ if the model returns tool_calls, execute them (async), append ToolMessages,
+loop; otherwise return the final answer plus which provider produced it.
 """
 
 from __future__ import annotations
@@ -55,10 +56,49 @@ def _accumulate_tokens(usage: dict, message: Any) -> None:
         usage["total_tokens"] += meta.get("total_tokens", 0) or 0
 
 
+def extract_answer_text(content: Any) -> str:
+    """
+    Robustly extract plain Markdown text from a LangChain message's `.content`.
+
+    Most providers return a plain string. Some (notably Gemini via
+    langchain-google-genai) can return a list of content blocks instead, e.g.
+    `[{"type": "text", "text": "..."}]` when the response has structured parts.
+    Blindly `str()`-ing that list leaks the raw block structure to the client
+    (the bug this fixes) — extract only the actual text and join it.
+    """
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                block_type = block.get("type")
+                if block_type in (None, "text") and "text" in block:
+                    parts.append(str(block["text"]))
+                # Non-text blocks (tool_use, image, thinking, etc.) are
+                # intentionally skipped — never leak their raw structure.
+            else:
+                text_attr = getattr(block, "text", None)
+                if text_attr:
+                    parts.append(str(text_attr))
+        return "".join(parts)
+
+    if content is None:
+        return ""
+
+    # Unexpected shape (shouldn't happen with str/list) — log so we notice,
+    # but still avoid returning a Python repr to the client.
+    log.warning(f"[copilot] unexpected message content type: {type(content)!r}")
+    return ""
+
+
 async def run_agent(
     *,
     agent_name: str,
-    model: Any,
+    llm_manager: Any,
     tools: list,
     system_prompt: str,
     history: list[dict],
@@ -69,36 +109,41 @@ async def run_agent(
     """
     Run one specialist agent to completion.
 
-    Returns dict: {answer, tools_called, token_usage, iterations, error}.
+    `llm_manager` is a `services.llm.llm_manager.LLMManager` — every call goes
+    through it so Gemini -> Groq failover is transparent to this loop.
+
+    Returns dict: {answer, provider_used, tools_called, token_usage, iterations, error}.
     Observability: logs agent entry, every tool call (name + args) and its
     latency, and accumulates token usage when the provider exposes it.
     """
     tool_map = {t.name: t for t in tools}
     tools_called: list[str] = []
     usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+    provider_used: Optional[str] = None
     t0 = time.time()
     log.info(f"[copilot] agent='{agent_name}' start tools={list(tool_map)}")
 
     try:
-        bound = model.bind_tools(tools) if tools else model
         prompt = system_prompt + (f"\n\n{extra_context}" if extra_context else "")
         messages = build_messages(prompt, history, user_message)
 
         for iteration in range(MAX_TOOL_ITERS):
-            ai_msg = await bound.ainvoke(messages, config=config)
+            ai_msg, provider_used = await llm_manager.ainvoke(messages, tools=tools, config=config)
             _accumulate_tokens(usage, ai_msg)
             messages.append(ai_msg)
 
             tool_calls = getattr(ai_msg, "tool_calls", None) or []
             if not tool_calls:
-                answer = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
+                answer = extract_answer_text(ai_msg.content)
                 dur = time.time() - t0
                 log.info(
                     f"[copilot] agent='{agent_name}' done iters={iteration + 1} "
-                    f"tools={tools_called} tokens={usage['total_tokens']} {dur:.2f}s"
+                    f"provider={provider_used} tools={tools_called} "
+                    f"tokens={usage['total_tokens']} {dur:.2f}s"
                 )
                 return {
                     "answer": answer.strip(),
+                    "provider_used": provider_used,
                     "tools_called": tools_called,
                     "token_usage": usage,
                     "iterations": iteration + 1,
@@ -134,6 +179,7 @@ async def run_agent(
         return {
             "answer": "I gathered some data but couldn't fully complete the analysis in time. "
             "Could you narrow the question?",
+            "provider_used": provider_used,
             "tools_called": tools_called,
             "token_usage": usage,
             "iterations": MAX_TOOL_ITERS,
@@ -144,6 +190,7 @@ async def run_agent(
         log.error(f"[copilot] agent='{agent_name}' failed: {e}", exc_info=True)
         return {
             "answer": "",
+            "provider_used": provider_used,
             "tools_called": tools_called,
             "token_usage": usage,
             "iterations": 0,
