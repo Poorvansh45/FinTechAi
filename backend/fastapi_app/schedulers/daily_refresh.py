@@ -14,12 +14,12 @@ import os
 import asyncio
 import logging
 import math
+import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 
 import pandas as pd
 import numpy as np
-from pymongo import UpdateOne
 
 from services.ohlc_downloader import (
     download_incremental_ohlc,
@@ -27,11 +27,24 @@ from services.ohlc_downloader import (
     load_stock_dataframe,
     get_cached_symbols
 )
+from engines.indicators import IndicatorSet
 
 log = logging.getLogger("finai_edge.scheduler")
 
 NIFTY_SYMBOL = "^NSEI"
 BULK_BATCH_SIZE = 100
+
+# In-memory registry of currently-running full scans, keyed by scan_id. Purely
+# observational — read/written only from logging, never consulted by any
+# control-flow decision (no lock), so it cannot change scan behavior. Its
+# purpose is to make concurrent/overlapping run_daily_scan() calls visible in
+# the logs (see `CONCURRENCY WARNING`).
+_ACTIVE_SCANS: Dict[str, Dict[str, Any]] = {}
+
+
+def _new_scan_id() -> str:
+    now = datetime.now(timezone.utc)
+    return f"SCAN-{now:%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}"
 
 def _safe(v) -> Optional[float]:
     try:
@@ -50,9 +63,16 @@ def _compute_symbol_local(
     symbol: str,
     df: pd.DataFrame,
     nifty_1m_return: float,
+    indicators: Optional[IndicatorSet] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Compute indicators, FVG, SMC, Momentum, and Volume Surge locally for a single symbol.
+    Compute FVG, SMC, Momentum, and Volume Surge locally for a single symbol.
+
+    `indicators`, when supplied by the Scan Coordinator's Indicators stage, is
+    the single canonical EMA/RSI/MACD computation for this symbol — reused
+    here instead of recomputing it a second time. When absent (standalone/
+    manual invocation, e.g. a populate script), this function falls back to
+    computing it itself so it keeps working outside the coordinator.
     """
     try:
         df["Close"]   = pd.to_numeric(df["Close"], errors="coerce")
@@ -73,38 +93,50 @@ def _compute_symbol_local(
         ltp    = float(close[-1])
 
         # ── Indicators ──────────────────────────────────────────────────
-        # Canonical EMA from the Indicator Engine (single source of truth;
-        # replaces the previously inline EMA). Same math → identical values.
-        from engines.indicators import ema as _ema_engine
+        if indicators is not None:
+            ema9_val    = indicators.ema_9
+            ema50_val   = indicators.ema_50
+            ema200_val  = indicators.ema_200
+            ema50_dist  = indicators.ema_50_dist_pct
+            ema200_dist = indicators.ema_200_dist_pct
+            rsi_14      = indicators.rsi_14
+            macd_val    = indicators.macd
+            macd_hist   = indicators.macd_hist
+        else:
+            # Fallback: canonical EMA from the Indicator Engine's own functions
+            # (same math as IndicatorEngine.compute, computed inline here only
+            # because no precomputed IndicatorSet was supplied).
+            from engines.indicators import ema as _ema_engine
 
-        def ema(arr, period):
-            return _ema_engine(pd.Series(arr), period).values
+            def ema(arr, period):
+                return _ema_engine(pd.Series(arr), period).values
 
-        ema_9   = ema(close, 9)
-        ema_50  = ema(close, 50)
-        ema_200 = ema(close, 200)
+            ema_9   = ema(close, 9)
+            ema_50  = ema(close, 50)
+            ema_200 = ema(close, 200)
 
-        ema50_val   = _safe(ema_50[-1])
-        ema200_val  = _safe(ema_200[-1])
-        ema50_dist  = _safe((ltp - ema_50[-1]) / ema_50[-1] * 100) if ema_50[-1] else None
-        ema200_dist = _safe((ltp - ema_200[-1]) / ema_200[-1] * 100) if ema_200[-1] else None
+            ema9_val    = _safe(ema_9[-1])
+            ema50_val   = _safe(ema_50[-1])
+            ema200_val  = _safe(ema_200[-1])
+            ema50_dist  = _safe((ltp - ema_50[-1]) / ema_50[-1] * 100) if ema_50[-1] else None
+            ema200_dist = _safe((ltp - ema_200[-1]) / ema_200[-1] * 100) if ema_200[-1] else None
 
-        # RSI (Wilder's smoothing — matches TradingView / TA-Lib)
-        delta   = pd.Series(close).diff()
-        gain    = delta.clip(lower=0)
-        loss    = (-delta.clip(upper=0))
-        avg_gain = gain.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
-        avg_loss = loss.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
-        rs      = avg_gain / avg_loss.replace(0, np.nan)
-        rsi_14  = _safe(100 - (100 / (1 + rs.iloc[-1])))
+            # RSI (Wilder's smoothing — matches TradingView / TA-Lib)
+            delta   = pd.Series(close).diff()
+            gain    = delta.clip(lower=0)
+            loss    = (-delta.clip(upper=0))
+            avg_gain = gain.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
+            avg_loss = loss.ewm(alpha=1/14, min_periods=14, adjust=False).mean()
+            rs      = avg_gain / avg_loss.replace(0, np.nan)
+            rsi_14  = _safe(100 - (100 / (1 + rs.iloc[-1])))
 
-        # MACD
-        ema_12  = ema(close, 12)
-        ema_26  = ema(close, 26)
-        macd_line   = ema_12 - ema_26
-        signal_line = ema(macd_line, 9)
-        macd_hist   = _safe(macd_line[-1] - signal_line[-1])
-        macd_val    = _safe(macd_line[-1])
+            # MACD
+            ema_12  = ema(close, 12)
+            ema_26  = ema(close, 26)
+            macd_line   = ema_12 - ema_26
+            signal_line = ema(macd_line, 9)
+            macd_hist   = _safe(macd_line[-1] - signal_line[-1])
+            macd_val    = _safe(macd_line[-1])
 
         # Volume
         avg_vol_20  = _safe(float(pd.Series(volume).rolling(20, min_periods=5).mean().iloc[-1]))
@@ -191,7 +223,7 @@ def _compute_symbol_local(
             "week52_low":  wk52_low,
             "week52_high_dist_pct": wk52_dist,
             "indicators": {
-                "ema_9":             _safe(ema_9[-1]),
+                "ema_9":             ema9_val,
                 "ema_50":            ema50_val,
                 "ema_200":           ema200_val,
                 "ema_50_dist_pct":   ema50_dist,
@@ -221,47 +253,39 @@ def _compute_symbol_local(
         return None
 
 
-async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
+def _build_cache_docs(batch_data: List[tuple]) -> Dict[str, List[dict]]:
     """
-    Executes bulk MongoDB write operations for a batch of computed symbols.
+    Shapes each computed symbol's result into its per-collection document —
+    identical shaping logic to the old `_bulk_write_results`, but returns
+    plain docs grouped by collection name instead of issuing live upserts.
+    The Scan Coordinator accumulates these across the whole Technical stage
+    and publishes them all atomically at the end (see engines/orchestration).
     """
-    screener_ops = []
-    fvg_ops = []
-    fvg_pure_ops = []
-    surge_ops = []
-    momentum_ops = []
-    smc_ops = []
-    zones_ops = []
-
-    screener_col = db.get_collection("screener_cache")
-    fvg_col      = db.get_collection("fvg_cache")
-    fvg_pure_col = db.get_collection("fvg_scan_results")
-    surge_col    = db.get_collection("volume_surge_cache")
-    momentum_col = db.get_collection("momentum_cache")
-    smc_col      = db.get_collection("smc_scanner_results")
-    zones_col    = db.get_collection("smc_zones")
+    docs: Dict[str, List[dict]] = {
+        "screener_cache": [], "fvg_cache": [], "fvg_scan_results": [],
+        "volume_surge_cache": [], "momentum_cache": [],
+        "smc_scanner_results": [], "smc_zones": [],
+    }
 
     for sym, result in batch_data:
         try:
             from utils.helpers import normalize_symbol
             sym = normalize_symbol(sym)
             result["symbol"] = normalize_symbol(result["symbol"])
+
             # ── screener_cache (technical) ───────────────────────
-            screener_doc = {
+            docs["screener_cache"].append({
                 "symbol":      result["symbol"],
                 "price":       result["price"],
                 "volume":      result["volume"],
                 "avg_volume_20d": result.get("avg_volume_20d"),
                 "indicators":  result["indicators"],
                 "updated_at":  result["updated_at"],
-            }
-            screener_ops.append(UpdateOne(
-                {"symbol": sym}, {"$set": screener_doc}, upsert=True
-            ))
+            })
 
             # ── fvg_cache ────────────────────────────────────────
             if result.get("has_fvg_bullish") or result.get("top_bullish_fvgs"):
-                fvg_doc = {
+                docs["fvg_cache"].append({
                     "symbol":              result["symbol"],
                     "ltp":                 result["ltp"],
                     "has_fvg_bullish":     result.get("has_fvg_bullish", False),
@@ -273,34 +297,22 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
                     "best_fvg_score":      result.get("best_fvg_score", 0),
                     "indicators":          result["indicators"],
                     "updated_at":          result["updated_at"],
-                }
-                fvg_ops.append(UpdateOne(
-                    {"symbol": sym}, {"$set": fvg_doc}, upsert=True
-                ))
+                })
 
             # ── fvg_scan_results ─────────────────────────────────
             fvg_pure = result.get("fvg_pure_data")
             if fvg_pure:
-                fvg_pure_ops.append(UpdateOne(
-                    {"symbol": sym}, {"$set": fvg_pure}, upsert=True
-                ))
+                fvg_pure = dict(fvg_pure)
+                fvg_pure["symbol"] = result["symbol"]
+                docs["fvg_scan_results"].append(fvg_pure)
 
             # ── volume_surge_cache ───────────────────────────────
             # Always write when surge_stats is a dict (even 0 surges)
             if isinstance(result.get("surge_stats"), dict):
-                # Compute day_return_pct for latest day
-                day_ret = None
-                ltp_val = result.get("ltp", 0)
-                price_val = result.get("price", 0)
-                if ltp_val and price_val and price_val > 0:
-                    # Already have open price in indicators? Use volume_ratio approach
-                    pass  # day_return_pct comes from surge_data
-
-                # Get day_return from latest surge event if available
                 recent_events = result.get("recent_surge_events", [])
                 latest_day_return = recent_events[0].get("day_return") if recent_events else None
 
-                surge_doc = {
+                docs["volume_surge_cache"].append({
                     "symbol":               result["symbol"],
                     "company_name":         result.get("company_name", ""),
                     "ltp":                  result["ltp"],
@@ -315,13 +327,10 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
                     "surge_stats":           result.get("surge_stats", {}),
                     "recent_surge_events":   recent_events,
                     "updated_at":            result["updated_at"],
-                }
-                surge_ops.append(UpdateOne(
-                    {"symbol": sym}, {"$set": surge_doc}, upsert=True
-                ))
+                })
 
             # ── momentum_cache ───────────────────────────────────
-            mom_doc = {
+            docs["momentum_cache"].append({
                 "symbol":              result["symbol"],
                 "ltp":                 result["ltp"],
                 "momentum_score":      result.get("momentum_score", 0),
@@ -335,20 +344,16 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
                 "above_ema50":         result.get("above_ema50"),
                 "above_ema200":        result.get("above_ema200"),
                 "updated_at":          result["updated_at"],
-            }
-            momentum_ops.append(UpdateOne(
-                {"symbol": sym}, {"$set": mom_doc}, upsert=True
-            ))
+            })
 
             # ── SMC ──────────────────────────────────────────────
             smc_res = result.get("smc_data")
             if smc_res:
                 from services.smc_service import _serialize
                 smc_clean = _serialize(smc_res)
+                smc_clean["symbol"] = sym
                 smc_clean["updated_at"] = result["updated_at"]
-                smc_ops.append(UpdateOne(
-                    {"symbol": sym}, {"$set": smc_clean}, upsert=True
-                ))
+                docs["smc_scanner_results"].append(smc_clean)
 
                 all_zones = (
                     smc_res.get("demand_zones", []) +
@@ -359,240 +364,30 @@ async def _bulk_write_results(db, batch_data: List[tuple]) -> None:
                 for zone in all_zones:
                     zone_clean = _serialize(zone)
                     zone_clean["symbol"] = sym
-                    zones_ops.append(UpdateOne(
-                        {"symbol": sym, "zone_high": zone["zone_high"], "zone_low": zone["zone_low"]},
-                        {"$set": zone_clean},
-                        upsert=True,
-                    ))
+                    docs["smc_zones"].append(zone_clean)
 
         except Exception as e:
             log.warning(f"[Scheduler] DB doc preparation failed for {sym}: {e}")
 
-    # Write in bulk
-    try:
-        if screener_ops:  await screener_col.bulk_write(screener_ops, ordered=False)
-        if fvg_ops:       await fvg_col.bulk_write(fvg_ops, ordered=False)
-        if fvg_pure_ops:  await fvg_pure_col.bulk_write(fvg_pure_ops, ordered=False)
-        if surge_ops:     await surge_col.bulk_write(surge_ops, ordered=False)
-        if momentum_ops:  await momentum_col.bulk_write(momentum_ops, ordered=False)
-        if smc_ops:       await smc_col.bulk_write(smc_ops, ordered=False)
-        if zones_ops:     await zones_col.bulk_write(zones_ops, ordered=False)
-    except Exception as e:
-        log.error(f"[Scheduler] Bulk write operations failed: {e}")
+    return docs
 
 
 # ── Batch pipeline ────────────────────────────────────────────────────────────
 
-async def run_daily_scan(app_state, force: bool = False) -> None:
+async def run_daily_scan(app_state, force: bool = False, trigger: str = "unknown") -> None:
     """
     Main scan entry point. Called on startup (if stale) and by APScheduler.
-    Uses the unified local Stock_Data.csv file.
+
+    Thin, name-preserving delegator to the Scan Coordinator
+    (engines/orchestration/coordinator.py::run_full_scan), which owns the
+    full pipeline (Download -> Indicators -> Technical -> LaunchPad ->
+    Alpha Zone -> Publish -> Completed), the stage-by-stage scan_meta model,
+    and atomic cache publication. Kept as a separate function -- rather than
+    having every caller import the coordinator directly -- so the scheduler
+    and api/screener.py's trigger-scan endpoint don't need to change.
     """
-    db         = app_state.db
-    market_svc = app_state.market_service
-
-    if db is None:
-        log.warning("[Scheduler] No DB — skipping scan")
-        return
-
-    log.info("[Scheduler] Starting EOD pipeline (Local Stock_Data.csv source)…")
-    start_time = datetime.now(timezone.utc)
-    meta_col = db.get_collection("scan_meta")
-
-    try:
-        # 1. Trigger Incremental Sync / Downloader first
-        try:
-            log.info("[Scheduler] Syncing local stock data file incrementally...")
-            await download_incremental_ohlc()
-        except Exception as e:
-            log.error(f"[Scheduler] Incremental ingestion failed: {e}. Attempting calculation with existing file.")
-
-        # 2. Load cached symbols from cache
-        symbols = get_cached_symbols()
-        if not symbols:
-            log.error("[Scheduler] No stocks found in cached Stock_Data.csv — aborting scan")
-            return
-
-        # Normalize and deduplicate symbols list
-        from utils.helpers import normalize_symbol
-        symbols = [normalize_symbol(s) for s in symbols if s]
-        symbols = list(dict.fromkeys(symbols)) # deduplicate keeping order
-
-        log.info(f"[Scheduler] Loaded database with {len(symbols)} cached tickers")
-
-        # 3. Load company name mapping from stock list CSV
-        company_name_map: Dict[str, str] = {}
-        try:
-            paths = get_downloader_paths()
-            symbols_csv_path = paths["symbols_csv"]
-            if os.path.exists(symbols_csv_path):
-                stock_list_df = pd.read_csv(symbols_csv_path)
-                stock_list_df.columns = stock_list_df.columns.str.strip()
-                for _, row in stock_list_df.iterrows():
-                    sym_raw = str(row.get("trading_symbol", "")).strip()
-                    name = str(row.get("company_name", "")).strip()
-                    if sym_raw and name:
-                        company_name_map[normalize_symbol(sym_raw)] = name
-                log.info(f"[Scheduler] Loaded {len(company_name_map)} company names from stock list")
-        except Exception as e:
-            log.warning(f"[Scheduler] Could not load company names: {e}")
-
-        # 4. Check if today's scan already ran
-        last_meta = await meta_col.find_one({"_id": "daily_scan"})
-        if last_meta and not force:
-            last_ran = last_meta.get("last_ran")
-            prev_processed = last_meta.get("symbols_processed", 0)
-            prev_total = last_meta.get("total_symbols", 0)
-            if last_ran and prev_processed >= 0.9 * max(prev_total, 1):
-                if hasattr(last_ran, "tzinfo") and last_ran.tzinfo is None:
-                    last_ran = last_ran.replace(tzinfo=timezone.utc)
-                age_hours = (start_time - last_ran).total_seconds() / 3600
-                if age_hours < 6:
-                    log.info(f"[Scheduler] Scan ran {age_hours:.1f}h ago — skipping")
-                    return
-
-        # Update metadata status to running
-        await meta_col.update_one(
-            {"_id": "daily_scan"},
-            {"$set": {
-                "status": "RUNNING",
-                "started_at": start_time,
-                "total_symbols": len(symbols),
-                "symbols_processed": 0,
-                "symbols_errored": 0,
-            }},
-            upsert=True
-        )
-
-        # 5. Calculate Nifty baseline return from Stock_Data.csv
-        nifty_1m_return = 0.0
-        try:
-            nifty_df = load_stock_dataframe(NIFTY_SYMBOL)
-            if not nifty_df.empty and len(nifty_df) >= 21:
-                closes = nifty_df["Close"].values
-                nifty_1m_return = (closes[-1] - closes[-21]) / closes[-21] * 100 if closes[-21] else 0.0
-            log.info(f"[Scheduler] Nifty50 1M return from Stock_Data.csv: {nifty_1m_return:.2f}%")
-        except Exception as e:
-            log.warning(f"[Scheduler] Nifty baseline load from Stock_Data.csv failed: {e}")
-
-        # 6. Compute metrics locally in-memory using cached DataFrames
-        global _company_name_map
-        _company_name_map = company_name_map  # make accessible to _compute_symbol_local
-        processed = 0
-        errors = 0
-        
-        batch_data = []
-
-        loop = asyncio.get_running_loop()
-
-        for symbol in symbols:
-            try:
-                df_group = load_stock_dataframe(symbol)
-                if df_group.empty:
-                    continue
-
-                # Take last 2 years of daily data (approx. 504 rows) for scanner alignment
-                df_symbol = df_group.tail(504).reset_index(drop=True)
-                if len(df_symbol) < 30:
-                    continue
-
-                # Run in thread pool to prevent blocking the event loop
-                result = await loop.run_in_executor(
-                    None, _compute_symbol_local, symbol, df_symbol, nifty_1m_return
-                )
-
-                if result:
-                    batch_data.append((symbol, result))
-                    processed += 1
-                else:
-                    errors += 1
-
-                # Execute bulk updates once batch matches threshold
-                if len(batch_data) >= BULK_BATCH_SIZE:
-                    await _bulk_write_results(db, batch_data)
-                    batch_data = []
-                    log.info(f"[Scheduler] Processed {processed}/{len(symbols)} tickers...")
-                    await meta_col.update_one(
-                        {"_id": "daily_scan"},
-                        {"$set": {
-                            "symbols_processed": processed,
-                            "symbols_errored": errors,
-                        }}
-                    )
-
-            except Exception as e:
-                log.warning(f"[Scheduler] Failed to compute results for {symbol}: {e}")
-                errors += 1
-
-        # Write remaining items
-        if batch_data:
-            await _bulk_write_results(db, batch_data)
-            await meta_col.update_one(
-                {"_id": "daily_scan"},
-                {"$set": {
-                    "symbols_processed": processed,
-                    "symbols_errored": errors,
-                }}
-            )
-
-        # 7. Update zone proximity search
-        try:
-            from services.zone_search_service import run_zone_proximity_search
-            await run_zone_proximity_search(db)
-            log.info("[Scheduler] Zone proximity search updated successfully")
-        except Exception as e:
-            log.error(f"[Scheduler] Zone proximity search update failed: {e}")
-
-        # ── Proprietary strategy caches (LaunchPad, Alpha Zone) ───────────
-        # Built from the freshly-updated screener/fvg/smc caches via the
-        # Strategy Engine — real, engine-derived values (no fabrication).
-        try:
-            from engines.strategies.runner import (
-                run_launchpad_scan,
-                run_alphazone_scan,
-            )
-            lp_count = await run_launchpad_scan(db)
-            az_count = await run_alphazone_scan(db)
-            log.info(
-                f"[Scheduler] Strategy caches built — LaunchPad: {lp_count}, Alpha Zone: {az_count}"
-            )
-        except Exception as e:
-            log.error(f"[Scheduler] Strategy cache build failed: {e}")
-
-        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-        
-        # Save completion stats
-        screener_cache_count = await db.get_collection("screener_cache").count_documents({})
-        await meta_col.update_one(
-            {"_id": "daily_scan"},
-            {"$set": {
-                "status":            "COMPLETED",
-                "last_ran":          datetime.now(timezone.utc),
-                "last_scan_time":    datetime.now(timezone.utc),
-                "record_count":      screener_cache_count,
-                "symbols_processed": screener_cache_count,
-                "symbols_errored":   errors,
-                "total_symbols":     screener_cache_count,
-                "elapsed_seconds":   round(elapsed, 1),
-                "scan_duration":     round(elapsed, 1),
-            }},
-            upsert=True,
-        )
-        
-        log.info(f"[Scheduler] Daily scan completed. Synced {screener_cache_count} symbols in {elapsed:.1f}s ({errors} errors).")
-
-    except Exception as exc:
-        log.error(f"[Scheduler] Scan execution failed: {exc}", exc_info=True)
-        await meta_col.update_one(
-            {"_id": "daily_scan"},
-            {"$set": {
-                "status": "FAILED",
-                "error": str(exc),
-                "last_ran": datetime.now(timezone.utc),
-                "last_scan_time": datetime.now(timezone.utc),
-            }},
-            upsert=True
-        )
+    from engines.orchestration import run_full_scan
+    await run_full_scan(app_state, force=force, trigger=trigger)
 
 
 async def get_latest_nse_trading_day(market_svc) -> datetime.date:
@@ -724,6 +519,7 @@ def setup_scheduler(app_state) -> None:
             run_daily_scan,
             CronTrigger(hour=9, minute=0),
             args=[app_state],
+            kwargs={"trigger": "cron"},
             id="daily_scan",
             replace_existing=True,
             misfire_grace_time=600,

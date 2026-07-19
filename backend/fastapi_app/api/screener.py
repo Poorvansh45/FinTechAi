@@ -12,7 +12,11 @@ Endpoints:
 """
 
 import asyncio
+import logging
 import math
+import time
+import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Query, BackgroundTasks, HTTPException
 from services.scanner_service import get_scanner_service
 
@@ -20,6 +24,8 @@ router = APIRouter(prefix="/api/scanner", tags=["scanner"])
 
 # Second router for v2-prefixed control endpoints
 v2_router = APIRouter(prefix="/api/v2/scanner", tags=["scanner_control"])
+
+log = logging.getLogger("finai_edge.api.screener")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -320,18 +326,21 @@ async def get_launchpad(
     just above a fresh unmitigated bullish FVG, inside the EMA200 band
     [-10%, +20%]. All trade/confidence values are engine-derived (no placeholders).
     """
+    t_req0 = time.time()
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
 
     col = db.get_collection("launchpad_cache")
-    # Lazy build if the cache hasn't been populated yet (first run before a scan).
-    if await col.count_documents({}) == 0:
-        try:
-            from engines.strategies.runner import run_launchpad_scan
-            await run_launchpad_scan(db)
-        except Exception as e:
-            return {"success": False, "error": f"LaunchPad cache unavailable: {e}"}
+    # No lazy-build: rebuilding here would run the strategy against whatever
+    # OHLCV happens to already be in the process's in-memory cache, which may
+    # predate the last real download — silently serving stale results with no
+    # signal to the caller. A full Run Full Scan (POST /trigger-scan) is the
+    # only way this cache gets (re)built; an empty cache here means "no scan
+    # has completed yet," which the frontend renders as an explicit empty state.
+    documents_in_cache = await col.count_documents({})
+    if documents_in_cache == 0:
+        return {"success": True, "count": 0, "data": [], "cache_empty": True}
 
     query: dict = {}
     if min_confidence is not None:
@@ -360,6 +369,18 @@ async def get_launchpad(
             continue
         out.append(row)
 
+    from engines.strategies.runner import _CACHE_META
+    cache_meta = _CACHE_META.get("launchpad_cache", {})
+    log.info(
+        f"[GET /launchpad] scan_id={cache_meta.get('scan_id', 'n/a')} | "
+        f"cache_timestamp={cache_meta.get('written_at', 'n/a')} | "
+        f"documents_in_cache={documents_in_cache} | "
+        f"filters={{market={market}, price=[{price_min}-{price_max}], "
+        f"min_confidence={min_confidence}, min_return={min_return}}} | "
+        f"documents_returned={len(out[:limit])} | "
+        f"response_time={time.time() - t_req0:.3f}s"
+    )
+
     return {"success": True, "count": len(out[:limit]), "data": _fmt(out[:limit])["data"]}
 
 
@@ -379,17 +400,16 @@ async def get_alpha_zone(
     Criteria:
       - Entry near or inside demand zone (unmitigated order blocks)
     """
+    t_req0 = time.time()
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
 
     col = db.get_collection("alpha_zone_cache")
-    if await col.count_documents({}) == 0:
-        try:
-            from engines.strategies.runner import run_alphazone_scan
-            await run_alphazone_scan(db)
-        except Exception as e:
-            return {"success": False, "error": f"Alpha Zone cache unavailable: {e}"}
+    # No lazy-build — see the matching comment on GET /launchpad above for why.
+    documents_in_cache = await col.count_documents({})
+    if documents_in_cache == 0:
+        return {"success": True, "count": 0, "data": [], "cache_empty": True}
 
     query: dict = {}
     # Freshness filter (on the derived zone_type)
@@ -421,6 +441,18 @@ async def get_alpha_zone(
                 continue
         out.append(d)
 
+    from engines.strategies.runner import _CACHE_META
+    cache_meta = _CACHE_META.get("alpha_zone_cache", {})
+    log.info(
+        f"[GET /alpha-zone] scan_id={cache_meta.get('scan_id', 'n/a')} | "
+        f"cache_timestamp={cache_meta.get('written_at', 'n/a')} | "
+        f"documents_in_cache={documents_in_cache} | "
+        f"filters={{freshness={freshness}, distance={distance}, "
+        f"min_return={min_return}, holding_period={holding_period}}} | "
+        f"documents_returned={len(out[:limit])} | "
+        f"response_time={time.time() - t_req0:.3f}s"
+    )
+
     return {"success": True, "count": len(out[:limit]), "data": _fmt(out[:limit])["data"]}
 
 
@@ -437,6 +469,29 @@ async def scan_status(request: Request):
         return {"success": True, "data": {"status": "never_run", "last_ran": None}}
 
     meta.pop("_id", None)
+
+    # `meta` already includes `stage`/`symbols_processed`/`total_symbols`/
+    # `launchpad_processed`/`alpha_zone_processed` etc — this is what the
+    # frontend's Run Full Scan stepper polls. active_scan_ids is logged (not
+    # returned) purely for concurrency visibility.
+    from schedulers.daily_refresh import _ACTIVE_SCANS
+    active = list(_ACTIVE_SCANS.keys())
+    log.info(
+        f"[GET /scan-status] active_scan_ids={active or 'none'} | "
+        f"overall_status={meta.get('overall_status', meta.get('status'))} | "
+        f"stage={(meta.get('stages') or {}).keys()} | "
+        f"updated_at={meta.get('last_ran')}"
+    )
+    if meta.get("overall_status") == "RUNNING" and not active:
+        # Invariant violated: RUNNING with nothing active means an orphaned
+        # scan slipped past startup reconciliation (e.g. it crashed AFTER
+        # this process booted, not before) — surface it loudly rather than
+        # let the frontend silently show a stuck progress bar forever.
+        log.warning(
+            f"[GET /scan-status] INVARIANT VIOLATION — overall_status=RUNNING but "
+            f"active_scan_ids is empty (scan_id={meta.get('scan_id')})"
+        )
+
     return {"success": True, "data": meta}
 
 
@@ -449,8 +504,26 @@ async def trigger_scan(request: Request, background_tasks: BackgroundTasks):
         raise HTTPException(503, "Database not connected")
 
     try:
-        from schedulers.daily_refresh import run_daily_scan
-        background_tasks.add_task(run_daily_scan, request.app.state, force=True)
+        from schedulers.daily_refresh import run_daily_scan, _ACTIVE_SCANS
+
+        # Logged (not enforced) — there is currently no lock preventing a
+        # second scan from starting while one is already running; see the
+        # scanner pipeline audit's recommendations for adding one.
+        already_active = list(_ACTIVE_SCANS.keys())
+        req_id = f"REQ-{uuid.uuid4().hex[:6]}"
+        log.info(
+            f"[{req_id}] POST /trigger-scan received | "
+            f"currently_active_scans={already_active or 'none'} | "
+            f"no_lock_guard=True"
+        )
+        if already_active:
+            log.warning(
+                f"[{req_id}] POST /trigger-scan is about to queue ANOTHER scan while "
+                f"{len(already_active)} scan(s) are already running: {already_active} "
+                f"— nothing in this endpoint prevents that."
+            )
+
+        background_tasks.add_task(run_daily_scan, request.app.state, force=True, trigger="manual")
         return {
             "success": True,
             "message": "Scan triggered in background. Check /api/v2/scanner/scan-status for progress."

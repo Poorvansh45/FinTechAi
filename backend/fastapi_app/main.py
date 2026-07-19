@@ -59,6 +59,20 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             log.warning(f"  Indexes:     ✗ {e}")
 
+        # ── Scan crash recovery ─────────────────────────────────────────
+        # A killed/crashed process can leave scan_meta.overall_status stuck
+        # RUNNING forever (nothing in-memory survives to correct it — see
+        # engines/orchestration/recovery.py). Every fresh boot's own
+        # _ACTIVE_SCANS registry is necessarily empty, so any persisted
+        # RUNNING doc at this point is provably orphaned; heal it before
+        # serving any traffic.
+        try:
+            from engines.orchestration import reconcile_orphaned_scans
+            healed = await reconcile_orphaned_scans(app.state.db)
+            log.info(f"  Scan state:  {'✓ healed 1 orphaned scan' if healed else '✓ clean'}")
+        except Exception as e:
+            log.warning(f"  Scan state:  ✗ reconciliation failed: {e}")
+
     except Exception as e:
         log.warning(f"  MongoDB:     ✗ {e}")
         app.state.mongo_client = None
@@ -210,6 +224,7 @@ from api.watchlists import router as watchlists_router
 from api.smc        import router as smc_router
 from api.local_ohlc import router as local_ohlc_router
 from api.copilot     import router as copilot_router
+from api.workspace    import router as workspace_router
 
 app.include_router(portfolio_router,   prefix="/api/v2/portfolio")
 app.include_router(analytics_router,   prefix="/api/v2/analytics")
@@ -221,6 +236,7 @@ app.include_router(watchlists_router)   # /api/v2/watchlists
 app.include_router(smc_router)          # /api/v2/scanner/smc + /zone-proximity
 app.include_router(local_ohlc_router)   # /api/v2/scanner/local-ohlc/*
 app.include_router(copilot_router)      # /api/v2/copilot/* (agentic AI copilot)
+app.include_router(workspace_router,   prefix="/api/v2/workspace")  # media + (later) desks
 
 
 if __name__ == "__main__":

@@ -4,13 +4,10 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Filter, Waves, BookMarked, RefreshCw, Clock, Download, Keyboard, X,
+  Filter, Waves, BookMarked, Download, Keyboard, X,
   Rocket, Shield, BarChart3
 } from "lucide-react";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
-import { env } from "@/config/env";
-
-const FASTAPI_URL = env.fastapiUrl;
 
 type ScannerTab = {
   href: string;
@@ -33,7 +30,7 @@ const SCANNER_TABS: ScannerTab[] = [
 // ── Keyboard Shortcut Help ────────────────────────────────────────────────────
 const SHORTCUTS = [
   { key: "1 – 6",    desc: "Switch scanner tab" },
-  { key: "R",        desc: "Refresh / run scan" },
+  { key: "R",        desc: "Refresh current page's data" },
   { key: "E",        desc: "Export CSV" },
   { key: "S",        desc: "Save current preset" },
   { key: "/",        desc: "Focus search box" },
@@ -65,9 +62,6 @@ import { ScannerContext } from "./context";
 
 export default function ScreenerLayout({ children }: { children: React.ReactNode }) {
   const pathname      = usePathname();
-  const [scanMeta, setScanMeta]       = useState<any>(null);
-  const [prevStatus, setPrevStatus]   = useState<string | null>(null);
-  const [triggering, setTriggering]   = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [scanData, setScanData]       = useState<any[]>([]);
   const refreshFnRef  = useRef<(() => void) | null>(null);
@@ -79,49 +73,6 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
   const scannerName = SCANNER_TABS.find((t) =>
     t.href === "/screener" ? pathname === "/screener" : pathname.startsWith(t.href)
   )?.label ?? "Scanner";
-
-  // ── Scan status & Polling ─────────────────────────────────────────
-  const checkStatus = () => {
-    fetch(`${FASTAPI_URL}/api/v2/scanner/scan-status`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.data) {
-          setScanMeta(d.data);
-          const currentStatus = d.data.status?.toUpperCase();
-          if (prevStatus === "RUNNING" && currentStatus === "COMPLETED") {
-            refreshFnRef.current?.();
-          }
-          setPrevStatus(currentStatus);
-        }
-      })
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    checkStatus();
-  }, [pathname]);
-
-  // Poll scan status every 3 seconds only when status is RUNNING
-  useEffect(() => {
-    let intervalId: any = null;
-    const status = scanMeta?.status?.toUpperCase();
-    if (status === "RUNNING") {
-      intervalId = setInterval(checkStatus, 3000);
-    }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [scanMeta?.status, prevStatus]);
-
-  const handleTriggerScan = async () => {
-    setTriggering(true);
-    try {
-      await fetch(`${FASTAPI_URL}/api/v2/scanner/trigger-scan`, { method: "POST" });
-      setScanMeta((m: any) => ({ ...m, status: "RUNNING", symbols_processed: 0 }));
-      setPrevStatus("RUNNING");
-    } catch {}
-    finally { setTriggering(false); }
-  };
 
   // ── Keyboard shortcuts ────────────────────────────────────────────
   useEffect(() => {
@@ -151,121 +102,17 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
     return () => window.removeEventListener("keydown", handler);
   }, [scanData, scannerName]);
 
-  const formatISTDate = (isoString: string) => {
-    try {
-      const date = new Date(isoString);
-      const options = { timeZone: "Asia/Kolkata", day: "2-digit" as const, month: "short" as const, year: "numeric" as const, hour: "2-digit" as const, minute: "2-digit" as const, hour12: false };
-      const formatter = new Intl.DateTimeFormat("en-IN", options);
-      const parts = formatter.formatToParts(date);
-      const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
-      return `${partMap.day} ${partMap.month} ${partMap.year} ${partMap.hour}:${partMap.minute} IST`;
-    } catch {
-      return "—";
-    }
-  };
-
-  const isStale = (iso?: string) => {
-    if (!iso) return true;
-    const diffHours = (Date.now() - new Date(iso).getTime()) / 3600000;
-    return diffHours >= 24;
-  };
-
   const isActive = (href: string) =>
     href === "/screener" ? pathname === "/screener" : pathname.startsWith(href);
 
-  // Context value
+  // Context value. Scan status/triggering now live entirely on the Overview
+  // page (see ScanStepper) — this context only carries per-page data/refresh
+  // registration, used for CSV export and the "R" keyboard shortcut.
   const contextValue = {
     registerData:    (rows: any[]) => setScanData(rows),
     registerRefresh: (fn: () => void) => { refreshFnRef.current = fn; },
     registerSearch:  (ref: React.RefObject<HTMLInputElement>) => { searchRef.current = ref.current; },
-    scanMeta,
-  };
-
-  const renderStatus = () => {
-    if (!scanMeta) {
-      return (
-        <div className="flex items-center gap-1.5">
-          <Clock size={12} className="text-gray-600" />
-          <span className="text-gray-500">Loading scan status…</span>
-        </div>
-      );
-    }
-
-    const status = scanMeta.status?.toUpperCase();
-    const updatedStr = scanMeta.last_ran ? formatISTDate(scanMeta.last_ran) : "Never";
-
-    if (status === "RUNNING") {
-      const processed = scanMeta.symbols_processed ?? 0;
-      const total = scanMeta.total_symbols ?? 0;
-      return (
-        <div className="flex items-center gap-4">
-          <div>
-            <span className="text-gray-500">Status:</span>{" "}
-            <span className="text-yellow-400 font-semibold animate-pulse font-mono uppercase tracking-wider text-[11px] bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">Running</span>
-          </div>
-          <div>
-            <span className="text-gray-500 font-medium">Progress:</span>{" "}
-            <span className="text-gray-300 font-medium font-mono">{processed} / {total}</span>
-          </div>
-        </div>
-      );
-    }
-
-    if (status === "COMPLETED" || status === "COMPLETE") {
-      return (
-        <div className="flex items-center gap-4 flex-wrap">
-          <div>
-            <span className="text-gray-500">Status:</span>{" "}
-            <span className="text-emerald-400 font-semibold font-mono uppercase tracking-wider text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Completed</span>
-          </div>
-          <div>
-            <span className="text-gray-500 font-medium">Updated:</span>{" "}
-            <span className="text-gray-300 font-semibold">{updatedStr}</span>
-          </div>
-          <div>
-            <span className="text-gray-500 font-medium">Stocks:</span>{" "}
-            <span className="text-gray-300 font-medium font-mono">{(scanMeta.record_count ?? scanMeta.symbols_processed ?? 0).toLocaleString()}</span>
-          </div>
-        </div>
-      );
-    }
-
-    if (status === "FAILED") {
-      return (
-        <div className="flex items-center gap-4 flex-wrap">
-          <div>
-            <span className="text-gray-500">Status:</span>{" "}
-            <span className="text-red-400 font-semibold font-mono uppercase tracking-wider text-[11px] bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">Failed</span>
-          </div>
-          {scanMeta.last_ran && (
-            <div>
-              <span className="text-gray-500 font-medium">Last Attempt:</span>{" "}
-              <span className="text-gray-300 font-semibold">{updatedStr}</span>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // Default to Ready (IDLE)
-    return (
-      <div className="flex items-center gap-4 flex-wrap">
-        <div>
-          <span className="text-gray-500 font-medium">Status:</span>{" "}
-          <span className="text-emerald-400 font-semibold font-mono uppercase tracking-wider text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Ready</span>
-        </div>
-        {scanMeta.last_ran && (
-          <div>
-            <span className="text-gray-500 font-medium">Last Updated:</span>{" "}
-            <span className="text-gray-300 font-semibold">{updatedStr}</span>
-          </div>
-        )}
-        <div>
-          <span className="text-gray-500 font-medium">Stocks:</span>{" "}
-          <span className="text-gray-300 font-medium font-mono">{(scanMeta.record_count ?? scanMeta.symbols_processed ?? 0).toLocaleString()}</span>
-        </div>
-      </div>
-    );
+    scanMeta: null,
   };
 
   return (
@@ -273,37 +120,20 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
       <div className="min-h-screen bg-gray-950 text-white">
         {showShortcuts && <ShortcutHelp onClose={() => setShowShortcuts(false)} />}
 
-        {/* ── Scan status bar ──────────────────────────────────────── */}
-        <div className="border-b border-gray-800/60 bg-gray-900/40 px-6 py-2">
-          <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4 flex-wrap">
-            {/* Left: status */}
-            <div className="flex items-center gap-6 text-xs text-gray-500 flex-wrap">
-              {renderStatus()}
-            </div>
-
-            {/* Right: actions */}
-            <div className="flex items-center gap-2">
-              {scanData.length > 0 && (
-                <button
-                  onClick={() => exportCSV(scanData, scannerName.toLowerCase().replace(" ", "_"))}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-all"
-                  title="Export CSV (E)"
-                >
-                  <Download size={11} /> Export CSV
-                </button>
-              )}
+        {/* ── Export bar ───────────────────────────────────────────── */}
+        {scanData.length > 0 && (
+          <div className="border-b border-gray-800/60 bg-gray-900/40 px-6 py-2">
+            <div className="max-w-[1600px] mx-auto flex items-center justify-end">
               <button
-                onClick={handleTriggerScan}
-                disabled={triggering}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-                title="Run scan (R)"
+                onClick={() => exportCSV(scanData, scannerName.toLowerCase().replace(" ", "_"))}
+                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-all"
+                title="Export CSV (E)"
               >
-                <RefreshCw size={11} className={triggering ? "animate-spin" : ""} />
-                {triggering ? "Scanning…" : "Run Scan"}
+                <Download size={11} /> Export CSV
               </button>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ── Scanner tab strip ────────────────────────────────────── */}
         <div className="border-b border-gray-800/60 bg-gray-900/20 px-6">

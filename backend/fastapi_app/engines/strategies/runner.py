@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Awaitable, Callable, Optional
 
 from engines.indicators import IndicatorEngine
 from .base import Strategy, SymbolContext, MarketContext
@@ -22,6 +24,21 @@ from .base import Strategy, SymbolContext, MarketContext
 log = logging.getLogger("finai_edge.strategy_runner")
 
 MIN_ROWS = 210  # need EMA200 warmup
+
+# Records the scan_id + wall-clock time of the last write to each strategy
+# cache collection, purely so GET endpoints (api/screener.py) can log/report
+# "which scan produced what you're reading right now" without any Mongo schema
+# change (nothing is persisted — this is process-local, log/response only).
+_CACHE_META: dict[str, dict[str, Any]] = {}
+
+ProgressCallback = Callable[[int, int], Awaitable[None]]
+
+
+def _new_scan_id(prefix: str) -> str:
+    """Fallback scan_id generator for any caller that runs a strategy scan
+    without one from run_daily_scan() (e.g. a manual populate script)."""
+    now = datetime.now(timezone.utc)
+    return f"{prefix}-{now:%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}"
 
 
 async def run_strategy_scan(
@@ -76,7 +93,10 @@ async def run_strategy_scan(
     return len(results)
 
 
-async def run_launchpad_scan(db) -> int:
+async def run_launchpad_scan(
+    db, scan_id: Optional[str] = None, progress_cb: Optional[ProgressCallback] = None,
+    indicator_map: Optional[dict[str, Any]] = None, publish: bool = True,
+) -> int:
     """
     LaunchPad scan — reads OHLCV DIRECTLY (independent of `fvg_scan_results` and
     the generic ICT FVG scanner). Pipeline per symbol:
@@ -91,7 +111,22 @@ async def run_launchpad_scan(db) -> int:
     Performance: the two cheap gates (price ≥ ₹100, EMA200 band) reject most of
     the ~4200 universe before any FVG work, and the FVG detector is a vectorised
     numpy pass over only the last ~250 candles — so a full pass is practical.
-    Populates `launchpad_cache` (delete_many + insert_many, a complete rebuild).
+
+    `indicator_map`, when supplied by the Scan Coordinator's Indicators stage,
+    is consulted per symbol instead of calling `IndicatorEngine.compute(df)`
+    again — the canonical EMA/RSI/MACD/ATR were already computed once. Falls
+    back to self-computing for any symbol missing from the map, or when no map
+    is given at all (standalone/manual invocation keeps working unchanged).
+
+    `publish` controls how results reach Mongo: True (default) does the
+    original self-contained delete_many+insert_many directly against the live
+    `launchpad_cache` — unchanged behavior for any standalone caller. False
+    (the Coordinator's usage) writes into `launchpad_cache_staging` instead;
+    the Coordinator publishes it atomically alongside every other stage's
+    output in one "Publish" step, so no partial/empty cache is ever visible.
+
+    `progress_cb(done, total)`, if given, is awaited every 500 symbols scanned
+    so a caller (e.g. the Coordinator) can publish live stepper progress.
     """
     from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
     from engines.indicators import IndicatorEngine
@@ -103,6 +138,9 @@ async def run_launchpad_scan(db) -> int:
     )
     from .base import SymbolContext
 
+    scan_id = scan_id or _new_scan_id("LP")
+    log.info(f"[{scan_id}] [launchpad] scan starting")
+
     t0 = time.time()
     strat = LaunchPadStrategy()
     company = await build_company_map(db)
@@ -110,7 +148,7 @@ async def run_launchpad_scan(db) -> int:
 
     results: list[dict] = []
     scanned = fvg_checked = 0
-    for sym in symbols:
+    for i, sym in enumerate(symbols):
         if sym.startswith("^"):        # skip index benchmark
             continue
         df = load_stock_dataframe(sym)
@@ -125,8 +163,11 @@ async def run_launchpad_scan(db) -> int:
         if price < MIN_PRICE:
             continue
 
-        # Cheap gate 2: EMA200 trend band (IndicatorEngine also gives us ATR/RSI).
-        ind = IndicatorEngine.compute(df)
+        # Cheap gate 2: EMA200 trend band. Reuse the precomputed indicator set
+        # when available (no second IndicatorEngine.compute for this symbol).
+        ind = indicator_map.get(sym) if indicator_map else None
+        if ind is None:
+            ind = IndicatorEngine.compute(df)
         scanned += 1
         if ind.ema_200_dist_pct is None or not (EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX):
             continue
@@ -144,15 +185,37 @@ async def run_launchpad_scan(db) -> int:
         if res is not None:
             results.append(res.to_doc())
 
-    col = db.get_collection("launchpad_cache")
-    await col.delete_many({})
-    if results:
-        await col.insert_many(results)
+        if (i + 1) % 500 == 0:
+            log.info(f"[{scan_id}] [launchpad] scanned {i + 1}/{len(symbols)} symbols so far")
+            if progress_cb:
+                await progress_cb(i + 1, len(symbols))
+
+    if publish:
+        col = db.get_collection("launchpad_cache")
+        before_count = await col.count_documents({})
+        log.info(f"[{scan_id}] [launchpad] Mongo before delete_many: {before_count} docs")
+        await col.delete_many({})
+        after_delete_count = await col.count_documents({})
+        log.info(f"[{scan_id}] [launchpad] Mongo after delete_many: {after_delete_count} docs")
+        if results:
+            await col.insert_many(results)
+        after_insert_count = await col.count_documents({})
+        log.info(f"[{scan_id}] [launchpad] Mongo after insert_many: {after_insert_count} docs")
+    else:
+        from engines.orchestration.publish import write_staged
+        after_insert_count = await write_staged(db, "launchpad_cache", results)
+
+    _CACHE_META["launchpad_cache"] = {
+        "scan_id": scan_id, "written_at": datetime.now(timezone.utc), "count": after_insert_count,
+    }
+    if progress_cb:
+        await progress_cb(len(symbols), len(symbols))
     log.info(
         f"[launchpad] direct OHLCV scan: {len(results)} matches "
         f"(EMA-band survivors {fvg_checked}, indicators computed {scanned}) "
         f"in {time.time() - t0:.1f}s"
     )
+    log.info(f"[{scan_id}] [launchpad] scan finished: {len(results)} matches, {time.time() - t0:.1f}s")
     return len(results)
 
 
@@ -161,7 +224,10 @@ async def run_launchpad_scan(db) -> int:
 run_launchpad_from_cache = run_launchpad_scan
 
 
-async def run_alphazone_scan(db) -> int:
+async def run_alphazone_scan(
+    db, scan_id: Optional[str] = None, progress_cb: Optional[ProgressCallback] = None,
+    indicator_map: Optional[dict[str, Any]] = None, publish: bool = True,
+) -> int:
     """
     Alpha Zone scan — reads OHLCV DIRECTLY (independent of `smc_scanner_results`
     and the shared SMC scanner). Pipeline per symbol:
@@ -175,7 +241,14 @@ async def run_alphazone_scan(db) -> int:
 
     Two O(1) gates reject most of the ~4200 universe before OB work, and OB
     detection is a bounded (~500-bar) numpy pass — so a full scan is practical.
-    Populates `alpha_zone_cache` (delete_many + insert_many, a complete rebuild).
+
+    `indicator_map` / `publish` behave exactly as documented on
+    `run_launchpad_scan` above — reuse the Coordinator's precomputed indicators
+    instead of recomputing, and stage-not-publish when driven by the
+    Coordinator so the atomic "Publish" step controls when this cache updates.
+
+    `progress_cb(done, total)`, if given, is awaited every 500 symbols scanned
+    so a caller (e.g. the Coordinator) can publish live stepper progress.
     """
     from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
     from engines.indicators import IndicatorEngine
@@ -185,13 +258,16 @@ async def run_alphazone_scan(db) -> int:
     MIN_PRICE = 200.0
     EMA_DIST_MIN, EMA_DIST_MAX = -35.0, 40.0
 
+    scan_id = scan_id or _new_scan_id("AZ")
+    log.info(f"[{scan_id}] [alpha_zone] scan starting")
+
     t0 = time.time()
     company = await build_company_map(db)
     symbols = get_cached_symbols()
 
     results: list[dict] = []
     scanned = ob_checked = 0
-    for sym in symbols:
+    for i, sym in enumerate(symbols):
         if sym.startswith("^"):
             continue
         df = load_stock_dataframe(sym)
@@ -204,7 +280,10 @@ async def run_alphazone_scan(db) -> int:
         if price < MIN_PRICE:                       # gate 1: ₹200 floor
             continue
 
-        ind = IndicatorEngine.compute(df)           # gate 2: EMA200 band
+        # gate 2: EMA200 band. Reuse the precomputed indicator set when available.
+        ind = indicator_map.get(sym) if indicator_map else None
+        if ind is None:
+            ind = IndicatorEngine.compute(df)
         scanned += 1
         if ind.ema_200_dist_pct is None or not (EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX):
             continue
@@ -228,15 +307,37 @@ async def run_alphazone_scan(db) -> int:
         if res is not None:
             results.append(res)
 
-    col = db.get_collection("alpha_zone_cache")
-    await col.delete_many({})
-    if results:
-        await col.insert_many(results)
+        if (i + 1) % 500 == 0:
+            log.info(f"[{scan_id}] [alpha_zone] scanned {i + 1}/{len(symbols)} symbols so far")
+            if progress_cb:
+                await progress_cb(i + 1, len(symbols))
+
+    if publish:
+        col = db.get_collection("alpha_zone_cache")
+        before_count = await col.count_documents({})
+        log.info(f"[{scan_id}] [alpha_zone] Mongo before delete_many: {before_count} docs")
+        await col.delete_many({})
+        after_delete_count = await col.count_documents({})
+        log.info(f"[{scan_id}] [alpha_zone] Mongo after delete_many: {after_delete_count} docs")
+        if results:
+            await col.insert_many(results)
+        after_insert_count = await col.count_documents({})
+        log.info(f"[{scan_id}] [alpha_zone] Mongo after insert_many: {after_insert_count} docs")
+    else:
+        from engines.orchestration.publish import write_staged
+        after_insert_count = await write_staged(db, "alpha_zone_cache", results)
+
+    _CACHE_META["alpha_zone_cache"] = {
+        "scan_id": scan_id, "written_at": datetime.now(timezone.utc), "count": after_insert_count,
+    }
+    if progress_cb:
+        await progress_cb(len(symbols), len(symbols))
     log.info(
         f"[alpha_zone] direct OHLCV scan: {len(results)} matches "
         f"(EMA-band survivors {ob_checked}, indicators computed {scanned}) "
         f"in {time.time() - t0:.1f}s"
     )
+    log.info(f"[{scan_id}] [alpha_zone] scan finished: {len(results)} matches, {time.time() - t0:.1f}s")
     return len(results)
 
 

@@ -1,26 +1,26 @@
 "use client";
 
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { 
-  Rocket, Shield, Filter, Waves, BookMarked, 
-  RefreshCw, Clock, BarChart3, TrendingUp, Sparkles 
+import {
+  Rocket, Shield, Filter, Waves, BookMarked,
+  RefreshCw, Clock, BarChart3, TrendingUp, Sparkles
 } from "lucide-react";
 import { screenerService } from "@/services/screenerService";
-import { ScannerContext } from "./context";
+import { ScanStepper } from "@/components/screener/ScanStepper";
 
 const formatISTDate = (isoString?: string) => {
   if (!isoString) return "—";
   try {
     const date = new Date(isoString);
-    const options = { 
-      timeZone: "Asia/Kolkata", 
-      day: "2-digit" as const, 
-      month: "short" as const, 
-      year: "numeric" as const, 
-      hour: "2-digit" as const, 
-      minute: "2-digit" as const, 
-      hour12: false 
+    const options = {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit" as const,
+      month: "short" as const,
+      year: "numeric" as const,
+      hour: "2-digit" as const,
+      minute: "2-digit" as const,
+      hour12: false
     };
     const formatter = new Intl.DateTimeFormat("en-IN", options);
     const parts = formatter.formatToParts(date);
@@ -32,62 +32,78 @@ const formatISTDate = (isoString?: string) => {
 };
 
 export default function ScreenerOverviewPage() {
-  const { scanMeta } = useContext(ScannerContext);
   const [lpCount, setLpCount] = useState<number | null>(null);
   const [azCount, setAzCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
-  const [localScanMeta, setLocalScanMeta] = useState<any>(null);
+  const [scanMeta, setScanMeta] = useState<any>(null);
+  const prevStatusRef = useRef<string | null>(null);
 
-  // Fetch metrics/counts on mount
-  useEffect(() => {
-    async function fetchCounts() {
-      setLoading(true);
-      try {
-        const [lpRes, azRes] = await Promise.all([
-          screenerService.getLaunchPad(),
-          screenerService.getAlphaZone()
-        ]);
-        if (lpRes.data?.success) setLpCount(lpRes.data.count);
-        if (azRes.data?.success) setAzCount(azRes.data.count);
-      } catch (err) {
-        console.error("Failed to load opportunity counts", err);
-      } finally {
-        setLoading(false);
-      }
+  const fetchCounts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [lpRes, azRes] = await Promise.all([
+        screenerService.getLaunchPad(),
+        screenerService.getAlphaZone()
+      ]);
+      if (lpRes.data?.success) setLpCount(lpRes.data.count);
+      if (azRes.data?.success) setAzCount(azRes.data.count);
+    } catch (err) {
+      console.error("Failed to load opportunity counts", err);
+    } finally {
+      setLoading(false);
     }
-    fetchCounts();
   }, []);
 
-  // Set initial scan meta or listen to context updates
   useEffect(() => {
-    if (scanMeta) {
-      setLocalScanMeta(scanMeta);
-    } else {
-      screenerService.getScanStatus()
-        .then(res => {
-          if (res.data?.success) setLocalScanMeta(res.data.data);
-        })
-        .catch(() => {});
-    }
-  }, [scanMeta]);
+    fetchCounts();
+  }, [fetchCounts]);
+
+  // Overview owns the scan-status poll (the only "Run Full Scan" trigger
+  // lives here now): fetch once on mount, then every 3s while RUNNING. When
+  // it transitions RUNNING -> COMPLETED, re-fetch the opportunity counts so
+  // the cards reflect the scan that just finished.
+  const checkStatus = useCallback(async () => {
+    try {
+      const res = await screenerService.getScanStatus();
+      if (res.data?.success) {
+        const data = res.data.data;
+        setScanMeta(data);
+        const currentStatus = data?.status?.toUpperCase();
+        if (prevStatusRef.current === "RUNNING" && currentStatus === "COMPLETED") {
+          fetchCounts();
+        }
+        prevStatusRef.current = currentStatus;
+      }
+    } catch {}
+  }, [fetchCounts]);
+
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  useEffect(() => {
+    if (scanMeta?.status?.toUpperCase() !== "RUNNING") return;
+    const intervalId = setInterval(checkStatus, 3000);
+    return () => clearInterval(intervalId);
+  }, [scanMeta?.status, checkStatus]);
 
   const handleTriggerScan = async () => {
     setTriggering(true);
     try {
       await screenerService.triggerScan();
-      if (localScanMeta) {
-        setLocalScanMeta({ ...localScanMeta, status: "RUNNING" });
-      }
+      setScanMeta((m: any) => ({ ...m, status: "RUNNING", stage: "downloading" }));
+      prevStatusRef.current = "RUNNING";
+      checkStatus();
     } catch {}
     finally {
       setTriggering(false);
     }
   };
 
-  const status = localScanMeta?.status?.toUpperCase() || "READY";
-  const lastRanStr = localScanMeta?.last_ran ? formatISTDate(localScanMeta.last_ran) : "Never";
-  const stocksScanned = localScanMeta?.symbols_processed || localScanMeta?.record_count || 4207;
+  const status = scanMeta?.status?.toUpperCase() || "READY";
+  const lastRanStr = scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "Never";
+  const stocksScanned = scanMeta?.total_symbols || scanMeta?.record_count || 0;
   const totalOpportunities = (lpCount || 0) + (azCount || 0);
 
   return (
@@ -120,6 +136,8 @@ export default function ScreenerOverviewPage() {
             {status === "RUNNING" ? "Scanning Market…" : "Run Full Scan"}
           </button>
         </div>
+
+        <ScanStepper meta={scanMeta} />
 
         <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-gray-800/80 pt-8">
           <div className="space-y-1">

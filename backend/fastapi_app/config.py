@@ -32,6 +32,18 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     finnhub_api_key: Optional[str] = None
 
+    # ── Bulk OHLCV ingestion (services/ohlc_downloader.py) ──────────
+    # Primary provider for the historical OHLCV download that feeds the scanner
+    # pipeline. Upstox's public V3 historical + instrument-master endpoints need
+    # no auth and return multi-year daily history in a single call. The fetch
+    # chain is <primary> → Groww → yfinance; set this to "groww" as a rollback
+    # switch to restore the old Groww-first ordering. (Live LTP quotes are a
+    # separate path and are unaffected.)
+    ohlc_primary_provider: str = "upstox"
+    upstox_instruments_url: str = (
+        "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
+    )
+
     # ── AI Copilot / LLM provider ───────────────────────────────────
     # LLMManager always tries Gemini first, then fails over to Groq (see
     # services/llm/). This flag is not consulted by the manager itself; it's
@@ -41,6 +53,16 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = None   # placeholder — provider not wired yet
     gemini_model: str = "gemini-2.5-flash"
     groq_model: str = "llama-3.3-70b-versatile"
+
+    # ── Workspace media storage ─────────────────────────────────────
+    # Pluggable storage backend. "local" writes to `workspace_uploads_dir`
+    # during development; "r2" / "s3" (added later) use the same
+    # StorageProvider interface so business logic never changes.
+    storage_backend: str = "local"
+    workspace_uploads_dir: str = "uploads"          # relative to the FastAPI app root
+    workspace_max_upload_mb: int = 15               # per-file upload guard
+    # Public base URL for cloud buckets (r2/s3). Ignored for local (served via API).
+    storage_public_base_url: Optional[str] = None
 
     # ── Logging ─────────────────────────────────────────────────────
     log_level: str = "INFO"

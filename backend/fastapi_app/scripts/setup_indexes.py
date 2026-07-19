@@ -108,6 +108,13 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
         pass  # TTL index may already exist
     log.info("  instrument_cache: TTL index created")
 
+    # ── Workspace: media (Phase 1) ────────────────────────────────────
+    await db.ws_media.create_index(
+        [("user_id", 1), ("linked_type", 1), ("linked_id", 1)], background=True
+    )
+    await db.ws_media.create_index([("user_id", 1), ("created_at", -1)], background=True)
+    log.info("  ws_media: indexes created")
+
     log.info("All MongoDB indexes created successfully ✓")
 
 

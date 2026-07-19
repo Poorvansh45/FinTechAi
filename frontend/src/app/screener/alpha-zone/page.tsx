@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import Link from "next/link";
 import {
   Shield, Search, AlertCircle, Bookmark, Sparkles,
-  ExternalLink, Layers, Award, Target
+  ExternalLink, Layers, Award, Target, Loader2
 } from "lucide-react";
 import { screenerService } from "@/services/screenerService";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
@@ -26,6 +26,7 @@ export default function AlphaZonePage() {
   const [stocks, setStocks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cacheEmpty, setCacheEmpty] = useState(false);
 
   // Filters state
   const [freshness, setFreshness] = useState("all");
@@ -36,12 +37,28 @@ export default function AlphaZonePage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<any>(null);
+  const [scanRunning, setScanRunning] = useState(false);
 
   const { scanMeta, registerData, registerRefresh } = useContext(ScannerContext);
 
   useEffect(() => {
     registerData(stocks);
   }, [stocks, registerData]);
+
+  // One-shot check on mount — never polled while on this page, so a running
+  // scan can't be interrupted or duplicated by this page's own requests.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await screenerService.getScanStatus();
+        const data = res.data?.data;
+        const status = (data?.overall_status ?? data?.status)?.toUpperCase();
+        if (!cancelled && status === "RUNNING") setScanRunning(true);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const runScan = useCallback(async () => {
     setLoading(true);
@@ -62,8 +79,10 @@ export default function AlphaZonePage() {
       }
 
       const res = await screenerService.getAlphaZone(params);
+
       if (res.data?.success) {
         setStocks(res.data.data);
+        setCacheEmpty(!!res.data.cache_empty);
       } else {
         setError(res.data?.error || "Failed to query SMC signals");
       }
@@ -129,6 +148,20 @@ export default function AlphaZonePage() {
           </div>
         </div>
       </div>
+
+      {/* ── Scan-in-progress banner ─────────────────────────────────── */}
+      {scanRunning && (
+        <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-3 text-amber-300 text-sm">
+          <Loader2 size={15} className="animate-spin flex-shrink-0" />
+          <span>
+            A full scan is currently running — these results are from the last completed scan and will
+            refresh automatically once it finishes.
+          </span>
+          <Link href="/screener" className="ml-auto flex-shrink-0 text-amber-200 underline hover:text-white transition-colors">
+            View progress
+          </Link>
+        </div>
+      )}
 
       {/* ── Filters Panel ────────────────────────────────────────── */}
       <div className="bg-gray-900/60 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
@@ -246,6 +279,20 @@ export default function AlphaZonePage() {
               </div>
             </div>
           ))}
+        </div>
+      ) : filteredStocks.length === 0 && cacheEmpty ? (
+        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">
+          <Shield size={40} className="text-gray-650" />
+          <p className="text-gray-400 font-semibold text-base">No scan yet</p>
+          <p className="text-gray-600 text-xs max-w-sm">
+            Alpha Zone setups are built by a full scan — run one to see results here.
+          </p>
+          <Link
+            href="/screener"
+            className="mt-2 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
+          >
+            Go to Overview &amp; Run Full Scan
+          </Link>
         </div>
       ) : filteredStocks.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">

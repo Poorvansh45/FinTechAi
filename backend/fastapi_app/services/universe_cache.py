@@ -64,7 +64,7 @@ async def get_universe(db) -> List[str]:
 
     Priority:
       1. MongoDB cache (today's date key)
-      2. CSV file (scripts/groww_nse_stock_list.csv)
+      2. CSV file (scripts/upstox_nse_stock_list.csv, then groww_nse_stock_list.csv)
       3. Hardcoded Nifty500 fallback (~130 liquid symbols)
     """
     today = date.today().isoformat()
@@ -198,6 +198,7 @@ async def _load_stocks_from_csv(db) -> list:
     import pandas as pd
 
     csv_paths = [
+        os.path.join(os.path.dirname(__file__), "..", "scripts", "upstox_nse_stock_list.csv"),
         os.path.join(os.path.dirname(__file__), "..", "scripts", "groww_nse_stock_list.csv"),
         os.path.join(os.path.dirname(__file__), "..", "data", "nse_stocks.csv"),
     ]

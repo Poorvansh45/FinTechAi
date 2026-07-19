@@ -6,6 +6,7 @@ import logging
 import threading
 import asyncio
 import pandas as pd
+import requests
 import yfinance as yf
 from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -16,10 +17,10 @@ from config import get_settings
 log = logging.getLogger("finai_edge.ohlc_downloader")
 
 # Configs
-DAYS_PER_CHUNK = 180
-BASE_SLEEP = 0.25            # base delay for Groww API
-MAX_WORKERS = 3              # parallel threads (reduced for safety)
-MAX_RETRIES = 5              # retry on rate limit
+DAYS_PER_CHUNK = 180        # Groww fallback chunk size (Upstox needs no chunking)
+BASE_SLEEP = 0.15           # min spacing between API calls (Upstox showed no 429s at this rate)
+MAX_WORKERS = 3             # parallel threads
+MAX_RETRIES = 5             # retry on rate limit
 
 # Thread locks
 api_lock = threading.Lock()
@@ -38,10 +39,19 @@ def throttle():
         last_api_call = time.time()
 
 def get_downloader_paths() -> Dict[str, str]:
-    """Returns absolute paths for groww_nse_stock_list.csv and Stock_Data.csv."""
+    """Returns absolute paths for the symbol list and Stock_Data.csv.
+
+    Prefers the Upstox-sourced `upstox_nse_stock_list.csv` (carries the
+    `instrument_key` the Upstox historical API needs); falls back to the legacy
+    `groww_nse_stock_list.csv` when the Upstox list hasn't been generated yet
+    (run scripts/refresh_upstox_symbols.py) so the downloader never hard-fails
+    mid-transition."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    symbols_csv = os.path.realpath(os.path.join(current_dir, "..", "scripts", "groww_nse_stock_list.csv"))
-    
+    scripts_dir = os.path.join(current_dir, "..", "scripts")
+    upstox_csv = os.path.realpath(os.path.join(scripts_dir, "upstox_nse_stock_list.csv"))
+    groww_csv = os.path.realpath(os.path.join(scripts_dir, "groww_nse_stock_list.csv"))
+    symbols_csv = upstox_csv if os.path.exists(upstox_csv) else groww_csv
+
     # Target path: backend/data/Stock_Data.csv
     base_dir = os.path.dirname(os.path.dirname(current_dir)) # backend/
     output_csv = os.path.join(base_dir, "data", "Stock_Data.csv")
@@ -292,11 +302,180 @@ def fetch_yfinance_incremental(symbol, start_dt, end_dt):
         return pd.DataFrame()
 
 # =========================
+# UPSTOX FETCH LOGIC (PRIMARY)
+# Public V3 historical-candle API — no authentication required.
+# A single daily-interval request returns multi-year history, so unlike the
+# Groww path there is NO 180-day chunking. Docs:
+# https://upstox.com/developer/api-documentation/v3/get-historical-candle-data
+# =========================
+UPSTOX_HIST_URL = "https://api.upstox.com/v3/historical-candle/{instrument_key}/days/1/{to_date}/{from_date}"
+NIFTY_UPSTOX_KEY = "NSE_INDEX|Nifty 50"   # ^NSEI benchmark via Upstox
+# Normal calls return in <1s; a low ceiling keeps a rare slow host from stalling
+# a worker for 30s (a timed-out symbol falls through to Groww → yfinance).
+UPSTOX_TIMEOUT = 15
+
+_upstox_session = requests.Session()
+_upstox_session.headers.update({"Accept": "application/json"})
+
+
+def _parse_upstox_candles(candles: list) -> pd.DataFrame:
+    """Pure parser for an Upstox V3 payload's `candles` array.
+
+    Each element is [iso_ts(+05:30), open, high, low, close, volume, oi]; rows
+    arrive newest-first and date/close may occasionally be null. Returns a
+    lowercase-column [date, open, high, low, close, volume] frame sorted
+    ascending with tz-naive normalized dates — the exact shape the Groww and
+    yfinance paths produce, so downstream merge/validation is identical."""
+    if not candles:
+        return pd.DataFrame()
+
+    rows = []
+    for c in candles:
+        if len(c) < 6:
+            continue
+        # Date and close are mandatory; the rest get sensible fallbacks.
+        if c[0] is None or c[4] is None:
+            continue
+        close_val = float(c[4])
+        open_val = float(c[1]) if c[1] is not None else close_val
+        high_val = float(c[2]) if c[2] is not None else max(open_val, close_val)
+        low_val = float(c[3]) if c[3] is not None else min(open_val, close_val)
+        volume_val = int(c[5]) if c[5] is not None else 0
+        rows.append({
+            "date": c[0], "open": open_val, "high": high_val,
+            "low": low_val, "close": close_val, "volume": volume_val,
+        })
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    if df.empty:
+        return df
+    # Upstox timestamps carry a +05:30 offset — strip tz to keep naive
+    # normalized dates consistent with the rest of the pipeline.
+    if isinstance(df["date"].dtype, pd.DatetimeTZDtype):
+        df["date"] = df["date"].dt.tz_localize(None)
+    df["date"] = df["date"].dt.normalize()
+    df = df.sort_values("date").reset_index(drop=True)  # newest-first -> ascending
+    return df[["date", "open", "high", "low", "close", "volume"]]
+
+
+def safe_get_upstox_candles(instrument_key: str, from_date: str, to_date: str) -> Any:
+    """One throttled GET with 429 backoff, mirroring safe_get_groww_candles."""
+    url = UPSTOX_HIST_URL.format(instrument_key=instrument_key, to_date=to_date, from_date=from_date)
+    for attempt in range(1, MAX_RETRIES + 1):
+        throttle()
+        resp = _upstox_session.get(url, timeout=UPSTOX_TIMEOUT)
+        if resp.status_code == 429:
+            sleep_time = attempt * 2
+            log.warning(f"⚠️ Upstox Rate limit → retry {attempt}/{MAX_RETRIES} in {sleep_time}s")
+            time.sleep(sleep_time)
+            continue
+        resp.raise_for_status()
+        return resp.json()
+    raise RuntimeError("Max retries exceeded for Upstox API")
+
+
+def fetch_upstox_range(instrument_key: Optional[str], start_dt, end_dt) -> pd.DataFrame:
+    """Whole [start_dt, end_dt] range in a SINGLE call — Upstox V3 daily returns
+    multi-year history at once, so no chunking loop is needed."""
+    if not instrument_key:
+        return pd.DataFrame()
+    try:
+        resp = safe_get_upstox_candles(
+            instrument_key,
+            from_date=start_dt.strftime("%Y-%m-%d"),
+            to_date=end_dt.strftime("%Y-%m-%d"),
+        )
+    except Exception as e:
+        log.warning(f"Upstox fetch error for {instrument_key}: {e}")
+        return pd.DataFrame()
+
+    candles = []
+    if isinstance(resp, dict):
+        data = resp.get("data")
+        if isinstance(data, dict):
+            candles = data.get("candles", []) or []
+        elif "candles" in resp:
+            candles = resp.get("candles", []) or []
+    elif isinstance(resp, list):
+        candles = resp
+
+    return _parse_upstox_candles(candles)
+
+
+def _resolve_instrument_key(row) -> Optional[str]:
+    """Upstox instrument_key from the row's own column, else derived from ISIN
+    (`NSE_EQ|<isin>` is exactly the official key format for NSE equities), so an
+    older CSV lacking the column still works."""
+    ik = row.get("instrument_key") if hasattr(row, "get") else None
+    if isinstance(ik, str) and ik.strip():
+        return ik.strip()
+    isin = row.get("isin") if hasattr(row, "get") else None
+    if isinstance(isin, str) and isin.strip():
+        return f"NSE_EQ|{isin.strip()}"
+    return None
+
+
+def _resolve_groww_symbol(row, symbol: str) -> str:
+    """Groww symbol from the row's column, else the standard `NSE-<symbol>`
+    convention (Upstox CSVs don't carry a groww_symbol column)."""
+    gs = row.get("groww_symbol") if hasattr(row, "get") else None
+    if isinstance(gs, str) and gs.strip():
+        return gs.strip()
+    return f"NSE-{symbol}"
+
+
+def _fetch_with_fallbacks(row, symbol, start_dt, end_dt, groww_api) -> pd.DataFrame:
+    """Fetch one symbol's candles through the provider chain, returning the first
+    non-empty result. Default order is Upstox → Groww → yfinance; a config
+    toggle (ohlc_primary_provider="groww") flips the first two for rollback.
+    yfinance is always the final safety net."""
+    # Benchmark index: Upstox index key, then yfinance. The Groww *equity* path
+    # does not serve the index, so it's skipped here (as it was before).
+    if symbol == "^NSEI":
+        df = fetch_upstox_range(NIFTY_UPSTOX_KEY, start_dt, end_dt)
+        if df is not None and not df.empty:
+            return df
+        return fetch_yfinance_incremental(symbol, start_dt, end_dt)
+
+    instrument_key = _resolve_instrument_key(row)
+    groww_symbol = _resolve_groww_symbol(row, symbol)
+
+    def _via_upstox():
+        return fetch_upstox_range(instrument_key, start_dt, end_dt)
+
+    def _via_groww():
+        return fetch_groww_incremental(groww_api, groww_symbol, start_dt, end_dt) if groww_api else pd.DataFrame()
+
+    def _via_yfinance():
+        return fetch_yfinance_incremental(symbol, start_dt, end_dt)
+
+    primary = getattr(get_settings(), "ohlc_primary_provider", "upstox")
+    if primary == "groww":
+        providers = [_via_groww, _via_upstox, _via_yfinance]
+    else:
+        providers = [_via_upstox, _via_groww, _via_yfinance]
+
+    for fetch in providers:
+        try:
+            df = fetch()
+        except Exception as e:
+            log.warning(f"Provider fetch error for {symbol}: {e}")
+            df = pd.DataFrame()
+        if df is not None and not df.empty:
+            return df
+    return pd.DataFrame()
+
+
+# =========================
 # CORE WORKER
 # =========================
 def process_stock(row, last_date_map, groww_api=None) -> Dict[str, Any]:
     symbol = row["Symbol"]
-    groww_symbol = row["groww_symbol"]
     today = datetime.now()
 
     try:
@@ -306,20 +485,18 @@ def process_stock(row, last_date_map, groww_api=None) -> Dict[str, Any]:
                 last_date = pd.to_datetime(last_date)
             if hasattr(last_date, "to_pydatetime"):
                 last_date = last_date.to_pydatetime()
-            
+
             start_dt = last_date + timedelta(days=1)
             if start_dt.date() >= today.date():
                 return {"symbol": symbol, "status": "up_to_date", "df": None}
         else:
             start_dt = today - timedelta(days=5 * 365)
 
-        # Force yfinance fallback for Nifty 50 Index benchmark (^NSEI)
-        if groww_api and symbol != "^NSEI":
-            df = fetch_groww_incremental(groww_api, groww_symbol, start_dt, today)
-        else:
-            df = fetch_yfinance_incremental(symbol, start_dt, today)
-            
-        if df.empty:
+        # Provider chain: Upstox (primary) → Groww → yfinance. ^NSEI is handled
+        # inside via the Upstox index key with a yfinance fallback.
+        df = _fetch_with_fallbacks(row, symbol, start_dt, today, groww_api)
+
+        if df is None or df.empty:
             return {"symbol": symbol, "status": "no_data", "df": None}
 
         df["symbol"] = symbol
@@ -359,7 +536,8 @@ async def download_incremental_ohlc() -> str:
         "Symbol": "^NSEI",
         "groww_symbol": "^NSEI",
         "trading_symbol": "^NSEI",
-        "company_name": "Nifty 50 Index"
+        "company_name": "Nifty 50 Index",
+        "instrument_key": NIFTY_UPSTOX_KEY,
     }])
     symbols_df = pd.concat([symbols_df, benchmark_row], ignore_index=True)
     
