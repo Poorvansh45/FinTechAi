@@ -2,8 +2,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown } from 'lucide-react';
-import { type NavModule } from './nav-config';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { type NavModule, type NavItem } from './nav-config';
 
 const BADGE_COLORS: Record<string, string> = {
   Live: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
@@ -12,6 +12,22 @@ const BADGE_COLORS: Record<string, string> = {
   New:  'bg-pink-500/15    text-pink-400    border-pink-500/20',
   'Coming soon': 'bg-slate-500/15 text-slate-400 border-slate-500/20',
 };
+
+/** Groups items by `section`, preserving first-seen order for both the
+ * sections themselves and the items inside each. Items without a `section`
+ * collect under a single unlabeled group, so a module with 1-2 flat items
+ * (Portfolio, AI Copilot) renders exactly as it did before — grouping is
+ * opt-in per item, not a mode you have to turn on for the whole module. */
+export function groupBySection(items: NavItem[]): { section: string | null; items: NavItem[] }[] {
+  const order: (string | null)[] = [];
+  const buckets = new Map<string | null, NavItem[]>();
+  for (const item of items) {
+    const key = item.section ?? null;
+    if (!buckets.has(key)) { buckets.set(key, []); order.push(key); }
+    buckets.get(key)!.push(item);
+  }
+  return order.map((section) => ({ section, items: buckets.get(section)! }));
+}
 
 export function ModuleDropdown({ mod }: { mod: NavModule }) {
   const [open, setOpen] = useState(false);
@@ -25,6 +41,8 @@ export function ModuleDropdown({ mod }: { mod: NavModule }) {
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const groups = mod.items ? groupBySection(mod.items) : [];
 
   return (
     <div ref={ref} className="relative" onMouseLeave={() => setOpen(false)}>
@@ -41,46 +59,49 @@ export function ModuleDropdown({ mod }: { mod: NavModule }) {
         <ChevronDown className={`w-3 h-3 opacity-60 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
 
+      {/* Solid, fully opaque panel — no backdrop-filter. The previous
+          translucent-plus-blur combination read as "blurring the page behind
+          it"; a plain flat card (Groww / TradingView's own pattern) reads as
+          crisp instead, and a plain box-shadow still gives it elevation. */}
       {open && mod.items && (
         <div
-          className="absolute top-full left-0 mt-1.5 rounded-2xl z-50 p-2 w-72 bg-white/95 dark:bg-[#080C14]/95 shadow-xl dark:shadow-[0_24px_64px_rgba(0,0,0,0.6)] border border-black/5 dark:border-white/10"
-          style={{ backdropFilter: 'blur(24px)' }}
+          className="absolute top-full left-0 mt-1.5 rounded-2xl z-50 py-2 w-72 bg-white dark:bg-[#0A0E17] shadow-xl shadow-black/10 dark:shadow-black/50 border border-black/[0.06] dark:border-white/[0.07]"
         >
-          {/* Module header */}
-          <div className="px-3 py-2 mb-1 flex items-center justify-between">
-            <span className={`text-[10px] font-bold uppercase tracking-widest opacity-60 ${mod.color}`}>{mod.label}</span>
-            <Link href={mod.href} onClick={() => setOpen(false)}
-              className={`text-[11px] font-medium ${mod.color} opacity-70 hover:opacity-100 transition-opacity`}>
-              View all →
-            </Link>
-          </div>
-
-          {mod.items.map(({ href, label, icon: Icon, desc, badge }) => {
-            const active = pathname === href || pathname.startsWith(href + '/');
-            return (
-              <Link key={href} href={href} onClick={() => setOpen(false)}
-                className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                  active ? 'bg-black/5 dark:bg-white/6' : 'hover:bg-black/5 dark:hover:bg-white/4'
-                }`}
-                style={active ? { boxShadow: `inset 0 0 0 1px ${mod.glowColor}, 0 0 20px ${mod.glowColor}`, background: 'rgba(255,255,255,0.02)' } : undefined}
-              >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
-                  active ? 'bg-black/5 dark:bg-white/8' : 'bg-black/5 dark:bg-white/4 group-hover:bg-black/10 dark:group-hover:bg-white/7'
-                }`}>
-                  <Icon className={`w-3.5 h-3.5 ${active ? mod.color : 'text-slate-500 group-hover:text-slate-800 dark:group-hover:text-slate-300'}`} />
+          {groups.map(({ section, items }, gi) => (
+            <div key={section ?? '_flat'} className={gi > 0 ? 'mt-1' : ''}>
+              {section && (
+                <div className={`px-3.5 ${gi > 0 ? 'pt-3' : 'pt-1'} pb-1.5 text-[10px] font-bold uppercase tracking-widest ${mod.color} opacity-70`}>
+                  {section}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[13px] font-medium ${active ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>{label}</span>
-                    {badge && (
-                      <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${BADGE_COLORS[badge] ?? ''}`}>{badge}</span>
-                    )}
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-600 group-hover:text-slate-600 dark:group-hover:text-slate-500 truncate">{desc}</div>
-                </div>
-              </Link>
-            );
-          })}
+              )}
+              {items.map(({ href, label, icon: Icon, desc, badge }) => {
+                const active = pathname === href || pathname.startsWith(href + '/');
+                return (
+                  <Link key={href} href={href} onClick={() => setOpen(false)}
+                    className={`group flex items-center gap-3 px-3.5 py-2.5 mx-1 rounded-xl transition-colors duration-150 ${
+                      active ? 'bg-black/[0.04] dark:bg-white/[0.05]' : 'hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      active ? 'bg-black/5 dark:bg-white/[0.08]' : 'bg-black/[0.03] dark:bg-white/[0.05]'
+                    }`}>
+                      <Icon className={`w-4 h-4 ${active ? mod.color : `${mod.color} opacity-70`}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[13px] font-medium ${active ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'}`}>{label}</span>
+                        {badge && (
+                          <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${BADGE_COLORS[badge] ?? ''}`}>{badge}</span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-500 truncate">{desc}</div>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-700 group-hover:text-slate-400 dark:group-hover:text-slate-500 flex-shrink-0 transition-colors duration-150" />
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
     </div>

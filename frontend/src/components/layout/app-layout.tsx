@@ -4,23 +4,33 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { profileInitial } from '@/lib/auth/types';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Bell, Menu, X, Home, LogOut, ChevronDown } from 'lucide-react';
+import { Search, Bell, Menu, X, Home, LogOut, ChevronDown, ChevronRight } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/context/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { ModuleDropdown } from './ModuleDropdown';
+import { groupBySection } from './ModuleDropdown';
 import { UserMenu } from './UserMenu';
 import { NAV_MODULES, MOBILE_TABS } from './nav-config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-// ── Per-menu panel widths ─────────────────────────────────────
-const PANEL_WIDTHS: Record<string, number> = {
-  markets:   780,
-  screener:  720,
-  portfolio: 680,
-  workspace: 640,
-  copilot:   760,
+// Single flat width for every dropdown panel. The old per-module 640-780px
+// values matched a 2-column card grid; the compact list layout below doesn't
+// need that much room, and a shared width keeps every panel visually
+// consistent (Groww/TradingView's own menus are a fixed slim width too).
+const PANEL_WIDTH = 300;
+
+// Badge border/bg per module color. Tailwind's opacity modifier on `current`
+// (e.g. `border-current/30`) needs currentColor to resolve to an RGB triplet
+// at build time, which a dynamic text-color class can't guarantee — a literal
+// per-color lookup (same pattern as the scanner nav's CATEGORY_STYLES) is the
+// version that's actually verified to compile correctly.
+const BADGE_TONE: Record<string, string> = {
+  'text-blue-400':    'border-blue-500/30 bg-blue-500/10 text-blue-300',
+  'text-emerald-400': 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  'text-violet-400':  'border-violet-500/30 bg-violet-500/10 text-violet-300',
+  'text-amber-400':   'border-amber-500/30 bg-amber-500/10 text-amber-300',
+  'text-pink-400':    'border-pink-500/30 bg-pink-500/10 text-pink-300',
 };
 
 // ── Module panel data ─────────────────────────────────────────
@@ -331,12 +341,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const calcMenuLeft = useCallback((menuId: string) => {
     const triggerEl = triggerRefs.current[menuId];
     if (!triggerEl) return;
-    const panelWidth = PANEL_WIDTHS[menuId] ?? 720;
     const rect = triggerEl.getBoundingClientRect();
     const triggerCenter = rect.left + rect.width / 2;
-    let left = triggerCenter - panelWidth / 2;
+    let left = triggerCenter - PANEL_WIDTH / 2;
     const margin = 20;
-    left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin));
+    left = Math.max(margin, Math.min(left, window.innerWidth - PANEL_WIDTH - margin));
     setMenuLeft(left);
   }, []);
 
@@ -399,7 +408,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const MODULE_INFOS = Object.fromEntries(
     MODULE_INFOS_DATA.map(({ id, label, subtitle, moduleIndex }) => [
       id,
-      { label, subtitle, items: NAV_MODULES[moduleIndex]?.items ?? [] },
+      {
+        label, subtitle,
+        items: NAV_MODULES[moduleIndex]?.items ?? [],
+        color: NAV_MODULES[moduleIndex]?.color ?? 'text-blue-400',
+      },
     ])
   );
 
@@ -601,7 +614,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* ── Mega Menu Panel (outside <header> so it can overflow freely) ── */}
+      {/* ── Menu Panel (outside <header> so it can overflow freely) ──
+          Solid, fully opaque — no backdrop-filter. The previous translucent
+          32px blur (plus the page-behind blur below) was what read as "the
+          whole page blurs when this opens"; a plain flat card, same as
+          Groww/TradingView's own dropdowns, reads as crisp instead. */}
       <AnimatePresence mode="wait">
         {activeMenu && MODULE_INFOS[activeMenu] && (
           <motion.div
@@ -610,70 +627,72 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             initial="initial"
             animate="animate"
             exit="exit"
-            className="fixed rounded-[24px] border border-white/[0.08] shadow-[0_30px_100px_rgba(0,0,0,0.55)] select-none overflow-hidden"
+            className="fixed rounded-2xl border border-white/[0.07] shadow-xl shadow-black/50 select-none overflow-hidden py-2"
             style={{
-              width: PANEL_WIDTHS[activeMenu] ?? 720,
+              width: PANEL_WIDTH,
               left: menuLeft,
               top: 76,          // 64px navbar + 12px gap
               zIndex: 1000,
-              background: 'rgba(8,12,24,0.97)',
-              backdropFilter: 'blur(32px)',
-              WebkitBackdropFilter: 'blur(32px)',
+              background: '#0A0E17',
             }}
             // Keep panel open while cursor is inside
             onMouseEnter={clearCloseTimer}
             onMouseLeave={scheduleClose}
           >
-            {/* Panel Header */}
-            <div className="px-7 pt-6 pb-4 border-b border-white/[0.05]">
-              <span className="text-purple-300 text-[11px] font-bold tracking-[0.12em] uppercase block mb-1">
-                {MODULE_INFOS[activeMenu].label}
-              </span>
-              <p className="text-slate-400 text-[13px] leading-snug">
-                {MODULE_INFOS[activeMenu].subtitle}
-              </p>
-            </div>
-
-            {/* Items Grid */}
-            <div className="p-5 grid grid-cols-2 gap-3">
-              {MODULE_INFOS[activeMenu].items.map((item) => (
-                <Link
-                  href={item.href}
-                  key={item.href}
-                  onClick={closeNow}
-                  className={cn(
-                    'group relative flex flex-col justify-between h-[130px] p-5 rounded-[18px]',
-                    'bg-white/[0.015] border border-white/[0.05] cursor-pointer text-left',
-                    'transition-all duration-300 ease-out',
-                    'hover:border-purple-500/25 hover:bg-white/[0.03]',
-                    'hover:-translate-y-1 hover:shadow-[0_15px_50px_rgba(124,92,255,0.12)]'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className={cn(
-                      'p-2 rounded-xl border text-purple-400 transition-colors duration-200',
-                      'bg-purple-500/[0.08] border-purple-500/[0.15]',
-                      'group-hover:bg-purple-500/[0.14] group-hover:text-purple-300 group-hover:border-purple-500/[0.25]'
-                    )}>
-                      {item.icon && <item.icon className="size-[18px]" />}
-                    </div>
-                    {item.badge && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-purple-500/30 bg-purple-500/[0.08] text-purple-300">
-                        {item.badge}
-                      </span>
-                    )}
+            {groupBySection(MODULE_INFOS[activeMenu].items).map(({ section, items }, gi) => (
+              <div key={section ?? '_flat'} className={gi > 0 ? 'mt-1' : ''}>
+                {section && (
+                  <div className={cn(
+                    'px-3.5 pb-1.5 text-[10px] font-bold uppercase tracking-widest',
+                    gi > 0 ? 'pt-3' : 'pt-1',
+                    MODULE_INFOS[activeMenu].color, 'opacity-70'
+                  )}>
+                    {section}
                   </div>
-                  <div className="space-y-0.5">
-                    <span className="text-white text-[13px] font-semibold block leading-snug group-hover:text-purple-200 transition-colors duration-200">
-                      {item.label}
-                    </span>
-                    <p className="text-slate-500 text-[11px] leading-normal line-clamp-2">
-                      {item.desc}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                )}
+                {items.map((item) => {
+                  const active = pathname === item.href || pathname.startsWith(item.href + '/');
+                  return (
+                    <Link
+                      href={item.href}
+                      key={item.href}
+                      onClick={closeNow}
+                      className={cn(
+                        'group flex items-center gap-3 px-3.5 py-2.5 mx-1 rounded-xl transition-colors duration-150',
+                        active ? 'bg-white/[0.05]' : 'hover:bg-white/[0.04]'
+                      )}
+                    >
+                      <div className={cn(
+                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                        active ? 'bg-white/[0.08]' : 'bg-white/[0.05]'
+                      )}>
+                        {item.icon && <item.icon className={cn('w-4 h-4', MODULE_INFOS[activeMenu].color, !active && 'opacity-70')} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={cn(
+                            'text-[13px] font-medium',
+                            active ? 'text-white' : 'text-slate-300 group-hover:text-white'
+                          )}>
+                            {item.label}
+                          </span>
+                          {item.badge && (
+                            <span className={cn(
+                              'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border',
+                              BADGE_TONE[MODULE_INFOS[activeMenu].color] ?? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
+                            )}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">{item.desc}</div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-700 group-hover:text-slate-500 flex-shrink-0 transition-colors duration-150" />
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>
@@ -691,14 +710,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       <MobileDrawer open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
-      {/* ── Main Content ── with background blur when menu open ── */}
+      {/* ── Main Content ──
+          Page stays fully crisp while a menu is open — Groww/TradingView
+          don't blur or dim their own page behind a dropdown, and there's
+          already a transparent click-outside catcher below handling the
+          "click away to close" interaction, so nothing is lost by not
+          visually degrading the content underneath. `pointerEvents: none`
+          is kept purely to stop stray clicks reaching page content the menu
+          is covering — it has no visual effect on its own. */}
       <main
         className="flex-grow flex flex-col relative"
         style={{
           zIndex: 1,
-          transition: 'opacity 300ms ease, filter 300ms ease',
-          opacity: activeMenu ? 0.85 : 1,
-          filter: activeMenu ? 'blur(5px)' : 'blur(0px)',
           pointerEvents: activeMenu ? 'none' : 'auto',
         }}
       >

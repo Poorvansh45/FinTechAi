@@ -4,28 +4,45 @@ import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Filter, Waves, BookMarked, Download, Keyboard, X,
-  Rocket, Shield, BarChart3, Landmark
+  Download, Keyboard, X,
+  LayoutDashboard, Rocket, Target, CandlestickChart, BarChart3, Landmark, Bookmark,
 } from "lucide-react";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
+
+/**
+ * Nav is monochrome at rest, blue on hover (generic "interactive" cue), and
+ * reveals its own category color only when active (identity cue) — so at most
+ * one accent is ever visible at a time. Tailwind needs literal class strings
+ * per key (no `text-${x}-400` interpolation), same pattern as
+ * components/screener/filters/types.ts's ACCENT map.
+ */
+type Category = "neutral" | "blue" | "cyan" | "orange" | "emerald" | "indigo";
+
+const CATEGORY_STYLES: Record<Category, { text: string; bg: string; border: string; icon: string }> = {
+  neutral: { text: "text-gray-200",   bg: "bg-gray-500/[0.08]",    border: "border-gray-400",   icon: "text-gray-300" },
+  blue:    { text: "text-blue-200",   bg: "bg-blue-500/[0.08]",    border: "border-blue-400",   icon: "text-blue-300" },
+  cyan:    { text: "text-cyan-200",   bg: "bg-cyan-500/[0.08]",    border: "border-cyan-400",   icon: "text-cyan-300" },
+  orange:  { text: "text-orange-200", bg: "bg-orange-500/[0.08]",  border: "border-orange-400", icon: "text-orange-300" },
+  emerald: { text: "text-emerald-200",bg: "bg-emerald-500/[0.08]", border: "border-emerald-400",icon: "text-emerald-300" },
+  indigo:  { text: "text-indigo-200", bg: "bg-indigo-500/[0.08]",  border: "border-indigo-400", icon: "text-indigo-300" },
+};
 
 type ScannerTab = {
   href: string;
   label: string;
   icon: any;
-  activeColor: string;
-  iconColor: string;
+  category: Category;
   badge?: string;
 };
 
 const SCANNER_TABS: ScannerTab[] = [
-  { href: "/screener",            label: "Overview",           icon: BarChart3,  activeColor: "bg-indigo-500/10 border-indigo-500/30 text-indigo-350",  iconColor: "text-indigo-400" },
-  { href: "/screener/launchpad",  label: "🚀 LaunchPad",       icon: Rocket,     activeColor: "bg-purple-500/10 border-purple-500/30 text-purple-300",  iconColor: "text-purple-400" },
-  { href: "/screener/alpha-zone", label: "🔷 Alpha Zone",       icon: Shield,     activeColor: "bg-blue-500/10 border-blue-500/30 text-blue-300",     iconColor: "text-blue-400"   },
-  { href: "/screener/technical",  label: "📊 Technical Scanner", icon: Filter,     activeColor: "bg-yellow-500/10 border-yellow-500/30 text-yellow-300", iconColor: "text-yellow-400" },
-  { href: "/screener/volume",     label: "📈 Volume Scanner",   icon: Waves,      activeColor: "bg-orange-500/10 border-orange-500/30 text-orange-300",  iconColor: "text-orange-400" },
-  { href: "/screener/ipo-vintage", label: "🏦 IPO Vintage",     icon: Landmark,   activeColor: "bg-teal-500/10 border-teal-500/30 text-teal-300",     iconColor: "text-teal-400"   },
-  { href: "/screener/watchlists", label: "⭐ Watchlists",       icon: BookMarked, activeColor: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300", iconColor: "text-emerald-400" },
+  { href: "/screener",             label: "Overview",           icon: LayoutDashboard,  category: "neutral" },
+  { href: "/screener/launchpad",   label: "LaunchPad",          icon: Rocket,           category: "blue" },
+  { href: "/screener/alpha-zone",  label: "Alpha Zone",         icon: Target,           category: "cyan" },
+  { href: "/screener/technical",   label: "Technical Scanner",  icon: CandlestickChart, category: "orange" },
+  { href: "/screener/volume",      label: "Volume Scanner",     icon: BarChart3,        category: "emerald" },
+  { href: "/screener/ipo-vintage", label: "IPO Vintage",        icon: Landmark,         category: "indigo" },
+  { href: "/screener/watchlists",  label: "Watchlists",         icon: Bookmark,         category: "neutral" },
 ];
 
 // ── Keyboard Shortcut Help ────────────────────────────────────────────────────
@@ -138,20 +155,25 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
 
         {/* ── Scanner tab strip ────────────────────────────────────── */}
         <div className="border-b border-gray-800/60 bg-gray-900/20 px-6">
-          <div className="max-w-[1600px] mx-auto flex items-center gap-1 overflow-x-auto py-2 scrollbar-none">
-            {SCANNER_TABS.map(({ href, label, icon: Icon, activeColor, iconColor, badge }) => {
+          <div className="max-w-[1600px] mx-auto flex items-center gap-1 overflow-x-auto py-1.5 scrollbar-none">
+            {SCANNER_TABS.map(({ href, label, icon: Icon, category, badge }) => {
               const active = isActive(href);
+              const style = CATEGORY_STYLES[category];
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-all whitespace-nowrap flex-shrink-0 ${
+                  className={`group relative flex items-center gap-2 px-3.5 py-2.5 rounded-t-md border-b-2 text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
                     active
-                      ? activeColor
-                      : "border-transparent text-gray-500 hover:text-gray-300 hover:bg-gray-800/50"
+                      ? `${style.border} ${style.text} ${style.bg}`
+                      : "border-transparent text-gray-500 hover:text-gray-200 hover:bg-blue-500/[0.06] hover:border-blue-500/30"
                   }`}
                 >
-                  <Icon size={14} className={active ? "" : iconColor} />
+                  <Icon
+                    size={15}
+                    strokeWidth={1.75}
+                    className={active ? style.icon : "text-gray-500 group-hover:text-blue-300 transition-colors duration-200"}
+                  />
                   <span>{label}</span>
                   {badge && !active && (
                     <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">

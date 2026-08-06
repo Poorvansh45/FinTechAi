@@ -13,6 +13,10 @@ export interface NavItem {
   icon: any;
   desc: string;
   badge?: string;
+  /** Optional group heading rendered above this item (e.g. "Live Overview").
+   * Items sharing a section value are grouped together; items without one
+   * render as a single flat list — same component, two layouts. */
+  section?: string;
 }
 
 export interface NavModule {
@@ -32,11 +36,11 @@ export const NAV_MODULES: NavModule[] = [
     color: 'text-blue-400',
     glowColor: 'rgba(59,130,246,0.15)',
     items: [
-      { href: '/markets',          label: 'Mission Control', icon: Radar,          desc: 'Institutional market overview', badge: 'Live' },
-      { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,       desc: 'AI narrative and sentiment engine'     },
-      { href: '/markets/movers',   label: 'Top Movers Pro',  icon: TrendingUp,     desc: 'Momentum, volume and opportunities', badge: '⭐' },
-      { href: '/markets/sectors',  label: 'Sector Rotation', icon: RotateCcw,      desc: 'Capital flow and sector leadership'    },
-      { href: '/markets/macro',    label: 'Macro Intel',     icon: Globe,          desc: 'Geopolitics, central banks and risk events'          },
+      { href: '/markets',          label: 'Mission Control', icon: Radar,          desc: 'Institutional market overview', badge: 'Live', section: 'Live Overview' },
+      { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,       desc: 'AI narrative and sentiment engine', section: 'Live Overview' },
+      { href: '/markets/movers',   label: 'Top Movers Pro',  icon: TrendingUp,     desc: 'Momentum, volume and opportunities', badge: '⭐', section: 'Discovery' },
+      { href: '/markets/sectors',  label: 'Sector Rotation', icon: RotateCcw,      desc: 'Capital flow and sector leadership', section: 'Discovery' },
+      { href: '/markets/macro',    label: 'Macro Intel',     icon: Globe,          desc: 'Geopolitics, central banks and risk events', section: 'Macro Intelligence' },
     ],
   },
   {
