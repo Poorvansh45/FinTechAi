@@ -10,7 +10,34 @@ import { screenerService } from "@/services/screenerService";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
 import { SignalBadge, TradePlanStrip, ExplainPanel, StrategyFooter } from "@/components/screener/QuantLab";
+import {
+  FilterPanel,
+  FilterSelect,
+  RangeFilter,
+  EMPTY_RANGE,
+  isRangeActive,
+  formatCompact,
+  CONFIDENCE_PRESETS,
+  PRICE_PRESETS,
+  RETURN_PRESETS,
+  VOLUME_PRESETS,
+  type RangeValue,
+} from "@/components/screener/filters";
 import { LAUNCHPAD_TERMS, LAUNCHPAD_FAQS } from "@/lib/screener/quantContent";
+
+// Slider bounds. A bound is only sent to the API when the user actually sets
+// it — an empty box (null) means "no constraint", exactly as before.
+const CONF_BOUNDS: [number, number] = [0, 100];
+const PRICE_BOUNDS: [number, number] = [100, 5000];
+const RETURN_BOUNDS: [number, number] = [0, 50];
+const VOLUME_BOUNDS: [number, number] = [0, 10_000_000];
+const GAP_BOUNDS: [number, number] = [0, 10];
+
+const FVG_PRESETS = [
+  { label: "2–3%", min: 2, max: 3 },
+  { label: "3–5%", min: 3, max: 5 },
+  { label: "5–7%", min: 5, max: 7 },
+];
 
 function buildRationale(s: any): string {
   const dist = s.fvg_dist_pct ?? s.nearest_fvg_dist;
@@ -24,6 +51,9 @@ function buildRationale(s: any): string {
   );
 }
 
+const formatVolume = (v?: number | null): string =>
+  v == null || !isFinite(v) ? "—" : formatCompact(v);
+
 export default function LaunchPadPage() {
   const [stocks, setStocks] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,9 +62,15 @@ export default function LaunchPadPage() {
 
   // Filters state
   const [market, setMarket] = useState("all");
-  const [signalStars, setSignalStars] = useState("all");
-  const [priceRange, setPriceRange] = useState("all");
-  const [expectedReturn, setExpectedReturn] = useState("");
+  // Range filters — `null` on either side means that bound isn't sent.
+  const [conf, setConf] = useState<RangeValue>(EMPTY_RANGE);
+  const [price, setPrice] = useState<RangeValue>(EMPTY_RANGE);
+  const [ret, setRet] = useState<RangeValue>(EMPTY_RANGE);
+  const [vol, setVol] = useState<RangeValue>(EMPTY_RANGE);
+  const [gap, setGap] = useState<RangeValue>(EMPTY_RANGE);
+  // Risk is a derived label on each result (not a query param), so it filters
+  // client-side — safe now that the endpoint returns the full result set.
+  const [risk, setRisk] = useState("all");
   const [search, setSearch] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,35 +102,26 @@ export default function LaunchPadPage() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, any> = { limit: 100 };
+      // No limit — show every setup the backend actually returns. Each band
+      // only sends a bound when the user has actually moved that thumb off its
+      // extreme, so an untouched slider means "no constraint".
+      const params: Record<string, any> = {};
       if (market !== "all") params.market = market;
-      
-      // Expected return
-      if (expectedReturn !== "") {
-        params.min_return = Number(expectedReturn);
-      }
-      
-      // Signal strength to confidence mapping
-      if (signalStars === "5") {
-        params.min_confidence = 90;
-      } else if (signalStars === "4") {
-        params.min_confidence = 80;
-      } else if (signalStars === "3") {
-        params.min_confidence = 70;
-      }
 
-      // Price range
-      if (priceRange === "below200") {
-        params.price_max = 200;
-      } else if (priceRange === "200-500") {
-        params.price_min = 200;
-        params.price_max = 500;
-      } else if (priceRange === "500-1000") {
-        params.price_min = 500;
-        params.price_max = 1000;
-      } else if (priceRange === "1000+") {
-        params.price_min = 1000;
-      }
+      if (conf.min !== null) params.min_confidence = conf.min;
+      if (conf.max !== null) params.max_confidence = conf.max;
+
+      if (price.min !== null) params.price_min = price.min;
+      if (price.max !== null) params.price_max = price.max;
+
+      if (ret.min !== null) params.min_return = ret.min;
+      if (ret.max !== null) params.max_return = ret.max;
+
+      if (vol.min !== null) params.min_avg_volume = vol.min;
+      if (vol.max !== null) params.max_avg_volume = vol.max;
+
+      if (gap.min !== null) params.gap_min = gap.min;
+      if (gap.max !== null) params.gap_max = gap.max;
 
       const res = await screenerService.getLaunchPad(params);
 
@@ -109,15 +136,34 @@ export default function LaunchPadPage() {
     } finally {
       setLoading(false);
     }
-  }, [market, signalStars, priceRange, expectedReturn]);
+  }, [market, conf, price, ret, vol, gap]);
 
+  // Debounced apply: dragging a range meter updates the readout instantly, but
+  // the API is only queried once the user pauses — otherwise every pixel of a
+  // drag would fire a request.
   useEffect(() => {
-    runScan();
+    const t = setTimeout(() => { runScan(); }, 350);
+    return () => clearTimeout(t);
   }, [runScan]);
 
   useEffect(() => {
     registerRefresh(() => { runScan(); });
   }, [registerRefresh, runScan]);
+
+  const activeCount =
+    (market !== "all" ? 1 : 0) +
+    (risk !== "all" ? 1 : 0) +
+    [conf, price, ret, vol, gap].filter(isRangeActive).length;
+
+  const resetFilters = () => {
+    setMarket("all");
+    setRisk("all");
+    setConf(EMPTY_RANGE);
+    setPrice(EMPTY_RANGE);
+    setRet(EMPTY_RANGE);
+    setVol(EMPTY_RANGE);
+    setGap(EMPTY_RANGE);
+  };
 
   const handleOpenWatchlist = (s: any, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -130,6 +176,7 @@ export default function LaunchPadPage() {
   };
 
   const filteredStocks = stocks.filter(s => {
+    if (risk !== "all" && s.risk !== risk) return false;
     if (!search.trim()) return true;
     const q = search.trim().toLowerCase();
     return s.symbol.toLowerCase().includes(q) || s.company_name.toLowerCase().includes(q);
@@ -162,7 +209,7 @@ export default function LaunchPadPage() {
             <div className="text-2xl font-black text-purple-400 font-mono">
               {loading ? "..." : filteredStocks.length}
             </div>
-            <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Setups Found</div>
+            <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Stocks Found</div>
           </div>
         </div>
       </div>
@@ -181,94 +228,132 @@ export default function LaunchPadPage() {
         </div>
       )}
 
-      {/* ── Filters Panel ────────────────────────────────────────── */}
-      <div className="bg-gray-900/60 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          {/* Market Filter */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Market Index</label>
-            <select
-              value={market}
-              onChange={(e) => setMarket(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-purple-500 transition-colors"
+      {/* ── Filters ──────────────────────────────────────────────── */}
+      <FilterPanel
+        activeCount={activeCount}
+        onReset={resetFilters}
+        accent="purple"
+        columns={3}
+        footer={
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+            <div className="relative w-full sm:max-w-xs">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                <Search size={14} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search symbol or company..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={runScan}
+              disabled={loading}
+              className="w-full rounded-lg bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-purple-500 active:scale-98 sm:w-auto"
             >
-              <option value="all">All NSE Stocks</option>
-              <option value="nifty50">Nifty 50</option>
-              <option value="nifty_next50">Nifty Next 50</option>
-              <option value="nifty200">Nifty 200 Universe</option>
-            </select>
+              {loading ? "Scanning Universe…" : "Re-Run Scanner"}
+            </button>
           </div>
+        }
+      >
+        <FilterSelect
+          label="Market Index"
+          value={market}
+          onChange={setMarket}
+          accent="purple"
+          options={[
+            { value: "all", label: "All NSE Stocks" },
+            { value: "nifty50", label: "Nifty 50" },
+            { value: "nifty_next50", label: "Nifty Next 50" },
+            { value: "nifty200", label: "Nifty 200 Universe" },
+          ]}
+        />
 
-          {/* Signal Stars */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Signal Strength</label>
-            <select
-              value={signalStars}
-              onChange={(e) => setSignalStars(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-purple-500 transition-colors"
-            >
-              <option value="all">All Strengths</option>
-              <option value="5">★★★★★ (90%+ Confidence)</option>
-              <option value="4">★★★★☆ (80%+ Confidence)</option>
-              <option value="3">★★★☆☆ (70%+ Confidence)</option>
-            </select>
-          </div>
+        <FilterSelect
+          label="Risk"
+          value={risk}
+          onChange={setRisk}
+          accent="purple"
+          options={[
+            { value: "all", label: "Any Risk" },
+            { value: "Low", label: "Low" },
+            { value: "Medium", label: "Medium" },
+            { value: "High", label: "High" },
+          ]}
+        />
 
-          {/* Price Range */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Price Range</label>
-            <select
-              value={priceRange}
-              onChange={(e) => setPriceRange(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-purple-500 transition-colors"
-            >
-              <option value="all">All Prices</option>
-              <option value="below200">Below ₹200</option>
-              <option value="200-500">₹200 - ₹500</option>
-              <option value="500-1000">₹500 - ₹1000</option>
-              <option value="1000+">₹1000+</option>
-            </select>
-          </div>
+        {/* Confidence replaces the old star-bucket "Signal Strength" filter —
+            Strong/Medium/Weak is just a re-label of this same score, so a
+            typed band is finer-grained and non-redundant. */}
+        <RangeFilter
+          label="Confidence"
+          value={conf}
+          onChange={setConf}
+          min={CONF_BOUNDS[0]}
+          max={CONF_BOUNDS[1]}
+          step={1}
+          unit="%"
+          presets={CONFIDENCE_PRESETS}
+          accent="purple"
+          description="Engine confidence score, 0–100."
+        />
 
-          {/* Expected Return */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Expected Return</label>
-            <select
-              value={expectedReturn}
-              onChange={(e) => setExpectedReturn(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-purple-500 transition-colors"
-            >
-              <option value="">Any Return</option>
-              <option value="5">Min 5%</option>
-              <option value="10">Min 10%</option>
-              <option value="15">Min 15%</option>
-              <option value="20">Min 20%+</option>
-            </select>
-          </div>
-        </div>
+        <RangeFilter
+          label="Price"
+          value={price}
+          onChange={setPrice}
+          min={PRICE_BOUNDS[0]}
+          max={PRICE_BOUNDS[1]}
+          step={10}
+          unit="₹"
+          unitPosition="prefix"
+          format={(v) => `₹${v.toLocaleString("en-IN")}`}
+          presets={PRICE_PRESETS}
+          accent="purple"
+          description="Current market price."
+        />
 
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800 pt-6">
-          <div className="relative w-full sm:max-w-xs">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500">
-              <Search size={15} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search symbol or company..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white placeholder-gray-550 focus:outline-none focus:border-purple-500 transition-colors"
-            />
-          </div>
-          <button
-            onClick={runScan}
-            disabled={loading}
-            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm px-8 py-2.5 rounded-xl transition-all shadow-md active:scale-98"
-          >
-            {loading ? "Scanning Universe…" : "Re-Run Scanner"}
-          </button>
-        </div>
-      </div>
+        <RangeFilter
+          label="Expected Return"
+          value={ret}
+          onChange={setRet}
+          min={RETURN_BOUNDS[0]}
+          max={RETURN_BOUNDS[1]}
+          step={1}
+          unit="%"
+          presets={RETURN_PRESETS}
+          accent="purple"
+          description="Target return implied by the trade plan."
+        />
+
+        <RangeFilter
+          label="Avg Volume"
+          value={vol}
+          onChange={setVol}
+          min={VOLUME_BOUNDS[0]}
+          max={VOLUME_BOUNDS[1]}
+          step={10_000}
+          format={formatCompact}
+          presets={VOLUME_PRESETS}
+          accent="purple"
+          description="20-day average traded volume (liquidity)."
+        />
+
+        <RangeFilter
+          label="FVG Zone Size"
+          value={gap}
+          onChange={setGap}
+          min={GAP_BOUNDS[0]}
+          max={GAP_BOUNDS[1]}
+          step={0.5}
+          unit="%"
+          presets={FVG_PRESETS}
+          accent="purple"
+          description="Gap height as % of the FVG floor. LaunchPad caps gaps at 10%."
+        />
+      </FilterPanel>
 
       {/* ── Error state ───────────────────────────────────────────── */}
       {error && (
@@ -319,7 +404,7 @@ export default function LaunchPadPage() {
           <Rocket size={40} className="text-gray-650" />
           <p className="text-gray-400 font-semibold text-base">No LaunchPad setups found</p>
           <p className="text-gray-600 text-xs max-w-sm">
-            Try adjusting your filters (e.g. select "All NSE Stocks" or reduce signal strength requirements).
+            No setups fall inside these ranges — try widening a slider (or hit Reset to clear them all).
           </p>
         </div>
       ) : (
@@ -373,6 +458,41 @@ export default function LaunchPadPage() {
                 atr={s.atr_14}
               />
 
+              {/* Historical bullish-FVG track record for THIS stock: how often
+                  its past FVGs continued up, and the avg win vs avg loss. */}
+              {s.fvg_sample > 0 && (
+                <div className="mt-4 rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300">
+                      FVG Track Record
+                    </span>
+                    <span className="text-[10px] text-gray-500" title="Historical bullish FVGs tested">
+                      {s.fvg_sample} past gap{s.fvg_sample === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <span className="block font-mono text-sm font-bold text-white">
+                        {s.fvg_win_rate ?? "—"}%
+                      </span>
+                      <span className="text-[9px] uppercase text-gray-500">Win Rate</span>
+                    </div>
+                    <div>
+                      <span className="block font-mono text-sm font-bold text-emerald-400">
+                        {s.fvg_avg_win != null ? `+${s.fvg_avg_win}%` : "—"}
+                      </span>
+                      <span className="text-[9px] uppercase text-gray-500">Avg Win</span>
+                    </div>
+                    <div>
+                      <span className="block font-mono text-sm font-bold text-red-400">
+                        {s.fvg_avg_loss != null ? `${s.fvg_avg_loss}%` : "—"}
+                      </span>
+                      <span className="text-[9px] uppercase text-gray-500">Avg Loss</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Explainability panel */}
               <ExplainPanel
                 rationale={buildRationale(s)}
@@ -383,6 +503,7 @@ export default function LaunchPadPage() {
                   { label: "Gap %", value: `${s.gap_pct}%` },
                   { label: "FVG Age", value: `${s.days_since_formation}d` },
                   { label: "vs EMA200", value: `${s.ema_200_dist_pct ?? s.ema_200_dist}%` },
+                  { label: "Avg Vol", value: formatVolume(s.avg_volume) },
                   { label: "Setup", value: s.setup ?? "continuation" },
                 ]}
               />

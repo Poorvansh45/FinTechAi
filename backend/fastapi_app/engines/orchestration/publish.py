@@ -37,6 +37,7 @@ PIPELINE_COLLECTIONS = (
     "smc_zones",
     "launchpad_cache",
     "alpha_zone_cache",
+    "ipo_vintage_cache",
 )
 
 

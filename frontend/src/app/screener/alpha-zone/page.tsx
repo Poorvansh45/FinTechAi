@@ -10,6 +10,7 @@ import { screenerService } from "@/services/screenerService";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
 import { SignalBadge, TradePlanStrip, ExplainPanel, StrategyFooter } from "@/components/screener/QuantLab";
+import { FilterPanel, FilterSelect, RangeFilter } from "@/components/screener/filters";
 import { ALPHAZONE_TERMS, ALPHAZONE_FAQS } from "@/lib/screener/quantContent";
 
 function buildAZRationale(s: any): string {
@@ -64,7 +65,8 @@ export default function AlphaZonePage() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, any> = { limit: 100 };
+      // No limit — show every setup the backend actually returns.
+      const params: Record<string, any> = {};
       if (freshness !== "all") params.freshness = freshness;
       if (distance !== "all") params.distance = distance;
       
@@ -100,6 +102,19 @@ export default function AlphaZonePage() {
   useEffect(() => {
     registerRefresh(() => { runScan(); });
   }, [registerRefresh, runScan]);
+
+  const activeCount =
+    (freshness !== "all" ? 1 : 0) +
+    (distance !== "all" ? 1 : 0) +
+    (minReturn !== "" ? 1 : 0) +
+    (holdingPeriod !== "all" ? 1 : 0);
+
+  const resetFilters = () => {
+    setFreshness("all");
+    setDistance("all");
+    setMinReturn("");
+    setHoldingPeriod("all");
+  };
 
   const handleOpenWatchlist = (s: any, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -144,7 +159,7 @@ export default function AlphaZonePage() {
             <div className="text-2xl font-black text-blue-400 font-mono">
               {loading ? "..." : filteredStocks.length}
             </div>
-            <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Setups Found</div>
+            <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Stocks Found</div>
           </div>
         </div>
       </div>
@@ -163,92 +178,94 @@ export default function AlphaZonePage() {
         </div>
       )}
 
-      {/* ── Filters Panel ────────────────────────────────────────── */}
-      <div className="bg-gray-900/60 border border-gray-800 rounded-3xl p-6 backdrop-blur-xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-          {/* Zone Freshness */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Zone Freshness</label>
-            <select
-              value={freshness}
-              onChange={(e) => setFreshness(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
+      {/* ── Filters ──────────────────────────────────────────────── */}
+      <FilterPanel
+        activeCount={activeCount}
+        onReset={resetFilters}
+        accent="blue"
+        columns={4}
+        footer={
+          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+            <div className="relative w-full sm:max-w-xs">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                <Search size={14} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search symbol or company..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+            <button
+              onClick={runScan}
+              disabled={loading}
+              className="w-full rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-500 active:scale-98 sm:w-auto"
             >
-              <option value="all">All Freshness</option>
-              <option value="fresh">Fresh (Unmitigated)</option>
-              <option value="retested">Retested Once</option>
-            </select>
+              {loading ? "Scanning Institutional Blocks…" : "Apply Filters"}
+            </button>
           </div>
+        }
+      >
+        <FilterSelect
+          label="Zone Freshness"
+          value={freshness}
+          onChange={setFreshness}
+          accent="blue"
+          options={[
+            { value: "all", label: "All Freshness" },
+            { value: "fresh", label: "Fresh (Unmitigated)" },
+            { value: "retested", label: "Retested Once" },
+          ]}
+        />
 
-          {/* Distance from Zone */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Distance from Zone</label>
-            <select
-              value={distance}
-              onChange={(e) => setDistance(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
-            >
-              <option value="all">All Distances</option>
-              <option value="inside">Inside Zone (0%)</option>
-              <option value="within_2">Within 2%</option>
-              <option value="within_5">Within 5%</option>
-            </select>
-          </div>
+        <FilterSelect
+          label="Distance from Zone"
+          value={distance}
+          onChange={setDistance}
+          accent="blue"
+          options={[
+            { value: "all", label: "All Distances" },
+            { value: "inside", label: "Inside Zone (0%)" },
+            { value: "within_2", label: "Within 2%" },
+            { value: "within_5", label: "Within 5%" },
+          ]}
+        />
 
-          {/* Projected Return */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Projected Return</label>
-            <select
-              value={minReturn}
-              onChange={(e) => setMinReturn(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
-            >
-              <option value="">Any Return</option>
-              <option value="10">Min 10%</option>
-              <option value="20">Min 20%</option>
-              <option value="30">Min 30%</option>
-              <option value="40">Min 40%+</option>
-            </select>
-          </div>
+        {/* Projected return is a floor only — this endpoint exposes min_return
+            with no upper bound, so the filter stays single-ended. */}
+        <RangeFilter
+          label="Projected Return"
+          description="Minimum projected return for the setup."
+          value={{ min: minReturn === "" ? null : Number(minReturn), max: null }}
+          onChange={(n) => setMinReturn(n.min === null ? "" : String(n.min))}
+          min={0}
+          max={100}
+          step={1}
+          unit="%"
+          singleEnded
+          accent="blue"
+          presets={[
+            { label: "10%+", min: 10, max: null },
+            { label: "20%+", min: 20, max: null },
+            { label: "30%+", min: 30, max: null },
+          ]}
+        />
 
-          {/* Holding Period */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Expected Holding</label>
-            <select
-              value={holdingPeriod}
-              onChange={(e) => setHoldingPeriod(e.target.value)}
-              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
-            >
-              <option value="all">Any Holding</option>
-              <option value="30">30 Days Target</option>
-              <option value="60">60 Days Target</option>
-              <option value="90">90 Days Target</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-800 pt-6">
-          <div className="relative w-full sm:max-w-xs">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500">
-              <Search size={15} />
-            </span>
-            <input
-              type="text"
-              placeholder="Search symbol or company..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white placeholder-gray-550 focus:outline-none focus:border-blue-500 transition-colors"
-            />
-          </div>
-          <button
-            onClick={runScan}
-            disabled={loading}
-            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-8 py-2.5 rounded-xl transition-all shadow-md active:scale-98"
-          >
-            {loading ? "Scanning Institutional Blocks…" : "Apply Filters"}
-          </button>
-        </div>
-      </div>
+        <FilterSelect
+          label="Expected Holding"
+          value={holdingPeriod}
+          onChange={setHoldingPeriod}
+          accent="blue"
+          options={[
+            { value: "all", label: "Any Holding" },
+            { value: "30", label: "30 Days Target" },
+            { value: "60", label: "60 Days Target" },
+            { value: "90", label: "90 Days Target" },
+          ]}
+        />
+      </FilterPanel>
 
       {/* ── Error state ───────────────────────────────────────────── */}
       {error && (

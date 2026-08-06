@@ -3,7 +3,7 @@ Scan Coordinator — the single orchestrator for "Run Full Scan".
 
 Owns the entire pipeline end to end:
 
-    Download -> Indicators -> Technical -> LaunchPad -> Alpha Zone -> Publish -> Completed
+    Download -> Indicators -> Technical -> LaunchPad -> Alpha Zone -> IPO Vintage -> Publish -> Completed
 
 No stage writes to a live collection until "Publish": every stage that
 produces a cache (indicators, technical's screener/fvg/momentum/volume/SMC
@@ -32,15 +32,22 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+
+from pymongo.errors import DuplicateKeyError
 
 from engines.indicators import IndicatorEngine, IndicatorSet
 from .publish import PIPELINE_COLLECTIONS, publish_all, write_staged
 
+# A scan_meta doc still marked RUNNING after this long is treated as orphaned
+# (the process died mid-scan) and its lock can be reclaimed. Comfortably longer
+# than a real full scan, which runs ~30-40 min end to end.
+STALE_SCAN_HOURS = 3
+
 log = logging.getLogger("finai_edge.orchestration.coordinator")
 
-STAGE_KEYS = ("download", "indicators", "technical", "launchpad", "alpha_zone")
+STAGE_KEYS = ("download", "indicators", "technical", "launchpad", "alpha_zone", "ipo_vintage")
 
 # Collections the Technical stage stages+publishes (produced by _build_cache_docs).
 TECHNICAL_COLLECTIONS = (
@@ -81,6 +88,14 @@ def _new_scan_doc(scan_id: str, trigger: str, started_at: datetime, prev: Option
             doc["last_ran"] = prev["last_ran"]
         if prev.get("record_count") is not None:
             doc["record_count"] = prev["record_count"]
+        # Carry the manual-trigger audit trail across the replace. Without this
+        # the document swap silently erases the cooldown timestamp the API just
+        # wrote, so the rate limit would evaporate the moment a scan started —
+        # a user could fire another manual scan the instant this one finished.
+        if prev.get("last_manual_trigger_at"):
+            doc["last_manual_trigger_at"] = prev["last_manual_trigger_at"]
+        if prev.get("last_manual_trigger_by"):
+            doc["last_manual_trigger_by"] = prev["last_manual_trigger_by"]
     return doc
 
 
@@ -189,13 +204,51 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
                     _ACTIVE_SCANS.pop(scan_id, None)
                     return
 
-        # Full document replace — a new scan NEVER inherits leftover fields
-        # from a previous, unrelated run. This is what closes the exact bug:
-        # a killed process could otherwise leave stale symbols_processed/
-        # total_symbols sitting under a live RUNNING status forever.
-        await meta_col.replace_one(
-            {"_id": "daily_scan"}, _new_scan_doc(scan_id, trigger, start_time, prev=last_meta), upsert=True,
-        )
+        # ── Atomic claim ────────────────────────────────────────────────
+        # Full document replace (a new scan NEVER inherits leftover fields from
+        # a previous, unrelated run — that's the stuck-at-2067 bug), but now
+        # CONDITIONAL: the filter only matches when no scan currently holds the
+        # lock, so the write itself is the mutual exclusion.
+        #
+        # Why here and not in the API endpoint: cron, startup-staleness and the
+        # manual endpoint all funnel through this function, so this is the only
+        # place that can serialise all three. It is also cross-instance safe —
+        # the previous in-process `_ACTIVE_SCANS` check could not see a scan
+        # running in another worker/dyno, and only logged when it did.
+        #
+        # A RUNNING doc older than STALE_SCAN_HOURS is treated as orphaned (the
+        # process died mid-scan, leaving the flag set forever) and can be
+        # reclaimed — otherwise one crash would wedge scanning permanently.
+        stale_cutoff = start_time - timedelta(hours=STALE_SCAN_HOURS)
+        claim_filter = {
+            "_id": "daily_scan",
+            "$or": [
+                {"overall_status": {"$ne": "RUNNING"}},
+                {"overall_status": {"$exists": False}},
+                {"started_at": {"$lt": stale_cutoff}},
+                {"started_at": None},
+            ],
+        }
+        try:
+            await meta_col.replace_one(
+                claim_filter,
+                _new_scan_doc(scan_id, trigger, start_time, prev=last_meta),
+                upsert=True,
+            )
+        except DuplicateKeyError:
+            # upsert tried to INSERT because the filter didn't match, and _id
+            # already exists => a scan holds the lock right now. Losing this
+            # race is normal and expected, not an error.
+            holder = await meta_col.find_one({"_id": "daily_scan"}, {"scan_id": 1, "trigger": 1, "started_at": 1})
+            log.warning(
+                f"[{scan_id}] SCAN REJECTED — another scan holds the lock "
+                f"(scan_id={(holder or {}).get('scan_id')}, "
+                f"trigger={(holder or {}).get('trigger')}, "
+                f"started_at={(holder or {}).get('started_at')})"
+            )
+            _ACTIVE_SCANS.pop(scan_id, None)
+            return
+
         sw = _StageWriter(meta_col, _ACTIVE_SCANS, scan_id)
 
         # ── Stage: Download ──────────────────────────────────────────────
@@ -360,6 +413,21 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             indicator_map=indicator_map, publish=False,
         )
         await sw.finish("alpha_zone", az_count, len(symbols), 0, [], t_az)
+
+        # ── Stage: IPO Vintage (its own small tracked universe — NOT the ────
+        # ── 2150-symbol universe above; rule-based, no ML) ──────────────────
+        t_iv = datetime.now(timezone.utc)
+        ipo_listings_count = await db.get_collection("ipo_listings").count_documents({})
+        await sw.start("ipo_vintage", total=ipo_listings_count)
+
+        async def _iv_progress(done: int, total: int) -> None:
+            await sw.progress("ipo_vintage", done)
+
+        from engines.strategies.runner import run_ipo_vintage_scan
+        iv_count = await run_ipo_vintage_scan(
+            db, scan_id=scan_id, progress_cb=_iv_progress, publish=False,
+        )
+        await sw.finish("ipo_vintage", iv_count, ipo_listings_count, 0, [], t_iv)
 
         # ── Publish: atomic rename swap, every collection, all at once ──────
         log.info(f"[{scan_id}] Publishing {len(PIPELINE_COLLECTIONS)} collections…")

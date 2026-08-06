@@ -12,13 +12,10 @@ from datetime import datetime, timedelta, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any, Optional
 
-from config import get_settings
-
 log = logging.getLogger("finai_edge.ohlc_downloader")
 
 # Configs
-DAYS_PER_CHUNK = 180        # Groww fallback chunk size (Upstox needs no chunking)
-BASE_SLEEP = 0.15           # min spacing between API calls (Upstox showed no 429s at this rate)
+BASE_SLEEP = 0.15           # min spacing between Upstox API calls (no 429s at this rate)
 MAX_WORKERS = 3             # parallel threads
 MAX_RETRIES = 5             # retry on rate limit
 
@@ -131,6 +128,34 @@ def get_cached_symbols() -> List[str]:
     return list(_IN_MEMORY_STOCK_CACHE.keys())
 
 # =========================
+# DATE NORMALIZATION
+# =========================
+def _to_naive_datetime(series: pd.Series) -> pd.Series:
+    """Coerce a date column to tz-naive datetime64 WITHOUT shifting the calendar
+    day (a plain tz-drop, not a UTC conversion — so an IST 2026-07-21 stays the
+    21st, never rolls back to the 20th).
+
+    Handles three shapes: an already-naive datetime column (fast pass-through), a
+    homogeneous tz-aware column, and — critically — a mixed *object* column where
+    some Timestamps are tz-aware and others naive. That last shape is exactly what
+    used to make the merge raise "Tz-aware datetime… cannot be converted…", which
+    the coordinator swallowed and then reran the whole scan on the stale CSV. The
+    providers below now all return naive dates, so this is also a belt-and-braces
+    guard against any future provider re-introducing the mix."""
+    if isinstance(series.dtype, pd.DatetimeTZDtype):
+        return series.dt.tz_localize(None)                      # homogeneous tz-aware
+    if pd.api.types.is_datetime64_any_dtype(series):
+        return series                                          # already naive
+    # Object/string (possibly mixed tz) — strip tz element-wise, no day shift.
+    def _one(x):
+        ts = pd.Timestamp(x)
+        if pd.isna(ts):
+            return pd.NaT
+        return ts.tz_localize(None) if ts.tzinfo is not None else ts
+    return series.map(_one)
+
+
+# =========================
 # DATA VALIDATION
 # =========================
 def validate_and_clean_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -151,8 +176,8 @@ def validate_and_clean_data(df: pd.DataFrame) -> pd.DataFrame:
     from utils.helpers import normalize_symbol
     df["symbol"] = df["symbol"].astype(str).apply(normalize_symbol)
     
-    # Check and convert Date
-    df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_localize(None)
+    # Check and convert Date — tz-naive, no day shift (see _to_naive_datetime).
+    df["date"] = _to_naive_datetime(df["date"])
     dates = df["date"]
     
     # India current local date
@@ -180,99 +205,7 @@ def validate_and_clean_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 # =========================
-# GROWW FETCH LOGIC
-# =========================
-def safe_get_groww_candles(groww_api, **kwargs):
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            throttle()
-            return groww_api.get_historical_candles(**kwargs)
-        except Exception as e:
-            err_str = str(e)
-            if "Rate limit" in err_str or "429" in err_str:
-                sleep_time = attempt * 2
-                log.warning(f"⚠️ Groww Rate limit → retry {attempt}/{MAX_RETRIES} in {sleep_time}s")
-                time.sleep(sleep_time)
-            else:
-                raise
-    raise RuntimeError("Max retries exceeded for Groww API")
-
-def fetch_groww_eod_range(groww_api, groww_symbol, start_dt, end_dt):
-    try:
-        resp = safe_get_groww_candles(
-            groww_api,
-            exchange=groww_api.EXCHANGE_NSE,
-            segment=groww_api.SEGMENT_CASH,
-            groww_symbol=groww_symbol,
-            start_time=start_dt.strftime("%Y-%m-%d %H:%M:%S"),
-            end_time=end_dt.strftime("%Y-%m-%d %H:%M:%S"),
-            candle_interval=groww_api.CANDLE_INTERVAL_DAY
-        )
-    except Exception as e:
-        log.warning(f"Groww fetch error for {groww_symbol}: {e}")
-        return pd.DataFrame()
-
-    candles = []
-    if isinstance(resp, list):
-        candles = resp
-    elif isinstance(resp, dict):
-        if "candles" in resp:
-            candles = resp["candles"]
-        elif "data" in resp and isinstance(resp["data"], dict):
-            candles = resp["data"].get("candles", [])
-        else:
-            log.warning(f"Unexpected response for {groww_symbol}: {resp}")
-            return pd.DataFrame()
-    else:
-        log.warning(f"Unexpected response type {type(resp)} for {groww_symbol}")
-        return pd.DataFrame()
-
-    if not candles:
-        log.info(
-            f"No candles returned for {groww_symbol} | "
-            f"Start={start_dt.strftime('%Y-%m-%d')} End={end_dt.strftime('%Y-%m-%d')}"
-        )
-        return pd.DataFrame()
-
-    rows = []
-    for c in candles:
-        if len(c) < 6:
-            continue
-        if any(v is None for v in c[:6]):
-            log.warning(f"Skipping incomplete candle for {groww_symbol}: {c}")
-            continue
-
-        row = {
-            "date": pd.to_datetime(c[0], errors="coerce"),
-            "open": float(c[1]),
-            "high": float(c[2]),
-            "low": float(c[3]),
-            "close": float(c[4]),
-            "volume": int(c[5]),
-        }
-        rows.append(row)
-
-    if not rows:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(rows)
-    df = df.dropna(subset=["date"])
-    df["date"] = df["date"].dt.normalize()
-    return df[["date", "open", "high", "low", "close", "volume"]]
-
-def fetch_groww_incremental(groww_api, groww_symbol, start_dt, end_dt):
-    chunks = []
-    current = start_dt
-    while current < end_dt:
-        chunk_end = min(current + timedelta(days=DAYS_PER_CHUNK), end_dt)
-        df = fetch_groww_eod_range(groww_api, groww_symbol, current, chunk_end)
-        if not df.empty:
-            chunks.append(df)
-        current = chunk_end + timedelta(days=1)
-    return pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
-
-# =========================
-# YFINANCE FETCH LOGIC (FALLBACK)
+# YFINANCE FETCH LOGIC (^NSEI benchmark disaster fallback only)
 # =========================
 def fetch_yfinance_incremental(symbol, start_dt, end_dt):
     yf_symbol = symbol if symbol.endswith(".NS") or symbol == "^NSEI" else f"{symbol}.NS"
@@ -295,7 +228,14 @@ def fetch_yfinance_incremental(symbol, start_dt, end_dt):
             elif c == 'volume': rename_map[c] = 'volume'
             
         df.rename(columns=rename_map, inplace=True)
-        df["date"] = pd.to_datetime(df["date"]).dt.normalize()
+        # yfinance's daily index is tz-aware (Asia/Kolkata). Drop the tz WITHOUT a
+        # UTC conversion so the wall-clock IST date is preserved (identical to how
+        # the Upstox parser strips +05:30). Returning tz-aware dates here is what
+        # created the mixed-tz merge column that crashed the whole download.
+        df["date"] = pd.to_datetime(df["date"])
+        if isinstance(df["date"].dtype, pd.DatetimeTZDtype):
+            df["date"] = df["date"].dt.tz_localize(None)
+        df["date"] = df["date"].dt.normalize()
         return df[["date", "open", "high", "low", "close", "volume"]]
     except Exception as e:
         log.warning(f"yfinance fetch error for {yf_symbol}: {e}")
@@ -364,7 +304,7 @@ def _parse_upstox_candles(candles: list) -> pd.DataFrame:
 
 
 def safe_get_upstox_candles(instrument_key: str, from_date: str, to_date: str) -> Any:
-    """One throttled GET with 429 backoff, mirroring safe_get_groww_candles."""
+    """One throttled GET with 429 backoff (retry with linear sleep)."""
     url = UPSTOX_HIST_URL.format(instrument_key=instrument_key, to_date=to_date, from_date=from_date)
     for attempt in range(1, MAX_RETRIES + 1):
         throttle()
@@ -420,22 +360,18 @@ def _resolve_instrument_key(row) -> Optional[str]:
     return None
 
 
-def _resolve_groww_symbol(row, symbol: str) -> str:
-    """Groww symbol from the row's column, else the standard `NSE-<symbol>`
-    convention (Upstox CSVs don't carry a groww_symbol column)."""
-    gs = row.get("groww_symbol") if hasattr(row, "get") else None
-    if isinstance(gs, str) and gs.strip():
-        return gs.strip()
-    return f"NSE-{symbol}"
+def _fetch_ohlc(row, symbol, start_dt, end_dt) -> pd.DataFrame:
+    """Fetch one symbol's daily candles from Upstox — the single OHLCV source.
 
+    Upstox's public V3 historical endpoint returns multi-year daily history in a
+    single call and (validated live across the full ~2063-symbol NSE universe)
+    serves every equity, so there is no per-symbol provider fallback for equities.
+    Groww was removed from the OHLCV path entirely — its candles were found to be
+    inaccurate — so nothing here can pull equity data from Groww.
 
-def _fetch_with_fallbacks(row, symbol, start_dt, end_dt, groww_api) -> pd.DataFrame:
-    """Fetch one symbol's candles through the provider chain, returning the first
-    non-empty result. Default order is Upstox → Groww → yfinance; a config
-    toggle (ohlc_primary_provider="groww") flips the first two for rollback.
-    yfinance is always the final safety net."""
-    # Benchmark index: Upstox index key, then yfinance. The Groww *equity* path
-    # does not serve the index, so it's skipped here (as it was before).
+    The only exception is the ^NSEI benchmark: Upstox's index key is tried first,
+    then yfinance purely as a disaster net for that one infrastructure series
+    (Groww never served the index anyway)."""
     if symbol == "^NSEI":
         df = fetch_upstox_range(NIFTY_UPSTOX_KEY, start_dt, end_dt)
         if df is not None and not df.empty:
@@ -443,38 +379,17 @@ def _fetch_with_fallbacks(row, symbol, start_dt, end_dt, groww_api) -> pd.DataFr
         return fetch_yfinance_incremental(symbol, start_dt, end_dt)
 
     instrument_key = _resolve_instrument_key(row)
-    groww_symbol = _resolve_groww_symbol(row, symbol)
-
-    def _via_upstox():
+    try:
         return fetch_upstox_range(instrument_key, start_dt, end_dt)
-
-    def _via_groww():
-        return fetch_groww_incremental(groww_api, groww_symbol, start_dt, end_dt) if groww_api else pd.DataFrame()
-
-    def _via_yfinance():
-        return fetch_yfinance_incremental(symbol, start_dt, end_dt)
-
-    primary = getattr(get_settings(), "ohlc_primary_provider", "upstox")
-    if primary == "groww":
-        providers = [_via_groww, _via_upstox, _via_yfinance]
-    else:
-        providers = [_via_upstox, _via_groww, _via_yfinance]
-
-    for fetch in providers:
-        try:
-            df = fetch()
-        except Exception as e:
-            log.warning(f"Provider fetch error for {symbol}: {e}")
-            df = pd.DataFrame()
-        if df is not None and not df.empty:
-            return df
-    return pd.DataFrame()
+    except Exception as e:
+        log.warning(f"Upstox fetch error for {symbol}: {e}")
+        return pd.DataFrame()
 
 
 # =========================
 # CORE WORKER
 # =========================
-def process_stock(row, last_date_map, groww_api=None) -> Dict[str, Any]:
+def process_stock(row, last_date_map) -> Dict[str, Any]:
     symbol = row["Symbol"]
     today = datetime.now()
 
@@ -492,9 +407,9 @@ def process_stock(row, last_date_map, groww_api=None) -> Dict[str, Any]:
         else:
             start_dt = today - timedelta(days=5 * 365)
 
-        # Provider chain: Upstox (primary) → Groww → yfinance. ^NSEI is handled
-        # inside via the Upstox index key with a yfinance fallback.
-        df = _fetch_with_fallbacks(row, symbol, start_dt, today, groww_api)
+        # OHLCV source: Upstox only (equities). ^NSEI uses the Upstox index key
+        # with a yfinance disaster fallback. Groww is not used for OHLCV.
+        df = _fetch_ohlc(row, symbol, start_dt, today)
 
         if df is None or df.empty:
             return {"symbol": symbol, "status": "no_data", "df": None}
@@ -515,9 +430,8 @@ async def download_incremental_ohlc() -> str:
     Main entry point for EOD incremental sync.
     Creates or updates backend/data/Stock_Data.csv.
     """
-    settings = get_settings()
     paths = get_downloader_paths()
-    
+
     symbols_csv = paths["symbols_csv"]
     output_csv = paths["output_csv"]
     
@@ -569,22 +483,10 @@ async def download_incremental_ohlc() -> str:
         # Convert dictionary keys to uppercase to match symbols_df
         last_date_map = {str(k).upper(): v for k, v in last_date_map.items()}
 
-    # Initialize Groww API if available
-    groww_api = None
-    if settings.groww_available:
-        try:
-            import pyotp
-            from growwapi import GrowwAPI
-            totp_gen = pyotp.TOTP(settings.groww_totp_secret)
-            totp = totp_gen.now()
-            access_token = GrowwAPI.get_access_token(api_key=settings.groww_api_key, totp=totp)
-            groww_api = GrowwAPI(access_token)
-            log.info("✅ Authenticated with Groww API for daily refresh")
-        except Exception as e:
-            log.warning(f"Groww auth failed: {e}. Falling back to yfinance.")
-
-    if groww_api is None:
-        log.info("ℹ️ Using yfinance fallback for daily refresh (no authentication required)")
+    # OHLCV is sourced from Upstox's public (keyless) V3 historical endpoint — no
+    # Groww authentication is performed here. Groww was removed from the OHLCV
+    # path because its candles were inaccurate; ^NSEI keeps a yfinance fallback.
+    log.info("ℹ️ OHLCV source: Upstox (public V3 historical) — Groww not used for OHLCV")
 
     # Parallel Fetch
     new_records = []
@@ -603,7 +505,7 @@ async def download_incremental_ohlc() -> str:
         records = []
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             futures = {
-                executor.submit(process_stock, row, last_date_map, groww_api): row["Symbol"]
+                executor.submit(process_stock, row, last_date_map): row["Symbol"]
                 for _, row in symbols_df.iterrows()
             }
             done_count = 0
@@ -648,7 +550,10 @@ async def download_incremental_ohlc() -> str:
     if new_records:
         new_df = pd.concat(new_records, ignore_index=True)
         new_df.columns = new_df.columns.str.lower()
-        new_df["date"] = pd.to_datetime(new_df["date"])
+        # tz-safe coercion (no day shift). Providers already return naive dates,
+        # so this normally hits the fast path — but it also de-mixes any stray
+        # tz-aware column instead of raising and losing the whole day's download.
+        new_df["date"] = _to_naive_datetime(new_df["date"])
         
         combined = (
             pd.concat([existing_df, new_df], ignore_index=True)

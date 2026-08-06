@@ -1,5 +1,6 @@
 import axios from "axios";
 import { env } from "@/config/env";
+import { authHeader } from "@/lib/api/authToken";
 
 const API_URL = env.fastapiUrl;
 
@@ -63,8 +64,31 @@ export const screenerService = {
         return scannerClient.get("/api/scanner/alpha-zone", { params });
     },
 
+    async getIpoVintage(params: Record<string, any> = {}) {
+        return scannerClient.get("/api/scanner/ipo-vintage", { params });
+    },
+
+    async getIpoVintageStudy() {
+        return scannerClient.get("/api/scanner/ipo-vintage/study");
+    },
+
+    async listIpoListings() {
+        return scannerClient.get("/api/v2/scanner/ipo-vintage/listings");
+    },
+
+    async addIpoListing(payload: { symbol: string; company_name?: string; listing_date: string; issue_price?: number }) {
+        return scannerClient.post("/api/v2/scanner/ipo-vintage/listings", payload);
+    },
+
+    /**
+     * Manually trigger a full market scan. Requires a signed-in user — the
+     * endpoint verifies the Express-issued JWT, so the bearer token must be
+     * attached (read endpoints above stay public and don't need it).
+     */
     async triggerScan() {
-        return scannerClient.post("/api/v2/scanner/trigger-scan");
+        return scannerClient.post("/api/v2/scanner/trigger-scan", null, {
+            headers: await authHeader(),
+        });
     },
 
     async getScanStatus() {

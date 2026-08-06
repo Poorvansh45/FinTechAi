@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "frontend",
       "port": 9002
+    },
+    {
+      "name": "fastapi",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "main:app", "--port", "8000"],
+      "cwd": "backend/fastapi_app",
+      "port": 8000
     }
   ]
 }

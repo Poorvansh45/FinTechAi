@@ -212,6 +212,106 @@ def nearest_launchpad_fvg(
     return min(elig, key=lambda f: abs(price - f.mid))
 
 
+# ── Historical FVG backtest ──────────────────────────────────────────────────
+# Forward window (trading days) to resolve each past FVG's outcome, and the
+# reward multiple used to place the take-profit relative to the gap-floor risk.
+FVG_BACKTEST_WINDOW = 10
+FVG_BACKTEST_REWARD = 2.0
+
+
+def fvg_backtest(
+    df: pd.DataFrame,
+    forward_days: int = FVG_BACKTEST_WINDOW,
+    reward_multiple: float = FVG_BACKTEST_REWARD,
+    min_gap_pct: float = LAUNCHPAD_MIN_GAP_PCT,
+) -> dict:
+    """
+    How well has THIS symbol historically respected bullish FVGs?
+
+    For every past bullish FVG (same 3-candle geometry LaunchPad uses), we treat
+    the gap top as the continuation entry and the gap floor as the invalidation
+    level — LaunchPad's own "a close below the floor kills the gap" rule — and
+    place a take-profit at `reward_multiple`× the entry→floor risk. Walking up to
+    `forward_days` bars after the gap forms:
+
+        • a Close below the floor first   → FAIL, return = (floor − entry)/entry
+        • the target High is reached first → WIN,  return = (target − entry)/entry
+        • neither within the window        → resolved by the final close's sign
+
+    Only gaps with a FULL forward window are counted, so outcomes are never
+    look-ahead/incomplete (the current still-open setup is naturally excluded).
+    Overlapping consecutive gaps are de-duplicated to avoid double-counting the
+    same imbalance, mirroring `detect_bullish_fvgs`.
+
+    Returns:
+        {fvg_sample, fvg_win_rate (%), fvg_avg_win (%), fvg_avg_loss (%)}
+    a plain dict so it can be spread straight into a StrategyResult's metrics.
+    """
+    empty = {"fvg_sample": 0, "fvg_win_rate": None, "fvg_avg_win": None, "fvg_avg_loss": None}
+    if df is None or df.empty or len(df) < forward_days + 3:
+        return empty
+
+    d = df.sort_values("Date").reset_index(drop=True)
+    high = d["High"].to_numpy(dtype="float64")
+    low = d["Low"].to_numpy(dtype="float64")
+    close = d["Close"].to_numpy(dtype="float64")
+    dates = pd.to_datetime(d["Date"]).to_numpy()
+    n = len(close)
+
+    wins: list[float] = []
+    losses: list[float] = []
+    prev_zone: Optional[tuple[float, float]] = None
+
+    for i in range(n - 2):
+        gl = high[i]          # gap floor  = C1.High
+        gh = low[i + 2]       # gap ceiling = C3.Low
+        if gh <= gl:
+            continue
+        gap = gh - gl
+        if gap < gl * min_gap_pct or gap > gl * (LAUNCHPAD_MAX_GAP_PCT / 100.0):
+            continue
+        j = i + 2             # C3 index (gap completes here)
+        if (pd.Timestamp(dates[j]) - pd.Timestamp(dates[i])).days > LAUNCHPAD_MAX_SPAN_DAYS:
+            continue
+
+        # De-dup overlapping consecutive gaps (same imbalance chain).
+        is_dup = prev_zone is not None and max(prev_zone[0], gl) < min(prev_zone[1], gh)
+        prev_zone = (gl, gh)
+        if is_dup:
+            continue
+
+        if j + forward_days >= n:   # need a full forward window to know the outcome
+            continue
+
+        entry, floor = gh, gl
+        if entry <= 0 or entry <= floor:
+            continue
+        target = entry + reward_multiple * (entry - floor)
+
+        outcome: Optional[float] = None
+        for k in range(j + 1, j + 1 + forward_days):
+            if close[k] < floor:                    # invalidated first → loss
+                outcome = (floor - entry) / entry * 100.0
+                break
+            if high[k] >= target:                   # target hit first → win
+                outcome = (target - entry) / entry * 100.0
+                break
+        if outcome is None:                         # timed out → resolve by final close
+            outcome = (close[j + forward_days] - entry) / entry * 100.0
+
+        (wins if outcome >= 0 else losses).append(outcome)
+
+    total = len(wins) + len(losses)
+    if total == 0:
+        return empty
+    return {
+        "fvg_sample": total,
+        "fvg_win_rate": round(len(wins) / total * 100.0, 1),
+        "fvg_avg_win": round(sum(wins) / len(wins), 1) if wins else None,
+        "fvg_avg_loss": round(sum(losses) / len(losses), 1) if losses else None,
+    }
+
+
 def classify_continuation(
     fvg: Optional[FVG],
     price: float,

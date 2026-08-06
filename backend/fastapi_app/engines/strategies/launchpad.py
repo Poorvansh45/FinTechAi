@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from engines.patterns import nearest_launchpad_fvg
+from engines.patterns import nearest_launchpad_fvg, fvg_backtest
 from engines.patterns.fvg import LAUNCHPAD_MIN_GAP_PCT, LAUNCHPAD_OVERSHOOT_PCT
 from engines.ranking import score_launchpad, strength_label
 
@@ -142,7 +142,7 @@ class LaunchPadStrategy(Strategy):
         if fvg is None:
             return None
 
-        return build_launchpad_result(
+        res = build_launchpad_result(
             symbol=ctx.symbol,
             company_name=ctx.company_name,
             price=price,
@@ -154,3 +154,13 @@ class LaunchPadStrategy(Strategy):
             atr=ind.atr_14,
             fvg_date=fvg.end_date,
         )
+        if res is not None:
+            # Enrich the qualifying setup (only ~hundreds of these, so the extra
+            # per-symbol work is cheap): 20-day average volume for a liquidity
+            # filter, and this symbol's historical bullish-FVG track record so
+            # the card can show "how often FVGs work here + avg win/loss".
+            res.metrics["avg_volume"] = (
+                round(ind.avg_volume_20) if ind.avg_volume_20 else None
+            )
+            res.metrics.update(fvg_backtest(ctx.df))
+        return res

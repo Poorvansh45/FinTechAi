@@ -36,6 +36,29 @@ export const ALPHAZONE_TERMS = [
   { term: "Expected Holding", def: "A rough estimate of trading days to reach target, based on the move size and typical swing pace. Alpha Zone is a longer, 3–6 week style." },
 ];
 
+export const IPO_VINTAGE_TERMS = [
+  { term: "Opening Candle", def: "The stock's first traded session after listing. Its HIGH is the level a breakout must clear, and its LOW is the stop. The whole setup is built on this one bar's range." },
+  { term: "Trigger", def: "The first session AFTER the opening candle that CLOSES above the opening candle's high. That close is the entry. A close above the opening candle's close is NOT enough — it has to clear the entire first-day range." },
+  { term: "Stop Loss", def: "The opening candle's low. Considered hit the moment any later session's low touches or breaches it. Once hit, the trade is over — every later horizon reports the stop loss, not a price the position never saw." },
+  { term: "Risk %", def: "Distance from entry down to the stop, as a % of entry. On new listings this is WIDE — typically 10–14%, sometimes over 20%. Check it before sizing a position; this is not a 2% stop." },
+  { term: "Exit Horizons (7/15/30/60/90)", def: "Five fixed holding periods in trading sessions from entry. There is no price target — the only exits are the stop or the clock. 'Pending' means that many sessions haven't elapsed yet." },
+  { term: "Confidence", def: "A rule-based (not machine-learned) 0–100 score: risk quality (40%), breakout strength (35%), volume confirmation (25%). Risk carries the most weight because the wide stop is this setup's dominant risk." },
+  { term: "Status", def: "Active = still running with horizons pending. Stopped = the opening-candle low was breached and the trade is closed at a loss. Resolved = all 90 sessions elapsed without the stop being hit." },
+  { term: "MAE / MFE", def: "Maximum Adverse / Favourable Excursion — the worst and best the position went while open. MAE shows how much heat you'd have had to sit through to reach the outcome." },
+  { term: "Max Drawdown", def: "The largest peak-to-trough fall in closing price during the holding window. A high MFE with a deep drawdown means the gain was there but hard to hold." },
+];
+
+export const IPO_VINTAGE_FAQS = [
+  { q: "What exactly is IPO Vintage looking for?", a: "A recently-listed stock whose closing price has, for the first time, moved above the HIGH of its first trading session. Entry is that close; the stop is the first session's low. Both levels come from a single bar — the opening candle." },
+  { q: "Why the opening candle's high and not its close?", a: "Because clearing the whole first-day range is a genuine breakout, while closing above the first day's close can happen while price is still trapped inside that range. Using the close was an earlier bug in this scanner and it produced signals that weren't breakouts at all." },
+  { q: "What's the price target?", a: "There isn't one. The only exits are the stop or the clock — returns are reported at 7, 15, 30, 60 and 90 sessions and you choose which horizon matters. Nothing here forecasts a price." },
+  { q: "Does this predict the IPO listing-day pop?", a: "No. The opening candle is used only as a reference range to break out of. Whatever happened on listing day itself — the pop, the subscription, the grey-market premium — is not an input anywhere in this strategy." },
+  { q: "How is Confidence calculated? Is it AI/ML?", a: "No machine learning is involved anywhere. It's a transparent weighted blend of three measurable factors: risk quality (a tight stop scores higher), breakout strength above the opening high, and trigger-day volume versus the days before it." },
+  { q: "Why is the risk so high on these setups?", a: "New listings are volatile and their first-day range is wide, so a stop at the opening low often sits 10–20% below entry. That is a real property of the setup, not a flaw in the scanner — which is why risk is a column and a filter rather than something buried in a detail panel." },
+  { q: "Why do some setups show 'pending' instead of a return?", a: "Horizons are counted forward in trading sessions from the trigger. If those sessions haven't elapsed yet, the horizon is pending — printing a return before the time has passed would be fabricated." },
+  { q: "Is this financial advice?", a: "No. This is an educational, rule-based screen of price structure around new listings. It doesn't know your goals or risk tolerance — do your own research and manage risk before acting." },
+];
+
 export const ALPHAZONE_FAQS = [
   { q: "What is Alpha Zone scanning for?", a: "Unmitigated institutional demand zones (Smart-Money order blocks) that price is near or inside. The idea is a reversal/bounce from a level where big buyers previously acted — a longer-horizon swing than LaunchPad." },
   { q: "How is the Institutional Score built?", a: "It's a weighted blend: the SMC structure score computed by the scanner (50%), zone freshness — fresh zones score higher than repeatedly-tested ones (25%), and proximity — closer to the zone scores higher (25%). Every card shows the breakdown." },

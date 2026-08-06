@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Rocket, Shield, Filter, Waves, BookMarked,
-  RefreshCw, Clock, BarChart3, TrendingUp, Sparkles
+  RefreshCw, Clock, BarChart3, TrendingUp, Sparkles, Landmark
 } from "lucide-react";
 import { screenerService } from "@/services/screenerService";
 import { ScanStepper } from "@/components/screener/ScanStepper";
@@ -34,20 +34,24 @@ const formatISTDate = (isoString?: string) => {
 export default function ScreenerOverviewPage() {
   const [lpCount, setLpCount] = useState<number | null>(null);
   const [azCount, setAzCount] = useState<number | null>(null);
+  const [ivCount, setIvCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [scanMeta, setScanMeta] = useState<any>(null);
   const prevStatusRef = useRef<string | null>(null);
 
   const fetchCounts = useCallback(async () => {
     setLoading(true);
     try {
-      const [lpRes, azRes] = await Promise.all([
+      const [lpRes, azRes, ivRes] = await Promise.all([
         screenerService.getLaunchPad(),
-        screenerService.getAlphaZone()
+        screenerService.getAlphaZone(),
+        screenerService.getIpoVintage(),
       ]);
       if (lpRes.data?.success) setLpCount(lpRes.data.count);
       if (azRes.data?.success) setAzCount(azRes.data.count);
+      if (ivRes.data?.success) setIvCount(ivRes.data.count);
     } catch (err) {
       console.error("Failed to load opportunity counts", err);
     } finally {
@@ -90,13 +94,29 @@ export default function ScreenerOverviewPage() {
 
   const handleTriggerScan = async () => {
     setTriggering(true);
+    setScanError(null);
     try {
       await screenerService.triggerScan();
       setScanMeta((m: any) => ({ ...m, status: "RUNNING", stage: "downloading" }));
       prevStatusRef.current = "RUNNING";
       checkStatus();
-    } catch {}
-    finally {
+    } catch (err: any) {
+      // The endpoint now rejects deliberately (auth / already-running /
+      // cooldown). Swallowing those left the button looking broken, so each
+      // reason gets its own message.
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      if (status === 401) {
+        setScanError("Sign in to run a full scan.");
+      } else if (status === 409) {
+        setScanError(detail?.message || "A scan is already running.");
+        checkStatus();
+      } else if (status === 429) {
+        setScanError(detail?.message || "A scan ran recently — please wait before running another.");
+      } else {
+        setScanError("Couldn't start the scan. Check that the analytics service is running.");
+      }
+    } finally {
       setTriggering(false);
     }
   };
@@ -104,7 +124,7 @@ export default function ScreenerOverviewPage() {
   const status = scanMeta?.status?.toUpperCase() || "READY";
   const lastRanStr = scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "Never";
   const stocksScanned = scanMeta?.total_symbols || scanMeta?.record_count || 0;
-  const totalOpportunities = (lpCount || 0) + (azCount || 0);
+  const totalOpportunities = (lpCount || 0) + (azCount || 0) + (ivCount || 0);
 
   return (
     <div className="space-y-10 py-2">
@@ -127,14 +147,19 @@ export default function ScreenerOverviewPage() {
             </p>
           </div>
 
-          <button
-            onClick={handleTriggerScan}
-            disabled={triggering || status === "RUNNING"}
-            className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold text-sm px-6 py-3.5 rounded-2xl shadow-lg hover:shadow-indigo-500/20 active:scale-98 transition-all disabled:opacity-50 w-full md:w-auto"
-          >
-            <RefreshCw size={15} className={`${triggering || status === "RUNNING" ? "animate-spin" : ""}`} />
-            {status === "RUNNING" ? "Scanning Market…" : "Run Full Scan"}
-          </button>
+          <div className="flex flex-col items-stretch gap-2 w-full md:w-auto md:items-end">
+            <button
+              onClick={handleTriggerScan}
+              disabled={triggering || status === "RUNNING"}
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold text-sm px-6 py-3.5 rounded-2xl shadow-lg hover:shadow-indigo-500/20 active:scale-98 transition-all disabled:opacity-50 w-full md:w-auto"
+            >
+              <RefreshCw size={15} className={`${triggering || status === "RUNNING" ? "animate-spin" : ""}`} />
+              {status === "RUNNING" ? "Scanning Market…" : "Run Full Scan"}
+            </button>
+            {scanError && (
+              <p className="text-xs text-amber-300/90 md:text-right max-w-xs">{scanError}</p>
+            )}
+          </div>
         </div>
 
         <ScanStepper meta={scanMeta} />
@@ -185,7 +210,7 @@ export default function ScreenerOverviewPage() {
           <h2 className="text-xl font-bold tracking-tight text-white">Featured Proprietary Strategies</h2>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
           {/* Card 1: LaunchPad */}
           <div className="group relative overflow-hidden rounded-3xl border border-purple-500/20 bg-gradient-to-br from-purple-950/20 via-gray-900/40 to-gray-950/60 p-8 shadow-xl transition-all duration-300 hover:scale-[1.01] hover:border-purple-500/40 hover:shadow-purple-900/10">
             <div className="absolute top-0 right-0 -z-10 h-40 w-40 rounded-full bg-purple-500/10 blur-3xl opacity-50" />
@@ -291,11 +316,69 @@ export default function ScreenerOverviewPage() {
             </div>
 
             <div className="mt-6 flex items-center justify-end">
-              <Link 
-                href="/screener/alpha-zone" 
+              <Link
+                href="/screener/alpha-zone"
                 className="w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-6 py-3.5 rounded-xl transition-all shadow-md group-hover:shadow-blue-500/10 active:scale-99"
               >
                 Scan Alpha Zone Opportunities
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 3: IPO Vintage */}
+          <div className="group relative overflow-hidden rounded-3xl border border-teal-500/20 bg-gradient-to-br from-teal-950/20 via-gray-900/40 to-gray-950/60 p-8 shadow-xl transition-all duration-300 hover:scale-[1.01] hover:border-teal-500/40 hover:shadow-teal-900/10">
+            <div className="absolute top-0 right-0 -z-10 h-40 w-40 rounded-full bg-teal-500/10 blur-3xl opacity-50" />
+
+            <div className="flex items-start justify-between">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-500/10 border border-teal-500/20 text-teal-400 shadow-inner shadow-teal-500/5 group-hover:scale-110 transition-transform">
+                <Landmark size={24} />
+              </div>
+              <span className="px-3 py-1 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-teal-500/10 border border-teal-500/20 text-teal-300">
+                Rule-Based
+              </span>
+            </div>
+
+            <div className="mt-6 space-y-2">
+              <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                IPO Vintage
+              </h3>
+              <p className="text-sm text-gray-400">
+                Watches recently-listed IPOs for the first close above their own listing-day close, then
+                tracks a fixed calendar of time-based exits — no price target, no ML.
+              </p>
+            </div>
+
+            <div className="mt-8 grid grid-cols-2 gap-4 border-y border-gray-800/80 py-4 text-xs">
+              <div className="space-y-1">
+                <span className="text-gray-500">Exit Horizons</span>
+                <span className="block font-semibold text-gray-200">1 – 4 Weeks (fixed)</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-gray-500">Entry Trigger</span>
+                <span className="block font-semibold text-teal-400">Close &gt; Listing Close</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-gray-500">Core Signal</span>
+                <span className="block font-semibold text-gray-200">Subscription-free breakout</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-gray-500">Current Opportunities</span>
+                <span className="block font-bold text-white text-sm font-mono">
+                  {loading ? (
+                    <span className="inline-block w-8 h-3.5 bg-gray-800/80 animate-pulse rounded" />
+                  ) : (
+                    ivCount ?? "—"
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex items-center justify-end">
+              <Link
+                href="/screener/ipo-vintage"
+                className="w-full text-center bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm px-6 py-3.5 rounded-xl transition-all shadow-md group-hover:shadow-teal-500/10 active:scale-99"
+              >
+                Scan IPO Vintage Opportunities
               </Link>
             </div>
           </div>

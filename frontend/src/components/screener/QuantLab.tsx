@@ -49,6 +49,9 @@ const SCORE_LABELS: Record<string, string> = {
   rsi: "Momentum (RSI)",
   structure: "SMC Structure",
   institutional: "Institutional",
+  breakout_strength: "Breakout Strength",
+  volume: "Volume Confirmation",
+  risk_quality: "Risk Quality",
 };
 
 function barColor(v: number): string {

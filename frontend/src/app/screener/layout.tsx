@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Filter, Waves, BookMarked, Download, Keyboard, X,
-  Rocket, Shield, BarChart3
+  Rocket, Shield, BarChart3, Landmark
 } from "lucide-react";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
 
@@ -24,12 +24,13 @@ const SCANNER_TABS: ScannerTab[] = [
   { href: "/screener/alpha-zone", label: "🔷 Alpha Zone",       icon: Shield,     activeColor: "bg-blue-500/10 border-blue-500/30 text-blue-300",     iconColor: "text-blue-400"   },
   { href: "/screener/technical",  label: "📊 Technical Scanner", icon: Filter,     activeColor: "bg-yellow-500/10 border-yellow-500/30 text-yellow-300", iconColor: "text-yellow-400" },
   { href: "/screener/volume",     label: "📈 Volume Scanner",   icon: Waves,      activeColor: "bg-orange-500/10 border-orange-500/30 text-orange-300",  iconColor: "text-orange-400" },
+  { href: "/screener/ipo-vintage", label: "🏦 IPO Vintage",     icon: Landmark,   activeColor: "bg-teal-500/10 border-teal-500/30 text-teal-300",     iconColor: "text-teal-400"   },
   { href: "/screener/watchlists", label: "⭐ Watchlists",       icon: BookMarked, activeColor: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300", iconColor: "text-emerald-400" },
 ];
 
 // ── Keyboard Shortcut Help ────────────────────────────────────────────────────
 const SHORTCUTS = [
-  { key: "1 – 6",    desc: "Switch scanner tab" },
+  { key: "1 – 7",    desc: "Switch scanner tab" },
   { key: "R",        desc: "Refresh current page's data" },
   { key: "E",        desc: "Export CSV" },
   { key: "S",        desc: "Save current preset" },
@@ -89,8 +90,8 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
       if (e.key === "Escape") { setShowShortcuts(false); if (searchRef.current) searchRef.current.blur(); return; }
       if (typing) return;
 
-      // Tab switching (1–6)
-      if (e.key >= "1" && e.key <= "6" && !e.ctrlKey && !e.metaKey) {
+      // Tab switching (1–7)
+      if (e.key >= "1" && e.key <= "7" && !e.ctrlKey && !e.metaKey) {
         const idx = parseInt(e.key) - 1;
         if (SCANNER_TABS[idx]) window.location.href = SCANNER_TABS[idx].href;
         return;

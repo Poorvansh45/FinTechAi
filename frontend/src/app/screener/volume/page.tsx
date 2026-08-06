@@ -5,6 +5,7 @@ import { screenerService } from "@/services/screenerService";
 import { PlusIcon } from "@heroicons/react/24/outline";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
+import { RangeFilter, FilterToggle } from "@/components/screener/filters";
 
 const formatISTDate = (isoString: string) => {
     try {
@@ -96,6 +97,11 @@ const defaultFilters = () => ({
     volume_ratio_min: "", day_return_min: "", day_return_max: "",
     surges_3yr_min: "", positive_surge_pct_min: "", current_surge_only: false,
 });
+
+// This page stores filter values as strings ("" = unset); the shared
+// RangeFilter speaks numbers/null. These two adapt between them.
+const str2num = (s: string): number | null => (s === "" ? null : Number(s));
+const num2str = (n: number | null): string => (n === null ? "" : String(n));
 
 export default function VolumeSurgePage() {
     const [allStocks, setAllStocks]       = useState<VolumeSurgeStock[]>([]);
@@ -239,35 +245,70 @@ export default function VolumeSurgePage() {
                         <h2 className="font-semibold text-sm">Surge Filters <span className="text-gray-500 font-normal text-xs ml-2">3-year historical analysis</span></h2>
                         <button type="button" onClick={handleClear} className="text-xs text-gray-500 hover:text-white transition-colors">Reset</button>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
-                        {[
-                            { key: "volume_ratio_min",       label: "Vol Ratio Min", hint: "vs 20d avg",      color: "orange", step: "0.5" },
-                            { key: "day_return_min",         label: "Return % Min",  hint: "on surge day",    color: "green",  step: "0.5" },
-                            { key: "day_return_max",         label: "Return % Max",  hint: "filter extremes", color: "red",    step: "0.5" },
-                            { key: "surges_3yr_min",         label: "Min Surge Days",hint: "in 3 years",      color: "blue",   step: "1"   },
-                        ].map(field => (
-                            <div key={field.key} className={`rounded-xl p-3 border transition-all ${(filters as any)[field.key] !== "" ? `border-${field.color}-500/50 bg-${field.color}-500/5` : "border-gray-800 bg-gray-800/30"}`}>
-                                <div className="flex justify-between mb-1.5">
-                                    <span className={`text-xs font-semibold text-${field.color}-400`}>{field.label}</span>
-                                    <span className="text-xs text-gray-600">{field.hint}</span>
-                                </div>
-                                <input type="number" step={field.step} placeholder="—"
-                                    value={(filters as any)[field.key]}
-                                    onChange={e => setFilters(f => ({ ...f, [field.key]: e.target.value }))}
-                                    className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-orange-500"
-                                />
-                            </div>
-                        ))}
-                        {/* Currently Surging toggle */}
-                        <div className="rounded-xl p-3 border border-gray-800 bg-gray-800/30 flex flex-col gap-1.5">
-                            <span className="text-xs font-semibold text-yellow-400">Currently Surging</span>
-                            <span className="text-xs text-gray-600">today&apos;s spike only</span>
-                            <button type="button"
-                                onClick={() => setFilters(f => ({ ...f, current_surge_only: !f.current_surge_only }))}
-                                className={`rounded-lg px-2 py-1.5 text-xs font-medium transition-all border ${filters.current_surge_only ? "bg-yellow-500/20 border-yellow-500/50 text-yellow-300" : "bg-gray-900 border-gray-700 text-gray-400 hover:text-white"}`}>
-                                {filters.current_surge_only ? "⚡ Active" : "All stocks"}
-                            </button>
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5 mb-4">
+                        <RangeFilter
+                            label="Vol Ratio"
+                            description="Volume vs its 20-day average."
+                            value={{ min: str2num(filters.volume_ratio_min), max: null }}
+                            onChange={(n) => setFilters(f => ({ ...f, volume_ratio_min: num2str(n.min) }))}
+                            min={0} max={20} step={0.5} singleEnded accent="orange"
+                            unit="×"
+                            presets={[
+                                { label: "2×+", min: 2, max: null },
+                                { label: "3×+", min: 3, max: null },
+                                { label: "5×+", min: 5, max: null },
+                            ]}
+                        />
+
+                        <RangeFilter
+                            label="Day Return"
+                            description="Return on the surge day."
+                            value={{ min: str2num(filters.day_return_min), max: str2num(filters.day_return_max) }}
+                            onChange={(n) => setFilters(f => ({
+                                ...f,
+                                day_return_min: num2str(n.min),
+                                day_return_max: num2str(n.max),
+                            }))}
+                            min={-20} max={20} step={0.5} accent="emerald" unit="%"
+                            presets={[
+                                { label: "Up", min: 0, max: null },
+                                { label: "5%+", min: 5, max: null },
+                                { label: "Down", min: null, max: 0 },
+                            ]}
+                        />
+
+                        <RangeFilter
+                            label="Surge Days"
+                            description="Number of surge days in the last 3 years."
+                            value={{ min: str2num(filters.surges_3yr_min), max: null }}
+                            onChange={(n) => setFilters(f => ({ ...f, surges_3yr_min: num2str(n.min) }))}
+                            min={0} max={100} step={1} singleEnded accent="blue"
+                            presets={[
+                                { label: "5+", min: 5, max: null },
+                                { label: "10+", min: 10, max: null },
+                                { label: "20+", min: 20, max: null },
+                            ]}
+                        />
+
+                        <RangeFilter
+                            label="Positive Surge %"
+                            description="Share of past surges that closed positive."
+                            value={{ min: str2num(filters.positive_surge_pct_min), max: null }}
+                            onChange={(n) => setFilters(f => ({ ...f, positive_surge_pct_min: num2str(n.min) }))}
+                            min={0} max={100} step={5} singleEnded accent="cyan" unit="%"
+                            presets={[
+                                { label: "50%+", min: 50, max: null },
+                                { label: "70%+", min: 70, max: null },
+                            ]}
+                        />
+
+                        <FilterToggle
+                            label="Currently Surging"
+                            description="Only stocks spiking today"
+                            checked={filters.current_surge_only}
+                            onChange={(v) => setFilters(f => ({ ...f, current_surge_only: v }))}
+                            accent="amber"
+                        />
                     </div>
                     <div className="flex items-center gap-3 justify-between">
                         {/* Search */}

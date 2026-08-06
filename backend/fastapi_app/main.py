@@ -231,7 +231,7 @@ app.include_router(analytics_router,   prefix="/api/v2/analytics")
 app.include_router(market_router,      prefix="/api/v2/market")
 app.include_router(ai_router,          prefix="/api/v2/ai")
 app.include_router(screener_router)     # /api/scanner/*
-app.include_router(screener_v2_router)  # /api/v2/scanner/scan-status + /trigger-scan
+app.include_router(screener_v2_router)  # /api/v2/scanner/scan-status + /trigger-scan + /ipo-vintage/listings
 app.include_router(watchlists_router)   # /api/v2/watchlists
 app.include_router(smc_router)          # /api/v2/scanner/smc + /zone-proximity
 app.include_router(local_ohlc_router)   # /api/v2/scanner/local-ohlc/*

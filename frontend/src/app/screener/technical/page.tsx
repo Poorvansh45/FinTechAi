@@ -7,6 +7,12 @@ import SavedFiltersPanel from "@/components/screener/SavedFiltersPanel";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
 import { Download } from "lucide-react";
 import { ScannerContext } from "../context";
+import {
+  RangeFilter,
+  RSI_PRESETS,
+  EMA_DIST_PRESETS,
+  VOLUME_PRESETS,
+} from "@/components/screener/filters";
 
 const formatISTDate = (isoString: string) => {
   try {
@@ -23,30 +29,41 @@ const formatISTDate = (isoString: string) => {
 
 
 // ── Filter config ─────────────────────────────────────────────────────────────
+// `bounds` drive the slider only; typed values are never clamped to them, so
+// every value that worked before still works.
 const FILTERS = [
   {
     key: "rsi", label: "RSI (14)", hint: "0 – 100", step: 1, color: "yellow",
     minParam: "rsi_min", maxParam: "rsi_max",
+    bounds: [0, 100] as [number, number], accent: "amber" as const, presets: RSI_PRESETS,
     description: "Relative Strength Index. 30–70 neutral. <30 oversold, >70 overbought.",
   },
   {
     key: "ema50dist", label: "EMA 50 Dist %", hint: "+5 = 5% above EMA50", step: 0.5, color: "blue",
     minParam: "ema50_dist_min", maxParam: "ema50_dist_max",
+    bounds: [-50, 50] as [number, number], accent: "blue" as const, unit: "%", presets: EMA_DIST_PRESETS,
     description: "((Price − EMA50) / EMA50) × 100. Positive = bullish alignment. Works at any price level.",
   },
   {
     key: "ema200dist", label: "EMA 200 Dist %", hint: "+10 = 10% above EMA200", step: 0.5, color: "purple",
     minParam: "ema200_dist_min", maxParam: "ema200_dist_max",
+    bounds: [-50, 50] as [number, number], accent: "purple" as const, unit: "%", presets: EMA_DIST_PRESETS,
     description: "((Price − EMA200) / EMA200) × 100. Long-term trend positioning.",
   },
   {
-    key: "macd", label: "MACD Hist", hint: "+ = bullish momentum", step: 0.01, color: "green",
+    key: "macd", label: "MACD Hist", hint: "+ = bullish momentum", step: 0.1, color: "green",
     minParam: "macd_min", maxParam: "macd_max",
+    bounds: [-20, 20] as [number, number], accent: "emerald" as const,
+    presets: [
+      { label: "Bullish >0", min: 0, max: null },
+      { label: "Bearish <0", min: null, max: 0 },
+    ],
     description: "MACD histogram (12,26,9). Positive = bullish crossover momentum.",
   },
   {
     key: "volume", label: "Volume", hint: "shares/day", step: 100000, color: "orange",
     minParam: "volume_min", maxParam: "volume_max",
+    bounds: [0, 20_000_000] as [number, number], accent: "orange" as const, presets: VOLUME_PRESETS,
     description: "Today's traded volume in shares.",
   },
 ];
@@ -80,18 +97,6 @@ const distColor = (v?: number | null) => {
 const fmtDist = (v?: number | null) =>
   v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 
-const colorBorder: Record<string, string> = {
-  yellow: "border-yellow-500/50 bg-yellow-500/5",
-  blue:   "border-blue-500/50 bg-blue-500/5",
-  purple: "border-purple-500/50 bg-purple-500/5",
-  green:  "border-green-500/50 bg-green-500/5",
-  orange: "border-orange-500/50 bg-orange-500/5",
-};
-const colorLabel: Record<string, string> = {
-  yellow: "text-yellow-400", blue: "text-blue-400",
-  purple: "text-purple-400", green: "text-green-400", orange: "text-orange-400",
-};
-
 // ── Preset serialiser ─────────────────────────────────────────────────────────
 const filtersToFlat = (f: FilterState): Record<string, string> => {
   const out: Record<string, string> = {};
@@ -120,7 +125,6 @@ export default function ScreenerPage() {
   const [page, setPage]             = useState(1);
   const [sortKey, setSortKey]       = useState("volume");
   const [sortDir, setSortDir]       = useState<"asc" | "desc">("desc");
-  const [tooltip, setTooltip]       = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<any | null>(null);
   const { exportCSV } = useScreenerExport();
@@ -253,46 +257,34 @@ export default function ScreenerPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2.5 mb-4">
           {FILTERS.map((ind) => {
-            const f      = filters[ind.key];
-            const active = f.min !== "" || f.max !== "";
+            const f = filters[ind.key];
             return (
-              <div
+              <RangeFilter
                 key={ind.key}
-                className={`rounded-xl p-3 border transition-all ${active ? colorBorder[ind.color] : "border-gray-800 bg-gray-800/30"}`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={`text-xs font-semibold ${colorLabel[ind.color]}`}>{ind.label}</span>
-                  <button
-                    type="button"
-                    onMouseEnter={() => setTooltip(ind.key)}
-                    onMouseLeave={() => setTooltip(null)}
-                    className="text-gray-600 hover:text-gray-300 text-xs"
-                  >ⓘ</button>
-                </div>
-                {tooltip === ind.key && (
-                  <div className="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded-lg p-2 mb-2 leading-relaxed">
-                    {ind.description}
-                  </div>
-                )}
-                <span className="text-xs text-gray-600 block mb-1.5">{ind.hint}</span>
-                <div className="flex gap-1.5">
-                  {["min", "max"].map((side) => (
-                    <input
-                      key={side}
-                      type="number"
-                      step={ind.step}
-                      placeholder={side === "min" ? "Min" : "Max"}
-                      value={(f as any)[side]}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, [ind.key]: { ...prev[ind.key], [side]: e.target.value } }))
-                      }
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
-                    />
-                  ))}
-                </div>
-              </div>
+                label={ind.label}
+                description={`${ind.description} (${ind.hint})`}
+                value={{
+                  min: f.min === "" ? null : Number(f.min),
+                  max: f.max === "" ? null : Number(f.max),
+                }}
+                onChange={(next) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    [ind.key]: {
+                      min: next.min === null ? "" : String(next.min),
+                      max: next.max === null ? "" : String(next.max),
+                    },
+                  }))
+                }
+                min={ind.bounds[0]}
+                max={ind.bounds[1]}
+                step={ind.step}
+                unit={(ind as any).unit}
+                presets={ind.presets}
+                accent={ind.accent}
+              />
             );
           })}
         </div>

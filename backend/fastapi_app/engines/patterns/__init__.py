@@ -15,6 +15,7 @@ from .fvg import (
     launchpad_valid_fvgs,
     nearest_launchpad_fvg,
     classify_continuation,
+    fvg_backtest,
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "launchpad_valid_fvgs",
     "nearest_launchpad_fvg",
     "classify_continuation",
+    "fvg_backtest",
 ]

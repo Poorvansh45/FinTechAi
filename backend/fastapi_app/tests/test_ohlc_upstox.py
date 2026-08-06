@@ -1,11 +1,11 @@
 """
 Upstox OHLCV downloader — pure-function tests (no network, no MongoDB).
 
-Covers the candle parser (`_parse_upstox_candles`) and the instrument-key /
-groww-symbol resolvers that back the Upstox → Groww → yfinance fetch chain in
-services/ohlc_downloader.py. All logic here is deterministic and offline —
-consistent with test_engines.py's zero-dependency style; no test hits the live
-Upstox API.
+Covers the candle parser (`_parse_upstox_candles`) and the instrument-key
+resolver that back the Upstox-only OHLCV fetch in services/ohlc_downloader.py
+(Groww was removed from the OHLCV path). All logic here is deterministic and
+offline — consistent with test_engines.py's zero-dependency style; no test hits
+the live Upstox API.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import pandas as pd
 from services.ohlc_downloader import (
     _parse_upstox_candles,
     _resolve_instrument_key,
-    _resolve_groww_symbol,
+    _to_naive_datetime,
 )
 
 
@@ -107,9 +107,32 @@ def test_instrument_key_works_with_pandas_series():
     assert _resolve_instrument_key(row) == "NSE_EQ|INE0LLY01014"
 
 
-# ── _resolve_groww_symbol ────────────────────────────────────────────────────
+# ── _to_naive_datetime (the stale-data / mixed-tz merge guard) ────────────────
 
-def test_groww_symbol_prefers_column_else_derives():
-    assert _resolve_groww_symbol({"groww_symbol": "NSE-RELIANCE"}, "RELIANCE") == "NSE-RELIANCE"
-    # Upstox CSV has no groww_symbol column -> derive the standard NSE- form.
-    assert _resolve_groww_symbol({}, "RELIANCE") == "NSE-RELIANCE"
+def test_naive_datetime_passthrough_for_naive_column():
+    s = pd.to_datetime(pd.Series(["2026-07-20", "2026-07-21"]))
+    out = _to_naive_datetime(s)
+    assert out.dt.tz is None
+    assert list(out) == [pd.Timestamp("2026-07-20"), pd.Timestamp("2026-07-21")]
+
+
+def test_naive_datetime_strips_homogeneous_tz_without_day_shift():
+    # IST-midnight dates must NOT roll back to the previous day (the bug a naive
+    # utc=True conversion would have caused).
+    s = pd.to_datetime(pd.Series(["2026-07-20", "2026-07-21"])).dt.tz_localize("Asia/Kolkata")
+    out = _to_naive_datetime(s)
+    assert out.dt.tz is None
+    assert list(out) == [pd.Timestamp("2026-07-20"), pd.Timestamp("2026-07-21")]
+
+
+def test_naive_datetime_demixes_object_column_without_raising():
+    # The exact shape that used to crash the merge and silently discard the day's
+    # fresh download: an object column mixing tz-aware and tz-naive Timestamps.
+    mixed = pd.Series([
+        pd.Timestamp("2026-07-20"),                              # naive (Upstox)
+        pd.Timestamp("2026-07-21", tz="Asia/Kolkata"),           # tz-aware (yfinance)
+    ], dtype=object)
+    out = _to_naive_datetime(mixed)
+    assert pd.api.types.is_datetime64_any_dtype(out)
+    assert out.dt.tz is None
+    assert list(out) == [pd.Timestamp("2026-07-20"), pd.Timestamp("2026-07-21")]

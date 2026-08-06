@@ -33,12 +33,12 @@ class Settings(BaseSettings):
     finnhub_api_key: Optional[str] = None
 
     # ── Bulk OHLCV ingestion (services/ohlc_downloader.py) ──────────
-    # Primary provider for the historical OHLCV download that feeds the scanner
-    # pipeline. Upstox's public V3 historical + instrument-master endpoints need
-    # no auth and return multi-year daily history in a single call. The fetch
-    # chain is <primary> → Groww → yfinance; set this to "groww" as a rollback
-    # switch to restore the old Groww-first ordering. (Live LTP quotes are a
-    # separate path and are unaffected.)
+    # OHLCV for the scanner pipeline is sourced SOLELY from Upstox's public V3
+    # historical endpoint (no auth; multi-year daily history in one call). Groww
+    # was removed from the OHLCV path — its candles were inaccurate — and yfinance
+    # remains only as a disaster fallback for the ^NSEI index. This field is kept
+    # for backward compat with existing .env files but is no longer read; the
+    # source is always Upstox. (Live LTP quotes are a separate, unaffected path.)
     ohlc_primary_provider: str = "upstox"
     upstox_instruments_url: str = (
         "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"

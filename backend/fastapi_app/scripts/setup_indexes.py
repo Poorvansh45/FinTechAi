@@ -85,6 +85,14 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.zone_proximity_results.create_index("updated_at", background=True)
     log.info("  zone_proximity_results: indexes created")
 
+    # ── ipo_listings / ipo_vintage_cache ──────────────────────────────
+    await db.ipo_listings.create_index("symbol", unique=True, background=True)
+    await db.ipo_listings.create_index("listing_date", background=True)
+    await db.ipo_vintage_cache.create_index("symbol", unique=True, background=True)
+    await db.ipo_vintage_cache.create_index("confidence", background=True)
+    await db.ipo_vintage_cache.create_index("setup_status", background=True)
+    log.info("  ipo_listings / ipo_vintage_cache: indexes created")
+
     # ── watchlists ────────────────────────────────────────────────────
     await db.watchlists.create_index("created_by", background=True)
     await db.watchlist_stocks.create_index(
