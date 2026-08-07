@@ -10,8 +10,23 @@ import { screenerService } from "@/services/screenerService";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
 import { SignalBadge, TradePlanStrip, ExplainPanel, StrategyFooter } from "@/components/screener/QuantLab";
-import { FilterPanel, FilterSelect, RangeFilter } from "@/components/screener/filters";
+import {
+  FilterPanel,
+  FilterSelect,
+  RangeFilter,
+  EMPTY_RANGE,
+  isRangeActive,
+  formatCompact,
+  PRICE_PRESETS,
+  VOLUME_PRESETS,
+  type RangeValue,
+} from "@/components/screener/filters";
 import { ALPHAZONE_TERMS, ALPHAZONE_FAQS } from "@/lib/screener/quantContent";
+
+// Slider bounds. A bound is only sent to the API when the user actually sets it
+// — an empty box (null) means "no constraint", matching every scanner endpoint.
+const PRICE_BOUNDS: [number, number] = [100, 5000];
+const VOLUME_BOUNDS: [number, number] = [0, 10_000_000];
 
 function buildAZRationale(s: any): string {
   const distTxt = s.distance_pct === 0 ? "inside" : `${s.distance_pct}% away from`;
@@ -34,6 +49,9 @@ export default function AlphaZonePage() {
   const [distance, setDistance] = useState("all");
   const [minReturn, setMinReturn] = useState("");
   const [holdingPeriod, setHoldingPeriod] = useState("all");
+  // Range filters — `null` on either side means that bound isn't sent.
+  const [price, setPrice] = useState<RangeValue>(EMPTY_RANGE);
+  const [vol, setVol] = useState<RangeValue>(EMPTY_RANGE);
   const [search, setSearch] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -80,6 +98,12 @@ export default function AlphaZonePage() {
         params.holding_period = Number(holdingPeriod);
       }
 
+      if (price.min !== null) params.price_min = price.min;
+      if (price.max !== null) params.price_max = price.max;
+
+      if (vol.min !== null) params.min_avg_volume = vol.min;
+      if (vol.max !== null) params.max_avg_volume = vol.max;
+
       const res = await screenerService.getAlphaZone(params);
 
       if (res.data?.success) {
@@ -93,10 +117,15 @@ export default function AlphaZonePage() {
     } finally {
       setLoading(false);
     }
-  }, [freshness, distance, minReturn, holdingPeriod]);
+  }, [freshness, distance, minReturn, holdingPeriod, price, vol]);
 
+  // Debounced apply: dragging a range slider updates the readout instantly, but
+  // the API is only queried once the user pauses. Before this page had sliders a
+  // bare runScan() was fine — a select fires once — but a drag would otherwise
+  // issue a request per pixel.
   useEffect(() => {
-    runScan();
+    const t = setTimeout(() => { runScan(); }, 350);
+    return () => clearTimeout(t);
   }, [runScan]);
 
   useEffect(() => {
@@ -107,13 +136,16 @@ export default function AlphaZonePage() {
     (freshness !== "all" ? 1 : 0) +
     (distance !== "all" ? 1 : 0) +
     (minReturn !== "" ? 1 : 0) +
-    (holdingPeriod !== "all" ? 1 : 0);
+    (holdingPeriod !== "all" ? 1 : 0) +
+    [price, vol].filter(isRangeActive).length;
 
   const resetFilters = () => {
     setFreshness("all");
     setDistance("all");
     setMinReturn("");
     setHoldingPeriod("all");
+    setPrice(EMPTY_RANGE);
+    setVol(EMPTY_RANGE);
   };
 
   const handleOpenWatchlist = (s: any, e: React.MouseEvent) => {
@@ -133,9 +165,9 @@ export default function AlphaZonePage() {
   });
 
   const getScoreBadgeColor = (score: number) => {
-    if (score >= 85) return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    if (score >= 85) return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
     if (score >= 75) return "bg-sky-500/20 text-sky-300 border-sky-500/30";
-    return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
+    return "bg-teal-500/20 text-teal-300 border-teal-500/30";
   };
 
   return (
@@ -144,10 +176,10 @@ export default function AlphaZonePage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400">
               <Shield size={12} />
             </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Proprietary Strategy</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">Proprietary Strategy</span>
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white">🔷 Alpha Zone Institutional Scanner</h1>
           <p className="text-sm text-gray-400">
@@ -155,8 +187,8 @@ export default function AlphaZonePage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-blue-950/20 border border-blue-500/20 rounded-2xl px-5 py-2.5 text-center min-w-[100px]">
-            <div className="text-2xl font-black text-blue-400 font-mono">
+          <div className="bg-cyan-950/20 border border-cyan-500/20 rounded-2xl px-5 py-2.5 text-center min-w-[100px]">
+            <div className="text-2xl font-black text-cyan-400 font-mono">
               {loading ? "..." : filteredStocks.length}
             </div>
             <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Stocks Found</div>
@@ -182,8 +214,8 @@ export default function AlphaZonePage() {
       <FilterPanel
         activeCount={activeCount}
         onReset={resetFilters}
-        accent="blue"
-        columns={4}
+        accent="cyan"
+        columns={3}
         footer={
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
             <div className="relative w-full sm:max-w-xs">
@@ -195,13 +227,13 @@ export default function AlphaZonePage() {
                 placeholder="Search symbol or company..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-blue-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-cyan-500 focus:outline-none"
               />
             </div>
             <button
               onClick={runScan}
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-500 active:scale-98 sm:w-auto"
+              className="w-full rounded-lg bg-cyan-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-cyan-500 active:scale-98 sm:w-auto"
             >
               {loading ? "Scanning Institutional Blocks…" : "Apply Filters"}
             </button>
@@ -212,7 +244,7 @@ export default function AlphaZonePage() {
           label="Zone Freshness"
           value={freshness}
           onChange={setFreshness}
-          accent="blue"
+          accent="cyan"
           options={[
             { value: "all", label: "All Freshness" },
             { value: "fresh", label: "Fresh (Unmitigated)" },
@@ -224,7 +256,7 @@ export default function AlphaZonePage() {
           label="Distance from Zone"
           value={distance}
           onChange={setDistance}
-          accent="blue"
+          accent="cyan"
           options={[
             { value: "all", label: "All Distances" },
             { value: "inside", label: "Inside Zone (0%)" },
@@ -245,7 +277,7 @@ export default function AlphaZonePage() {
           step={1}
           unit="%"
           singleEnded
-          accent="blue"
+          accent="cyan"
           presets={[
             { label: "10%+", min: 10, max: null },
             { label: "20%+", min: 20, max: null },
@@ -257,13 +289,41 @@ export default function AlphaZonePage() {
           label="Expected Holding"
           value={holdingPeriod}
           onChange={setHoldingPeriod}
-          accent="blue"
+          accent="cyan"
           options={[
             { value: "all", label: "Any Holding" },
             { value: "30", label: "30 Days Target" },
             { value: "60", label: "60 Days Target" },
             { value: "90", label: "90 Days Target" },
           ]}
+        />
+
+        <RangeFilter
+          label="Price"
+          value={price}
+          onChange={setPrice}
+          min={PRICE_BOUNDS[0]}
+          max={PRICE_BOUNDS[1]}
+          step={10}
+          unit="₹"
+          unitPosition="prefix"
+          format={(v) => `₹${v.toLocaleString("en-IN")}`}
+          presets={PRICE_PRESETS}
+          accent="cyan"
+          description="Last traded price of the stock."
+        />
+
+        <RangeFilter
+          label="Avg Volume"
+          value={vol}
+          onChange={setVol}
+          min={VOLUME_BOUNDS[0]}
+          max={VOLUME_BOUNDS[1]}
+          step={10_000}
+          format={formatCompact}
+          presets={VOLUME_PRESETS}
+          accent="cyan"
+          description="20-day average traded volume (liquidity)."
         />
       </FilterPanel>
 
@@ -306,7 +366,7 @@ export default function AlphaZonePage() {
           </p>
           <Link
             href="/screener"
-            className="mt-2 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
+            className="mt-2 inline-flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
           >
             Go to Overview &amp; Run Full Scan
           </Link>
@@ -324,9 +384,9 @@ export default function AlphaZonePage() {
           {filteredStocks.map((s) => (
             <div 
               key={s.symbol}
-              className="group relative overflow-hidden rounded-3xl border border-gray-800 hover:border-blue-500/40 bg-gradient-to-b from-gray-900/40 to-gray-950/80 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
+              className="group relative overflow-hidden rounded-3xl border border-gray-800 hover:border-cyan-500/40 bg-gradient-to-b from-gray-900/40 to-gray-950/80 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
             >
-              <div className="absolute top-0 right-0 -z-10 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl opacity-50" />
+              <div className="absolute top-0 right-0 -z-10 h-24 w-24 rounded-full bg-cyan-500/5 blur-2xl opacity-50" />
               
               {/* Header */}
               <div className="flex justify-between items-start">
@@ -346,7 +406,7 @@ export default function AlphaZonePage() {
               <div className="mt-5 grid grid-cols-3 gap-3 bg-gray-900/40 border border-gray-850 rounded-2xl p-4 text-xs">
                 <div>
                   <span className="text-gray-500 text-[10px] block">Proj. Return</span>
-                  <span className="font-bold text-blue-400 text-sm font-mono">+{s.projected_return}%</span>
+                  <span className="font-bold text-cyan-400 text-sm font-mono">+{s.projected_return}%</span>
                 </div>
                 <div>
                   <span className="text-gray-500 text-[10px] block">Hold ≈</span>
@@ -373,7 +433,7 @@ export default function AlphaZonePage() {
               <ExplainPanel
                 rationale={buildAZRationale(s)}
                 scores={s.score_breakdown}
-                accent="blue"
+                accent="cyan"
                 rows={[
                   { label: "Demand Zone", value: `₹${s.zone_low}–₹${s.zone_high}` },
                   { label: "Distance", value: s.distance_pct === 0 ? "Inside" : `${s.distance_pct}%` },
@@ -402,7 +462,7 @@ export default function AlphaZonePage() {
 
                 <Link
                   href={`/ai-copilot?prompt=Analyze+the+Alpha+Zone+demand+setup+for+${s.symbol}+with+entry+trigger+at+${s.entry}+and+projected+return+of+${s.projected_return}%25.`}
-                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-blue-600/10 border border-blue-500/20 text-blue-300 hover:bg-blue-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
+                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-cyan-600/10 border border-cyan-500/20 text-cyan-300 hover:bg-cyan-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
                 >
                   <Sparkles size={11} /> AI Anal.
                 </Link>
@@ -413,7 +473,7 @@ export default function AlphaZonePage() {
       )}
 
       {/* ── Footer: glossary + FAQ ────────────────────────────────── */}
-      <StrategyFooter terms={ALPHAZONE_TERMS} faqs={ALPHAZONE_FAQS} accent="blue" />
+      <StrategyFooter terms={ALPHAZONE_TERMS} faqs={ALPHAZONE_FAQS} accent="cyan" />
 
       {selectedStock && (
         <AddToWatchlistModal

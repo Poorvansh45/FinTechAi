@@ -51,6 +51,15 @@ const protect = asyncHandler(async (req, res, next) => {
       return res.status(401).json({ error: 'Not authorized — user no longer exists' });
     }
 
+    // Soft revocation: clearing isActive invalidates outstanding JWTs at once,
+    // rather than leaving them valid until they expire.
+    if (user.isActive === false) {
+      if (typeof next === 'function') {
+        return next(new HttpError(403, 'Account is not active'));
+      }
+      return res.status(403).json({ error: 'Account is not active' });
+    }
+
     req.user = user;
     req.token = token; // raw JWT string — used by GET /api/auth/token
     if (typeof next === 'function') {

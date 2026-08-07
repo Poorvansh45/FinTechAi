@@ -113,16 +113,15 @@ function AuthInput({
 
 // ─── Main split-screen auth page content ─────────────────────────────────────
 function AuthPageContent() {
-  const { user, loading, login, register } = useAuth();
+  const { user, loading, login } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { toast } = useToast();
 
-  const modeParam = searchParams.get('mode') ?? searchParams.get('intent');
-  const [mode, setMode] = useState<'signin' | 'signup'>(
-    modeParam === 'signup' || modeParam === 'register' ? 'signup' : 'signin'
-  );
-  const isSignup = mode === 'signup';
+  // FinTechAI is a closed private beta — accounts are seeded server-side and
+  // there is no /api/auth/register route. Sign-in is the only mode; `isSignup`
+  // stays for the sign-up-only JSX branches below, which now never render.
+  const mode = 'signin' as const;
+  const isSignup = false;
 
   // ── Form state ────────────────────────────────────────────────
   const [username, setUsername] = useState('');
@@ -143,15 +142,7 @@ function AuthPageContent() {
     }
   }, [user, loading, router]);
 
-  // Reset form on mode switch
-  const switchMode = (m: 'signin' | 'signup') => {
-    setMode(m);
-    setErrors({});
-    setUsername('');
-    setEmail('');
-    setPassword('');
-    setConfirmPassword('');
-  };
+  // No switchMode: sign-in is the only mode during the private beta.
 
   // ── Client validation ─────────────────────────────────────────
   function validate(): boolean {
@@ -185,17 +176,23 @@ function AuthPageContent() {
 
     setIsSubmitting(true);
     try {
-      if (isSignup) {
-        await register(username.trim(), email.trim().toLowerCase(), password);
-        toast({ title: `Welcome, ${username.trim()}! 🎉`, description: 'Your account is ready.' });
-      } else {
-        await login(email.trim().toLowerCase(), password);
-        toast({ title: 'Welcome back!', description: 'Signed in successfully.' });
-      }
+      await login(email.trim().toLowerCase(), password);
+      toast({ title: 'Welcome back!', description: 'Signed in successfully.' });
       router.replace('/');
     } catch (err) {
-      const msg = err instanceof AuthApiError ? err.message : 'Something went wrong. Please try again.';
-      toast({ title: 'Error', description: msg, variant: 'destructive' });
+      // 403 means the account exists but is not on the beta — say so plainly
+      // rather than leaving the user retrying a password that is actually fine.
+      const isNotInvited = err instanceof AuthApiError && err.status === 403;
+      const msg = isNotInvited
+        ? 'FinTechAI is currently invite-only and this account is not active.'
+        : err instanceof AuthApiError
+          ? err.message
+          : 'Something went wrong. Please try again.';
+      toast({
+        title: isNotInvited ? 'Invite required' : 'Error',
+        description: msg,
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -477,27 +474,18 @@ function AuthPageContent() {
                   style={{ marginLeft: isSignup ? '-4px' : '0px' }}
                 />
               </div>
-              <motion.button
-                type="button"
-                onClick={() => switchMode('signin')}
-                whileTap={{ scale: 0.97 }}
-                className={`flex-1 relative z-10 flex items-center justify-center gap-2 py-2 text-xs font-bold transition-colors ${
-                  !isSignup ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
+              {/* Sign-in only: the "Create Account" half of this toggle is gone
+                  because there is no registration endpoint during the private
+                  beta. */}
+              <div className="flex-1 relative z-10 flex items-center justify-center gap-2 py-2 text-xs font-bold text-white">
                 <LogIn className="w-3.5 h-3.5" /> Sign In
-              </motion.button>
-              <motion.button
-                type="button"
-                onClick={() => switchMode('signup')}
-                whileTap={{ scale: 0.97 }}
-                className={`flex-1 relative z-10 flex items-center justify-center gap-2 py-2 text-xs font-bold transition-colors ${
-                  isSignup ? 'text-white' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                <UserPlus className="w-3.5 h-3.5" /> Create Account
-              </motion.button>
+              </div>
             </div>
+
+            <p className="mb-4 text-center text-[11px] leading-relaxed text-slate-500">
+              FinTechAI is currently an invite-only private beta.
+              Accounts are created by the team — there is no public sign-up.
+            </p>
 
             {/* Form */}
             <AnimatePresence mode="wait">

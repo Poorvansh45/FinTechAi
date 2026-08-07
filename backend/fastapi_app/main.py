@@ -13,6 +13,8 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+from middleware.auth_guard import AuthGuardMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
@@ -119,6 +121,13 @@ async def lifespan(app: FastAPI):
 
     if app.state.mongo_client:
         app.state.mongo_client.close()
+    # The OHLCV store holds its own synchronous pymongo pool (see
+    # services/ohlcv_store.py), which Motor's client does not own.
+    try:
+        from services.ohlcv_store import close as close_ohlcv_store
+        close_ohlcv_store()
+    except Exception as e:  # pragma: no cover - shutdown must not raise
+        log.warning(f"OHLCV store close failed: {e}")
     log.info("FastAPI shutdown.")
 
 
@@ -137,7 +146,21 @@ app = FastAPI(
     ),
     version="2.0.0",
     lifespan=lifespan,
+    # Interactive docs publish the entire API surface, so they are development
+    # only. Outside development all three are unmounted rather than protected —
+    # nothing to probe, nothing to misconfigure.
+    docs_url="/docs" if settings.environment == "development" else None,
+    redoc_url="/redoc" if settings.environment == "development" else None,
+    openapi_url="/openapi.json" if settings.environment == "development" else None,
 )
+
+# ── Auth guard (deny by default) ──────────────────────────────────────────────
+# Registered BEFORE CORS on purpose. Starlette builds the stack so that the most
+# recently added middleware is the OUTERMOST, so adding CORS afterwards leaves it
+# wrapping this one. That ordering matters: a 401 produced here must still carry
+# CORS headers, otherwise the browser reports an opaque CORS failure instead of
+# the actual status and the frontend cannot redirect to the login page.
+app.add_middleware(AuthGuardMiddleware)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
 allowed_origins = list(filter(None, [

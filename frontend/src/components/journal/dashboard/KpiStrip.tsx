@@ -58,12 +58,15 @@ const COLORS: Record<string, string> = {
   'Total Trades': '#a78bfa',
 };
 
-function KpiItem({ metric, loading }: { metric: KpiMetric | null; loading?: boolean }) {
+function KpiItem({ metric, loading, size = 'md' }: { metric: KpiMetric | null; loading?: boolean; size?: 'lg' | 'md' }) {
+  const lg = size === 'lg';
+  const pad = lg ? 'px-7 py-6' : 'px-5 py-5';
+
   if (loading || !metric) {
     return (
-      <div className="kpi-card px-3.5 py-3 flex flex-col gap-1.5">
+      <div className={`kpi-card ${pad} flex flex-col gap-2`}>
         <div className="h-2 w-16 skeleton rounded" />
-        <div className="h-5 w-20 skeleton rounded mt-1" />
+        <div className={`${lg ? 'h-9 w-32' : 'h-6 w-20'} skeleton rounded mt-1`} />
         <div className="h-2 w-12 skeleton rounded" />
       </div>
     );
@@ -76,27 +79,39 @@ function KpiItem({ metric, loading }: { metric: KpiMetric | null; loading?: bool
     : metric.positive ? 'text-emerald-400' : 'text-amber-400';
 
   return (
-    <div className="kpi-card px-3.5 py-3 flex flex-col gap-0.5 group relative overflow-hidden">
+    <div className={`kpi-card ${pad} flex flex-col group relative overflow-hidden`}>
       {/* Top accent */}
       <div className="absolute inset-x-0 top-0 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
         style={{ background: `linear-gradient(90deg, transparent, ${color}88, transparent)` }} />
 
       {/* Label row */}
-      <div className="flex items-center justify-between">
-        <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">{metric.label}</span>
-        <Icon className="w-3 h-3" style={{ color }} />
+      <div className="flex items-center justify-between gap-2">
+        <span className={`font-bold uppercase tracking-[0.14em] text-slate-500 ${lg ? 'text-[10px]' : 'text-[9px]'}`}>
+          {metric.label}
+        </span>
+        <span
+          className={`flex items-center justify-center rounded-lg ${lg ? 'w-7 h-7' : 'w-6 h-6'}`}
+          style={{ background: `${color}14`, color }}
+        >
+          <Icon className={lg ? 'w-4 h-4' : 'w-3.5 h-3.5'} />
+        </span>
       </div>
 
       {/* Value + sparkline row */}
-      <div className="flex items-end justify-between gap-2 mt-0.5">
-        <span className={`text-lg font-black tabular-nums leading-none ${valueColor}`}>
+      <div className={`flex items-end justify-between gap-3 ${lg ? 'mt-5' : 'mt-3'}`}>
+        <span className={`font-black tabular-nums leading-none ${valueColor} ${lg ? 'text-4xl' : 'text-2xl'}`}>
           {metric.formatted}
         </span>
-        <Spark data={metric.sparkline} color={color} />
+        <Spark
+          data={metric.sparkline}
+          color={color}
+          height={lg ? 40 : 28}
+          width={lg ? 108 : 64}
+        />
       </div>
 
       {/* Change indicator */}
-      <div className="mt-1">
+      <div className={lg ? 'mt-3.5' : 'mt-2.5'}>
         {metric.change !== null ? (
           <ChangeArrow change={metric.change} />
         ) : (
@@ -107,13 +122,27 @@ function KpiItem({ metric, loading }: { metric: KpiMetric | null; loading?: bool
   );
 }
 
+/**
+ * Two headline metrics over four supporting ones, rather than six identical
+ * tiles. P&L and win rate are what the page is actually about; giving all six
+ * equal weight made the reader scan every card to find them.
+ */
 export function KpiStrip({ bundle, loading }: Props) {
-  const keys: (keyof KpiBundle)[] = ['totalPnl', 'winRate', 'profitFactor', 'expectancy', 'maxDrawdown', 'totalTrades'];
+  const headline: (keyof KpiBundle)[] = ['totalPnl', 'winRate'];
+  const secondary: (keyof KpiBundle)[] = ['expectancy', 'profitFactor', 'maxDrawdown', 'totalTrades'];
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
-      {keys.map((k) => (
-        <KpiItem key={k} metric={bundle?.[k] ?? null} loading={loading} />
-      ))}
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {headline.map((k) => (
+          <KpiItem key={k} metric={bundle?.[k] ?? null} loading={loading} size="lg" />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-5">
+        {secondary.map((k) => (
+          <KpiItem key={k} metric={bundle?.[k] ?? null} loading={loading} size="md" />
+        ))}
+      </div>
     </div>
   );
 }

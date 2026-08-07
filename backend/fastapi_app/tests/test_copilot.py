@@ -99,7 +99,9 @@ class FakeCollection:
         self.docs.append(d)
         return _Result(inserted_id=d["_id"])
 
-    async def find_one(self, flt):
+    async def find_one(self, flt, projection=None):
+        # `projection` is accepted and ignored — callers use it to trim fields,
+        # which does not change what the fake needs to return.
         for d in self.docs:
             if _match(d, flt):
                 return dict(d)
@@ -387,14 +389,34 @@ def test_provider_status_shape():
 
 # ── HTTP endpoints ───────────────────────────────────────────────────────────────
 def _client_with_auth():
+    """TestClient carrying a real, verifiable JWT.
+
+    The AuthGuard middleware runs ahead of route dependencies, and
+    `app.dependency_overrides` does not apply to middleware — so overriding
+    `get_current_user` alone is no longer enough to get past the door. The
+    fixture therefore seeds a real user document and signs a real token, which
+    means these tests now exercise the actual auth path rather than bypassing
+    it.
+    """
     from fastapi.testclient import TestClient
+    import jwt
+    from bson import ObjectId
     import main
-    from utils.auth import get_current_user
+    from config import get_settings
+    from utils.auth import get_current_user, invalidate_user_cache
+
+    uid = ObjectId()
+    db = FakeDB()
+    db["users"].docs.append({"_id": uid, "role": "beta", "isActive": True, "email": "t@example.com"})
 
     main.app.dependency_overrides[get_current_user] = lambda: "u1"
-    main.app.state.db = FakeDB()
+    main.app.state.db = db
     main.app.state.mongo_connected = True
-    return TestClient(main.app), main.app
+    invalidate_user_cache()
+
+    token = jwt.encode({"id": str(uid)}, get_settings().jwt_secret, algorithm="HS256")
+    client = TestClient(main.app, headers={"Authorization": f"Bearer {token}"})
+    return client, main.app
 
 
 def test_chat_endpoint_full_flow():

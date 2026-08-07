@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useContext, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import Link from "next/link";
 import {
   Landmark, Search, AlertCircle, Bookmark, Sparkles,
@@ -10,6 +10,7 @@ import { screenerService } from "@/services/screenerService";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
 import { SignalBadge, ExplainPanel, StrategyFooter } from "@/components/screener/QuantLab";
+import { EquityCurveChart } from "@/components/screener/EquityCurveChart";
 import {
   FilterPanel,
   FilterSelect,
@@ -91,28 +92,14 @@ function buildRationale(s: any): string {
   );
 }
 
-/** Sparkline-style equity curve rendered as an inline SVG polyline — no chart
- *  dependency, matching the codebase's no-new-UI-deps rule. */
-function EquityCurve({ curve }: { curve: { equity: number }[] }) {
-  const path = useMemo(() => {
-    if (!curve || curve.length < 2) return null;
-    const vals = curve.map((p) => p.equity);
-    const min = Math.min(...vals), max = Math.max(...vals);
-    const span = max - min || 1;
-    const W = 100, H = 30;
-    const pts = vals.map((v, i) => {
-      const x = (i / (vals.length - 1)) * W;
-      const y = H - ((v - min) / span) * H;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    });
-    return { d: pts.join(" "), min, max };
-  }, [curve]);
-
-  if (!path) return null;
+/** Proportion bar behind a table cell — lets a column of percentages be compared
+ *  by eye instead of read one number at a time. */
+function MiniBar({ pct, tone }: { pct: number | null | undefined; tone: string }) {
+  const w = Math.max(0, Math.min(100, Number(pct) || 0));
   return (
-    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="h-24 w-full">
-      <polyline points={path.d} fill="none" stroke="rgb(45 212 191)" strokeWidth="0.7" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div className="mt-0.5 h-[3px] w-full overflow-hidden rounded-full bg-gray-800">
+      <div className={`h-full rounded-full ${tone}`} style={{ width: `${w}%` }} />
+    </div>
   );
 }
 
@@ -178,10 +165,16 @@ function StudyPanel({ study }: { study: any }) {
           )}
 
           <div>
-            <span className="mb-1 block text-[10px] uppercase tracking-wider text-gray-500">
-              Account value — ₹{Number(e.position_size ?? 0).toLocaleString("en-IN")} per trade, {e.slots} positions, no compounding
-            </span>
-            <EquityCurve curve={e.curve || []} />
+            <div className="mb-1 flex items-baseline justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                Account value — ₹{Number(e.position_size ?? 0).toLocaleString("en-IN")} per trade, {e.slots} positions, no compounding
+              </span>
+              <span className="flex-shrink-0 text-[9px] text-gray-600">hover to inspect a trade</span>
+            </div>
+            <EquityCurveChart
+              curve={e.curve || []}
+              startingCapital={Number(e.starting_capital ?? 100000)}
+            />
           </div>
 
           <div className="overflow-x-auto">
@@ -197,16 +190,42 @@ function StudyPanel({ study }: { study: any }) {
                 </tr>
               </thead>
               <tbody className="font-mono">
-                {(study.by_horizon || []).map((r: any) => (
-                  <tr key={r.horizon} className="border-t border-gray-850">
-                    <td className="py-1 text-left text-gray-300">{r.horizon}d</td>
-                    <td className="py-1 text-right text-gray-400">{r.trades}</td>
-                    <td className="py-1 text-right text-gray-300">{r.win_rate}%</td>
-                    <td className={`py-1 text-right ${returnTone(r.median_return_pct)}`}>{fmtPct(r.median_return_pct)}</td>
-                    <td className={`py-1 text-right ${returnTone(r.mean_return_pct)}`}>{fmtPct(r.mean_return_pct)}</td>
-                    <td className="py-1 text-right text-red-400/80">{r.stopped_pct}%</td>
-                  </tr>
-                ))}
+                {(study.by_horizon || []).map((r: any) => {
+                  // The headline figures above are quoted at one horizon — mark
+                  // which row they came from rather than making the reader
+                  // match numbers by hand.
+                  const isHeadline = r.horizon === study.headline_horizon;
+                  return (
+                    <tr
+                      key={r.horizon}
+                      className={`border-t border-gray-850 transition-colors hover:bg-white/[0.03] ${
+                        isHeadline ? "bg-teal-500/[0.06]" : ""
+                      }`}
+                    >
+                      <td className="py-1 text-left">
+                        <span className={isHeadline ? "font-bold text-teal-300" : "text-gray-300"}>
+                          {r.horizon}d
+                        </span>
+                        {isHeadline && (
+                          <span className="ml-1.5 rounded border border-teal-500/30 bg-teal-500/10 px-1 py-px text-[8px] font-sans font-bold uppercase tracking-wide text-teal-300">
+                            shown above
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1 text-right text-gray-400">{r.trades}</td>
+                      <td className="w-[70px] py-1 text-right text-gray-300">
+                        {r.win_rate}%
+                        <MiniBar pct={r.win_rate} tone="bg-teal-500/60" />
+                      </td>
+                      <td className={`py-1 text-right ${returnTone(r.median_return_pct)}`}>{fmtPct(r.median_return_pct)}</td>
+                      <td className={`py-1 text-right ${returnTone(r.mean_return_pct)}`}>{fmtPct(r.mean_return_pct)}</td>
+                      <td className="w-[70px] py-1 text-right text-red-400/80">
+                        {r.stopped_pct}%
+                        <MiniBar pct={r.stopped_pct} tone="bg-red-500/50" />
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -219,11 +238,16 @@ function StudyPanel({ study }: { study: any }) {
             </span>
             <div className="flex flex-wrap gap-2">
               {(study.per_year || []).map((y: any) => (
-                <div key={y.year} className="rounded-lg border border-gray-800 bg-gray-950 px-2.5 py-1.5">
+                <div
+                  key={y.year}
+                  className="min-w-[104px] rounded-lg border border-gray-800 bg-gray-950 px-2.5 py-1.5 transition-colors hover:border-gray-700 hover:bg-gray-900"
+                  title={`${y.year}: ${y.trades} trades, ${y.win_rate}% won, median ${fmtPct(y.median_return_pct)}`}
+                >
                   <span className="block text-[10px] text-gray-500">{y.year} · {y.trades}t</span>
                   <span className="block font-mono text-xs text-gray-300">
                     {y.win_rate}% won · <span className={returnTone(y.median_return_pct)}>{fmtPct(y.median_return_pct)}</span>
                   </span>
+                  <MiniBar pct={y.win_rate} tone="bg-teal-500/60" />
                 </div>
               ))}
             </div>

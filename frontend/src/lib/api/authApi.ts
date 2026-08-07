@@ -51,17 +51,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return data as T;
 }
 
-/** Register a new user */
-export async function apiRegister(
-  username: string,
-  email: string,
-  password: string
-): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>('/api/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ username, email, password }),
-  });
-}
+// No apiRegister: FinTechAI is a closed private beta. The server has no
+// /api/auth/register route — accounts are seeded by backend/scripts/seedUsers.js.
+// See docs/PRIVATE-BETA.md.
 
 /** Login an existing user */
 export async function apiLogin(email: string, password: string): Promise<AuthResponse> {

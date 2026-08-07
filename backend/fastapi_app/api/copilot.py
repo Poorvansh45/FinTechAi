@@ -18,7 +18,8 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from config import get_settings
-from utils.auth import get_current_user
+from utils.auth import get_current_user, get_current_role
+from utils.rate_limit import check_rate_limit
 
 from ai_copilot.schemas.chat import ChatRequest, ChatResponse
 from ai_copilot.memory.memory_manager import MemoryManager
@@ -44,8 +45,13 @@ async def chat(
     req: ChatRequest,
     request: Request,
     user_id: str = Depends(get_current_user),
+    role: str = Depends(get_current_role),
 ):
     """Run one agentic copilot turn. Identity comes from the JWT, not the body."""
+    # Every turn is a paid LLM call, and the demo credential is shared publicly —
+    # so budget is enforced per account before any provider work begins.
+    check_rate_limit("copilot_chat", user_id, role)
+
     session_id = req.session_id or f"sess_{uuid.uuid4().hex[:16]}"
 
     if not _llm_ready():

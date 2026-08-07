@@ -14,7 +14,6 @@ import {
   apiGetToken,
   apiLogin,
   apiLogout,
-  apiRegister,
   apiUpdateUsername,
   AuthApiError,
 } from '@/lib/api/authApi';
@@ -33,7 +32,6 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updateUsername: (username: string) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -136,13 +134,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus('authenticated');
   }, []);
 
-  const register = useCallback(async (username: string, email: string, password: string) => {
-    const data = await apiRegister(username, email, password);
-    setCachedAuthToken(await apiGetToken());
-    setUser(data.user);
-    setStatus('authenticated');
-  }, []);
-
   const logout = useCallback(async () => {
     try {
       await apiLogout();
@@ -185,12 +176,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       isAuthenticated,
       login,
-      register,
       logout,
       updateUsername,
       refreshUser,
     }),
-    [user, status, loading, isAuthenticated, login, register, logout, updateUsername, refreshUser]
+    [user, status, loading, isAuthenticated, login, logout, updateUsername, refreshUser]
   );
 
   if (!bootstrapped) {

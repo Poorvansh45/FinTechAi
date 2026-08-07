@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Activity, Globe, TrendingUp, ShieldAlert, Zap, BarChart2,
   ScanLine, Filter, Gauge, Waves, BookMarked, Layers,
   FlaskConical, RotateCcw, GitCompare, PieChart, Sigma, AreaChart,
-  BookOpen, History, LineChart, Brain, PlayCircle,
+  BookOpen, History, LineChart, Brain, PlayCircle, Landmark,
   Sparkles, MessageSquare, Eye, AlertTriangle, Lightbulb, Bot, Briefcase,
   Radar,
 } from 'lucide-react';
@@ -38,7 +38,7 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { href: '/markets',          label: 'Mission Control', icon: Radar,          desc: 'Institutional market overview', badge: 'Live', section: 'Live Overview' },
       { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,       desc: 'AI narrative and sentiment engine', section: 'Live Overview' },
-      { href: '/markets/movers',   label: 'Top Movers Pro',  icon: TrendingUp,     desc: 'Momentum, volume and opportunities', badge: '⭐', section: 'Discovery' },
+      { href: '/markets/movers',   label: 'Top Movers Pro',  icon: TrendingUp,     desc: 'Momentum, volume and opportunities', badge: 'Popular', section: 'Discovery' },
       { href: '/markets/sectors',  label: 'Sector Rotation', icon: RotateCcw,      desc: 'Capital flow and sector leadership', section: 'Discovery' },
       { href: '/markets/macro',    label: 'Macro Intel',     icon: Globe,          desc: 'Geopolitics, central banks and risk events', section: 'Macro Intelligence' },
     ],
@@ -75,6 +75,7 @@ export const NAV_MODULES: NavModule[] = [
     glowColor: 'rgba(251,191,36,0.12)',
     items: [
       { href: '/journal',             label: 'Trading Journal',       icon: BookOpen,  desc: 'Log and review all trades'       },
+      { href: '/journal/equity',      label: 'Equity Journal',        icon: Landmark,  desc: 'Long-term holdings, IPOs & notes' },
       { href: '/workspace/history',   label: 'Trade History',         icon: History,   desc: 'Full trade history & filters'    },
       { href: '/analytics',           label: 'Performance Analytics', icon: LineChart, desc: 'PnL, win rate & deep stats'      },
     ],

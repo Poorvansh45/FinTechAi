@@ -15,12 +15,9 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // No `typescript.ignoreBuildErrors` / `eslint.ignoreDuringBuilds` overrides:
+  // with them set the deploy build happily shipped real type errors. Next.js
+  // fails the build on both by default, which is what we want.
   images: {
     dangerouslyAllowSVG: true,
     remotePatterns: [

@@ -21,6 +21,21 @@ class Settings(BaseSettings):
     # ── Database ────────────────────────────────────────────────────
     mongodb_uri: str = "mongodb://localhost:27017/finai_edge"
 
+    # ── OHLCV source ────────────────────────────────────────────────
+    # "csv"   — backend/data/Stock_Data.csv, loaded whole into RAM (~235 MB).
+    #           Works fully offline; the download path writes back to the file.
+    # "mongo" — services/ohlcv_store.py, one document per symbol, fetched on
+    #           demand behind a bounded LRU (~9 MB). Required for deployment:
+    #           the CSV is 196 MB, gitignored, and does not survive an
+    #           ephemeral filesystem.
+    #
+    # Defaults to "csv" so local development is unchanged until deliberately
+    # switched. There is NO automatic fallback between the two: if Mongo is
+    # unreachable in "mongo" mode this fails loudly rather than silently
+    # serving a stale CSV, because a scan must never leave you guessing which
+    # source produced it. Switching back is this one setting.
+    ohlcv_backend: str = "csv"
+
     # ── Auth ────────────────────────────────────────────────────────
     # Same secret Express uses to sign JWTs (backend/utils/generateToken.js) —
     # required so this service can verify tokens issued by Express.

@@ -85,6 +85,7 @@ def build_alphazone_result(
     ob: AlphaZoneOB,
     ema200_dist_pct: Optional[float],
     atr: Optional[float] = None,
+    avg_volume: Optional[float] = None,
 ) -> Optional[dict]:
     """Derive a real Alpha Zone row from a valid OB price is reacting to."""
     zl, zh = ob.zone_low, ob.zone_high
@@ -120,6 +121,10 @@ def build_alphazone_result(
         "company_name": company_name or symbol,
         "strategy": "alpha_zone",
         "ltp": round(float(ltp), 2),
+        # Liquidity context, and the field the Avg Volume filter queries on.
+        # Optional so a caller without an indicator set still produces a row —
+        # the filter simply can't match those (see GET /alpha-zone).
+        "avg_volume": round(float(avg_volume)) if avg_volume else None,
         "institutional_score": int(round(conf)),   # headline = confidence composite
         "score_breakdown": breakdown,              # incl. the "institutional" sub-bar
         "origin_score": ob.institutional_score,    # §6 origin quality (context)

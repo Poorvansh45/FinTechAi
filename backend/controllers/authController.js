@@ -1,64 +1,12 @@
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
+const { jwtCookieOptions } = require('../utils/generateToken');
 const HttpError = require('../utils/httpError');
 const asyncHandler = require('../utils/asyncHandler');
 
-// ─────────────────────────────────────────────
-// @desc    Register a new user
-// @route   POST /api/auth/register
-// @access  Public
-// ─────────────────────────────────────────────
-const register = asyncHandler(async (req, res, next) => {
-  try {
-    const { username, email, password } = req.body;
-
-    // Basic field validation
-    if (!username || !email || !password) {
-      throw new HttpError(400, 'Please provide username, email, and password');
-    }
-
-    if (password.length < 6) {
-      throw new HttpError(400, 'Password must be at least 6 characters');
-    }
-
-    // Check for existing user
-    const emailExists = await User.findOne({ email: email.toLowerCase().trim() });
-    if (emailExists) {
-      throw new HttpError(409, 'An account with this email already exists');
-    }
-
-    const usernameExists = await User.findOne({ username: username.trim() });
-    if (usernameExists) {
-      throw new HttpError(409, 'This username is already taken');
-    }
-
-    // Create user (password hashed via pre-save hook in model)
-    const user = await User.create({
-      username: username.trim(),
-      email: email.toLowerCase().trim(),
-      password,
-    });
-
-    // Issue JWT cookie
-    generateToken(res, user._id);
-
-    res.status(201).json({
-      success: true,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (error) {
-    if (typeof next === 'function') {
-      next(error);
-    } else {
-      res.status(error.status || 500).json({ error: error.message });
-    }
-  }
-});
+// NOTE: there is no `register` handler. FinTechAI runs as a closed private
+// beta — accounts are seeded via `scripts/seedUsers.js` and self-registration
+// is not supported. See docs/PRIVATE-BETA.md.
 
 // ─────────────────────────────────────────────
 // @desc    Login user
@@ -80,6 +28,13 @@ const login = asyncHandler(async (req, res, next) => {
       throw new HttpError(401, 'Invalid email or password');
     }
 
+    // Revoked accounts are rejected AFTER the password check on purpose: a
+    // different message for a wrong password vs a deactivated account would let
+    // an outsider enumerate which addresses exist on the beta.
+    if (user.isActive === false) {
+      throw new HttpError(403, 'This account is not active. FinTechAI is currently invite-only.');
+    }
+
     // Issue JWT cookie
     generateToken(res, user._id);
 
@@ -89,6 +44,7 @@ const login = asyncHandler(async (req, res, next) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        role: user.role,
         createdAt: user.createdAt,
       },
     });
@@ -108,10 +64,12 @@ const login = asyncHandler(async (req, res, next) => {
 // ─────────────────────────────────────────────
 const logout = asyncHandler(async (req, res, next) => {
   try {
+    // Same attributes as when it was issued. A clearing Set-Cookie whose
+    // sameSite/secure differ is rejected cross-site, which would leave the
+    // session alive after a "successful" logout.
     res.cookie('jwt', '', {
-      httpOnly: true,
+      ...jwtCookieOptions,
       expires: new Date(0), // Expire immediately
-      sameSite: 'lax',
     });
 
     res.status(200).json({ success: true, message: 'Logged out successfully' });
@@ -140,6 +98,7 @@ const getMe = asyncHandler(async (req, res, next) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        role: user.role,
         createdAt: user.createdAt,
       },
     });
@@ -186,6 +145,7 @@ const updateUsername = asyncHandler(async (req, res, next) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        role: user.role,
         createdAt: user.createdAt,
       },
     });
@@ -219,4 +179,4 @@ const getToken = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { register, login, logout, getMe, updateUsername, getToken };
+module.exports = { login, logout, getMe, updateUsername, getToken };

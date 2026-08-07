@@ -1,10 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, logout, getMe, updateUsername, getToken } = require('../controllers/authController');
+const { login, logout, getMe, updateUsername, getToken } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 
 // Public routes
-router.post('/register', register);
+//
+// There is deliberately NO /register route. FinTechAI is a closed private beta:
+// accounts are seeded by `scripts/seedUsers.js` and nobody can self-register.
+// The route is removed rather than merely guarded so it cannot regress behind a
+// misconfigured flag.
 router.post('/login', login);
 
 // Protected routes

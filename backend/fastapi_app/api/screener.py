@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Query, BackgroundTasks, HTTPException, Depends
 from pydantic import BaseModel
 from services.scanner_service import get_scanner_service
-from utils.auth import get_current_user
+from utils.auth import get_current_user, require_not_demo
 
 router = APIRouter(prefix="/api/scanner", tags=["scanner"])
 
@@ -430,6 +430,10 @@ async def get_alpha_zone(
     distance:        str   = Query("all"),
     min_return:      float = Query(None),
     holding_period:  int   = Query(None),
+    price_min:       float = Query(None),   # CMP band — lower
+    price_max:       float = Query(None),   # CMP band — upper
+    min_avg_volume:  float = Query(None),   # 20-day avg volume band — lower (liquidity)
+    max_avg_volume:  float = Query(None),   # 20-day avg volume band — upper
     limit:           int   = Query(5000),   # effectively "all" — the cache is a few hundred
 ):
     """
@@ -463,6 +467,26 @@ async def get_alpha_zone(
         query["distance_pct"] = {"$lte": 5.0}
     if min_return is not None:
         query["projected_return"] = {"$gte": min_return}
+    # Price (CMP) band — mirrors the launchpad handler, but Alpha Zone stores the
+    # last price as `ltp` rather than `cmp`.
+    price_q: dict = {}
+    if price_min is not None:
+        price_q["$gte"] = price_min
+    if price_max is not None:
+        price_q["$lte"] = price_max
+    if price_q:
+        query["ltp"] = price_q
+    # Liquidity: 20-day average volume band. Docs written before avg_volume was
+    # added carry no such field, and Mongo treats a missing field as
+    # non-matching — correct (unknown volume can't satisfy a floor), but it means
+    # this filter stays empty on a stale cache until the next scan.
+    vol_q: dict = {}
+    if min_avg_volume is not None:
+        vol_q["$gte"] = min_avg_volume
+    if max_avg_volume is not None:
+        vol_q["$lte"] = max_avg_volume
+    if vol_q:
+        query["avg_volume"] = vol_q
 
     docs = await col.find(query, {"_id": 0}).sort("institutional_score", -1).to_list(length=limit)
 
@@ -721,8 +745,9 @@ async def trigger_scan(
     request: Request,
     background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
+    _role: str = Depends(require_not_demo("Running a full market scan")),
 ):
-    """Manually trigger a full market scan. **Requires a valid JWT.**
+    """Manually trigger a full market scan. **Requires a valid non-demo JWT.**
 
     A scan pins the CPU for ~30-40 minutes, so this endpoint is deliberately
     hard to abuse: it needs a verified caller, it refuses while another scan is

@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { profileInitial } from '@/lib/auth/types';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Bell, Menu, X, Home, LogOut, ChevronDown, ChevronRight } from 'lucide-react';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/context/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { groupBySection } from './ModuleDropdown';
@@ -18,20 +17,43 @@ import { cn } from '@/lib/utils';
 // values matched a 2-column card grid; the compact list layout below doesn't
 // need that much room, and a shared width keeps every panel visually
 // consistent (Groww/TradingView's own menus are a fixed slim width too).
-const PANEL_WIDTH = 300;
+const PANEL_WIDTH = 320;
 
-// Badge border/bg per module color. Tailwind's opacity modifier on `current`
-// (e.g. `border-current/30`) needs currentColor to resolve to an RGB triplet
-// at build time, which a dynamic text-color class can't guarantee — a literal
-// per-color lookup (same pattern as the scanner nav's CATEGORY_STYLES) is the
-// version that's actually verified to compile correctly.
-const BADGE_TONE: Record<string, string> = {
-  'text-blue-400':    'border-blue-500/30 bg-blue-500/10 text-blue-300',
-  'text-emerald-400': 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-  'text-violet-400':  'border-violet-500/30 bg-violet-500/10 text-violet-300',
-  'text-amber-400':   'border-amber-500/30 bg-amber-500/10 text-amber-300',
-  'text-pink-400':    'border-pink-500/30 bg-pink-500/10 text-pink-300',
+// Every nav trigger resolves to the same blue — blue is the app's navigation
+// accent (violet/purple stays reserved for AI + CTA surfaces), so the top bar
+// reads as one control strip instead of five competing hues. Defined once and
+// shared by both trigger shapes below (plain <Link> and dropdown <button>),
+// which previously carried two copies of the same class list.
+const TRIGGER_BASE =
+  'group relative h-9 px-3.5 rounded-full text-[13px] font-medium select-none ' +
+  'inline-flex items-center gap-1.5 transition-colors duration-200 ' +
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40';
+const TRIGGER_ON  = 'bg-blue-500/[0.12] text-blue-300 ring-1 ring-inset ring-blue-400/20';
+const TRIGGER_OFF = 'text-slate-400 hover:text-white hover:bg-white/[0.05]';
+
+// Panel accent per module. Literal class strings — Tailwind's JIT can't see
+// `bg-${color}-500/10`, and an opacity modifier on `current` needs currentColor
+// to resolve to an RGB triplet at build time, which a dynamic text class can't
+// guarantee. Same explicit-lookup pattern as the scanner nav's CATEGORY_STYLES.
+const PANEL_ACCENT: Record<string, { tile: string; rowActive: string }> = {
+  'text-blue-400':    { tile: 'bg-blue-500/10 text-blue-300',       rowActive: 'bg-blue-500/[0.10]'    },
+  'text-emerald-400': { tile: 'bg-emerald-500/10 text-emerald-300', rowActive: 'bg-emerald-500/[0.10]' },
+  'text-violet-400':  { tile: 'bg-violet-500/10 text-violet-300',   rowActive: 'bg-violet-500/[0.10]'  },
+  'text-amber-400':   { tile: 'bg-amber-500/10 text-amber-300',     rowActive: 'bg-amber-500/[0.10]'   },
+  'text-pink-400':    { tile: 'bg-pink-500/10 text-pink-300',       rowActive: 'bg-pink-500/[0.10]'    },
 };
+
+// Badges are keyed by what they MEAN, not by which module they sit in — "Live"
+// is green everywhere, "AI" is violet everywhere. Keying them off the module
+// colour made the same word change colour between panels, which reads as noise.
+const BADGE_TONE: Record<string, string> = {
+  Live:    'border-emerald-500/25 bg-emerald-500/10 text-emerald-300',
+  New:     'border-blue-500/25    bg-blue-500/10    text-blue-300',
+  AI:      'border-violet-500/25  bg-violet-500/10  text-violet-300',
+  Beta:    'border-amber-500/25   bg-amber-500/10   text-amber-300',
+  Popular: 'border-amber-500/25   bg-amber-500/10   text-amber-300',
+};
+const BADGE_FALLBACK = 'border-slate-500/25 bg-slate-500/10 text-slate-300';
 
 // ── Module panel data ─────────────────────────────────────────
 const MODULE_INFOS_DATA = [
@@ -172,9 +194,9 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
                   </Link>
                 </motion.div>
                 <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }}>
-                  <Link href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="flex items-center justify-center w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all text-center"
+                  <Link href="/auth?mode=signin" onClick={handleAuthNavigation('/auth?mode=signin')} className="flex items-center justify-center w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all text-center"
                     style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}>
-                    Get Started
+                    Sign In
                   </Link>
                 </motion.div>
               </div>
@@ -425,6 +447,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { id: 'copilot',   label: 'FinTechAI Copilot', isActive: copilotActive   },
   ];
 
+  const activeModule = activeMenu ? MODULE_INFOS[activeMenu] : null;
+  const accent = PANEL_ACCENT[activeModule?.color ?? ''] ?? PANEL_ACCENT['text-blue-400'];
+
   return (
     <div className="flex flex-col min-h-screen bg-[#050816] text-white relative">
 
@@ -497,14 +522,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             key={id}
                             href={href}
                             ref={(el) => { triggerRefs.current[id] = el; }}
-                            className={cn(
-                              'relative h-9 px-4 rounded-full border text-[13px] font-medium',
-                              'transition-colors duration-200 inline-flex items-center gap-1.5',
-                              'focus:outline-none select-none',
-                              isActive
-                                ? 'bg-purple-500/[0.12] border-purple-500/[0.20] text-purple-300'
-                                : 'border-transparent text-slate-400 hover:text-white hover:bg-white/[0.04]'
-                            )}
+                            className={cn(TRIGGER_BASE, isActive ? TRIGGER_ON : TRIGGER_OFF)}
                           >
                             {label}
                           </Link>
@@ -522,20 +540,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           onMouseLeave={() => { if (isOpen) scheduleClose(); }}
                           // If cursor re-enters a trigger while panel is still closing → cancel
                           onMouseEnter={() => { if (activeMenu) clearCloseTimer(); }}
-                          className={cn(
-                            'relative h-9 px-4 rounded-full border text-[13px] font-medium',
-                            'transition-colors duration-200 inline-flex items-center gap-1.5',
-                            'focus:outline-none select-none',
-                            highlighted
-                              ? 'bg-purple-500/[0.12] border-purple-500/[0.20] text-purple-300'
-                              : 'border-transparent text-slate-400 hover:text-white hover:bg-white/[0.04]'
-                          )}
+                          className={cn(TRIGGER_BASE, highlighted ? TRIGGER_ON : TRIGGER_OFF)}
                         >
                           {label}
                           <ChevronDown
                             className={cn(
                               'size-3 transition-transform duration-200',
-                              isOpen ? 'rotate-180 text-purple-300' : 'text-slate-500'
+                              isOpen ? 'rotate-180 text-blue-300' : 'text-slate-500 group-hover:text-slate-300'
                             )}
                           />
                         </button>
@@ -570,12 +581,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       </motion.div>
                       <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }} className="inline-flex">
                         <Link
-                          href="/auth?mode=signup"
-                          onClick={handleAuthNavigation('/auth?mode=signup')}
+                          href="/auth?mode=signin"
+                          onClick={handleAuthNavigation('/auth?mode=signin')}
                           className="text-xs font-bold text-[#080C14] px-4 rounded-full transition-all bg-[#F8FAFC] hover:bg-[#F8FAFC]/90 inline-flex items-center justify-center shadow-sm"
                           style={{ height: '32px' }}
                         >
-                          Get Started
+                          Sign In
                         </Link>
                       </motion.div>
                     </>
@@ -593,8 +604,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       style={{ boxShadow: '0 0 6px rgba(139,92,246,0.9)' }}
                     />
                   </button>
-
-                  <ThemeToggle />
 
                   <div className="w-px h-4 bg-black/10 dark:bg-white/8 mx-0.5" />
 
@@ -620,14 +629,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           whole page blurs when this opens"; a plain flat card, same as
           Groww/TradingView's own dropdowns, reads as crisp instead. */}
       <AnimatePresence mode="wait">
-        {activeMenu && MODULE_INFOS[activeMenu] && (
+        {activeMenu && activeModule && (
           <motion.div
             key={activeMenu}
             variants={panelVariants}
             initial="initial"
             animate="animate"
             exit="exit"
-            className="fixed rounded-2xl border border-white/[0.07] shadow-xl shadow-black/50 select-none overflow-hidden py-2"
+            className="fixed rounded-2xl border border-white/[0.08] ring-1 ring-inset ring-white/[0.04] shadow-2xl shadow-black/60 select-none overflow-hidden p-1.5"
             style={{
               width: PANEL_WIDTH,
               left: menuLeft,
@@ -639,14 +648,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             onMouseEnter={clearCloseTimer}
             onMouseLeave={scheduleClose}
           >
-            {groupBySection(MODULE_INFOS[activeMenu].items).map(({ section, items }, gi) => (
-              <div key={section ?? '_flat'} className={gi > 0 ? 'mt-1' : ''}>
+            {groupBySection(activeModule.items).map(({ section, items }, gi) => (
+              // Groups after the first get a hairline rule as well as the
+              // heading — the heading alone left the sections floating.
+              <div key={section ?? '_flat'} className={gi > 0 ? 'mt-1.5 pt-1.5 border-t border-white/[0.06]' : ''}>
                 {section && (
-                  <div className={cn(
-                    'px-3.5 pb-1.5 text-[10px] font-bold uppercase tracking-widest',
-                    gi > 0 ? 'pt-3' : 'pt-1',
-                    MODULE_INFOS[activeMenu].color, 'opacity-70'
-                  )}>
+                  // Neutral, not module-coloured: the heading is a structural
+                  // label, and letting the icons carry the one accent keeps a
+                  // single colour per panel.
+                  <div className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     {section}
                   </div>
                 )}
@@ -658,36 +668,41 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       onClick={closeNow}
                       className={cn(
-                        'group flex items-center gap-3 px-3.5 py-2.5 mx-1 rounded-xl transition-colors duration-150',
-                        active ? 'bg-white/[0.05]' : 'hover:bg-white/[0.04]'
+                        'group flex items-center gap-3 px-2.5 py-2 rounded-xl transition-colors duration-150',
+                        active ? accent.rowActive : 'hover:bg-white/[0.05]'
                       )}
                     >
                       <div className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-                        active ? 'bg-white/[0.08]' : 'bg-white/[0.05]'
+                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors duration-150',
+                        active ? accent.tile : cn(accent.tile, 'opacity-60 group-hover:opacity-100')
                       )}>
-                        {item.icon && <item.icon className={cn('w-4 h-4', MODULE_INFOS[activeMenu].color, !active && 'opacity-70')} />}
+                        {item.icon && <item.icon className="w-[15px] h-[15px]" strokeWidth={1.75} />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <span className={cn(
-                            'text-[13px] font-medium',
-                            active ? 'text-white' : 'text-slate-300 group-hover:text-white'
+                            'text-[13px] font-medium truncate',
+                            active ? 'text-white' : 'text-slate-200 group-hover:text-white'
                           )}>
                             {item.label}
                           </span>
                           {item.badge && (
                             <span className={cn(
-                              'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border',
-                              BADGE_TONE[MODULE_INFOS[activeMenu].color] ?? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
+                              'inline-flex items-center gap-1 flex-shrink-0 text-[9px] font-semibold uppercase tracking-wide px-1.5 py-px rounded-full border',
+                              BADGE_TONE[item.badge] ?? BADGE_FALLBACK
                             )}>
+                              {item.badge === 'Live' && (
+                                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                              )}
                               {item.badge}
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-500 truncate">{item.desc}</div>
+                        <div className="text-[11px] leading-snug text-slate-500 truncate mt-px">{item.desc}</div>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-700 group-hover:text-slate-500 flex-shrink-0 transition-colors duration-150" />
+                      {/* Affordance on demand: a permanently-visible chevron on
+                          every row added five arrows of visual noise. */}
+                      <ChevronRight className="w-3.5 h-3.5 flex-shrink-0 text-slate-500 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-150" />
                     </Link>
                   );
                 })}

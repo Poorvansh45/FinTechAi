@@ -40,6 +40,13 @@ services:
         value: production
       - key: LOG_LEVEL
         value: INFO
+      # OHLCV source. MUST be "mongo" here: backend/data/Stock_Data.csv is
+      # gitignored and 196 MB, so it does not exist on Render. Left at the
+      # "csv" default the scanners would find an empty universe, and a scan
+      # that evaluates zero symbols publishes zero results — wiping every live
+      # scanner cache. Run scripts/migrate_ohlcv_to_mongo.py BEFORE first boot.
+      - key: OHLCV_BACKEND
+        value: mongo
       - key: FRONTEND_URL
         sync: false # Frontend origin — added to FastAPI CORS allow-list
       - key: MONGODB_URI

@@ -14,6 +14,13 @@
       "runtimeArgs": ["-m", "uvicorn", "main:app", "--port", "8000"],
       "cwd": "backend/fastapi_app",
       "port": 8000
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "cwd": "backend",
+      "port": 8080
     }
   ]
 }

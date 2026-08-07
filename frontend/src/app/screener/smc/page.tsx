@@ -5,6 +5,7 @@ import ScannerTable from "@/components/screener/ScannerTable";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
 import { env } from "@/config/env";
+import { authHeader } from "@/lib/api/authToken";
 
 const formatISTDate = (isoString: string) => {
   try {
@@ -33,19 +34,27 @@ async function fetchSMC(params: Record<string, any>) {
   Object.entries(params).forEach(([k, v]) => {
     if (v !== "" && v !== null && v !== undefined && v !== "All") q.set(k, String(v));
   });
-  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc?${q.toString()}`);
+  // FastAPI denies by default now — these reads used to be public and are not.
+  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc?${q.toString()}`, {
+    headers: await authHeader(),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 async function fetchStats() {
-  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc/stats`);
+  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc/stats`, {
+    headers: await authHeader(),
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 async function fetchZoneProximity(distMax: number) {
-  const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/smc/zone-proximity?distance_pct_max=${distMax}&limit=200`);
+  const res = await fetch(
+    `${FASTAPI_URL}/api/v2/scanner/smc/zone-proximity?distance_pct_max=${distMax}&limit=200`,
+    { headers: await authHeader() },
+  );
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

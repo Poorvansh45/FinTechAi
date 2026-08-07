@@ -39,9 +39,9 @@ const SCANNER_TABS: ScannerTab[] = [
   { href: "/screener",             label: "Overview",           icon: LayoutDashboard,  category: "neutral" },
   { href: "/screener/launchpad",   label: "LaunchPad",          icon: Rocket,           category: "blue" },
   { href: "/screener/alpha-zone",  label: "Alpha Zone",         icon: Target,           category: "cyan" },
+  { href: "/screener/ipo-vintage", label: "IPO Vintage",        icon: Landmark,         category: "indigo" },
   { href: "/screener/technical",   label: "Technical Scanner",  icon: CandlestickChart, category: "orange" },
   { href: "/screener/volume",      label: "Volume Scanner",     icon: BarChart3,        category: "emerald" },
-  { href: "/screener/ipo-vintage", label: "IPO Vintage",        icon: Landmark,         category: "indigo" },
   { href: "/screener/watchlists",  label: "Watchlists",         icon: Bookmark,         category: "neutral" },
 ];
 

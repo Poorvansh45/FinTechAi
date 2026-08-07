@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { ScannerContext } from "../context";
 import { env } from "@/config/env";
+import { authHeader } from "@/lib/api/authToken";
 
 const FASTAPI_URL = env.fastapiUrl;
 
@@ -72,8 +73,8 @@ export default function LocalOHLCScanner() {
     setError(null);
     try {
       const [statusRes, resultsRes] = await Promise.all([
-        fetch(`${FASTAPI_URL}/api/v2/scanner/local-ohlc/status`),
-        fetch(`${FASTAPI_URL}/api/v2/scanner/local-ohlc/results`)
+        fetch(`${FASTAPI_URL}/api/v2/scanner/local-ohlc/status`, { headers: await authHeader() }),
+        fetch(`${FASTAPI_URL}/api/v2/scanner/local-ohlc/results`, { headers: await authHeader() })
       ]);
 
       if (!statusRes.ok || !resultsRes.ok) {
@@ -126,6 +127,8 @@ export default function LocalOHLCScanner() {
     try {
       const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/local-ohlc/upload`, {
         method: "POST",
+        // No Content-Type: the browser must set the multipart boundary itself.
+        headers: await authHeader(),
         body: formData,
       });
 
@@ -148,7 +151,8 @@ export default function LocalOHLCScanner() {
     setError(null);
     try {
       const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/local-ohlc/trigger`, {
-        method: "POST"
+        method: "POST",
+        headers: await authHeader(),
       });
       if (!res.ok) throw new Error("Sync trigger failed.");
       
@@ -167,7 +171,8 @@ export default function LocalOHLCScanner() {
     if (!deleteSymbol) return;
     try {
       const res = await fetch(`${FASTAPI_URL}/api/v2/scanner/local-ohlc/delete/${deleteSymbol}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: await authHeader(),
       });
       if (!res.ok) throw new Error("Delete failed.");
       await fetchStatusAndResults();

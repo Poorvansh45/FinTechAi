@@ -13,8 +13,12 @@ const AppLayout = dynamic(
 );
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // Dark is the only theme now that the toggle is gone. `forcedTheme` rather
+  // than `defaultTheme` + `enableSystem={false}`: next-themes persists the last
+  // choice to localStorage, so anyone who had already switched to light would
+  // otherwise stay stuck there with no control left to switch back.
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+    <ThemeProvider attribute="class" forcedTheme="dark" disableTransitionOnChange>
       <AuthProvider>
         <SessionGate>
           <AppLayout>{children}</AppLayout>

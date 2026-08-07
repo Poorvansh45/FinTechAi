@@ -2,14 +2,15 @@
 
 import { Check, Loader2, AlertCircle, Circle } from "lucide-react";
 
-type StageKey = "download" | "indicators" | "technical" | "launchpad" | "alpha_zone";
+type StageKey = "download" | "indicators" | "technical" | "launchpad" | "alpha_zone" | "ipo_vintage";
 
 const STAGES: { key: StageKey; label: string; hint: string }[] = [
-  { key: "download",    label: "OHLCV Download",     hint: "Syncing fresh candles" },
-  { key: "indicators",  label: "Indicators",          hint: "EMA / RSI / MACD / ATR — computed once, reused by every stage below" },
-  { key: "technical",   label: "Technical Analysis",  hint: "FVG, SMC, momentum, volume surge" },
-  { key: "launchpad",   label: "LaunchPad",           hint: "Fair Value Gap continuation setups" },
-  { key: "alpha_zone",  label: "Alpha Zone",          hint: "Institutional order block setups" },
+  { key: "download",     label: "OHLCV Download",     hint: "Syncing fresh candles" },
+  { key: "indicators",   label: "Indicators",          hint: "EMA / RSI / MACD / ATR — computed once, reused by every stage below" },
+  { key: "technical",    label: "Technical Analysis",  hint: "FVG, SMC, momentum, volume surge" },
+  { key: "launchpad",    label: "LaunchPad",           hint: "Fair Value Gap continuation setups" },
+  { key: "alpha_zone",   label: "Alpha Zone",          hint: "Institutional order block setups" },
+  { key: "ipo_vintage",  label: "IPO Vintage",         hint: "Opening-range breakout on recent listings" },
 ];
 
 type StepStatus = "done" | "active" | "pending" | "failed";

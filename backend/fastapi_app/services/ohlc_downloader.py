@@ -23,8 +23,27 @@ MAX_RETRIES = 5             # retry on rate limit
 api_lock = threading.Lock()
 last_api_call = 0.0
 
-# In-memory cached dataframe store
+# In-memory cached dataframe store (CSV backend only)
 _IN_MEMORY_STOCK_CACHE: Dict[str, pd.DataFrame] = {}
+
+# Returned by download_incremental_ohlc() in mongo mode, where there is no file
+# path to hand back. Callers only log it.
+COLLECTION_HINT = "ohlcv"
+
+
+def _use_mongo() -> bool:
+    """True when OHLCV lives in MongoDB rather than Stock_Data.csv.
+
+    Chosen by `settings.ohlcv_backend`, never inferred. There is no automatic
+    failover to the CSV: a scan must never leave you guessing which source
+    produced it, and a silently-substituted stale CSV would look like success.
+    Rolling back is the one config value.
+    """
+    try:
+        from config import get_settings
+        return get_settings().ohlcv_backend.strip().lower() == "mongo"
+    except Exception:
+        return False
 
 def throttle():
     global last_api_call
@@ -64,8 +83,21 @@ def get_downloader_paths() -> Dict[str, str]:
 # CACHING AND HELPER LOGIC
 # =========================
 def refresh_in_memory_cache() -> None:
-    """Loads Stock_Data.csv into memory and groups it by symbol for fast lookups."""
+    """Reload the OHLCV cache.
+
+    CSV backend: parses Stock_Data.csv and groups it by symbol (~235 MB).
+    Mongo backend: nothing is preloaded — symbols are fetched on demand — so
+    this just drops the bounded LRU, preserving the existing contract that
+    callers use it to pick up freshly downloaded data.
+    """
     global _IN_MEMORY_STOCK_CACHE
+    if _use_mongo():
+        from services.ohlcv_store import clear_cache
+        clear_cache()
+        _IN_MEMORY_STOCK_CACHE = {}
+        log.info("OHLCV cache cleared (mongo backend — symbols load on demand).")
+        return
+
     paths = get_downloader_paths()
     output_csv = paths["output_csv"]
     
@@ -103,6 +135,13 @@ def load_stock_dataframe(symbol: str) -> pd.DataFrame:
     """
     global _IN_MEMORY_STOCK_CACHE
     sym_upper = symbol.strip().upper()
+
+    if _use_mongo():
+        # Already returns the capitalised column layout below, so callers are
+        # unaffected by which backend answered.
+        from services.ohlcv_store import get_symbol
+        return get_symbol(sym_upper)
+
     if not _IN_MEMORY_STOCK_CACHE:
         refresh_in_memory_cache()
     df = _IN_MEMORY_STOCK_CACHE.get(sym_upper, pd.DataFrame()).copy()
@@ -121,8 +160,30 @@ def load_stock_dataframe(symbol: str) -> pd.DataFrame:
     return df
 
 def get_cached_symbols() -> List[str]:
-    """Returns a list of all symbol keys currently cached in-memory."""
+    """Every symbol the active backend can serve.
+
+    Mongo returns these sorted, and `ohlcv_store.get_symbol()` reads ahead along
+    that same order — so scan loops that iterate this list get batched fetches
+    without knowing anything about batching.
+    """
     global _IN_MEMORY_STOCK_CACHE
+    if _use_mongo():
+        from services.ohlcv_store import list_symbols
+        syms = list_symbols()
+        if not syms:
+            # Refuse to hand back an empty universe. A scan that evaluates zero
+            # symbols still publishes its (empty) result set — publish_staged()
+            # treats that as a real zero-result outcome — so every live scanner
+            # cache would be replaced with nothing and the app would go blank.
+            # Deploying with OHLCV_BACKEND=mongo before running the migration is
+            # an easy mistake; this turns it into a loud failure instead.
+            raise RuntimeError(
+                "OHLCV store is empty: the 'ohlcv' collection has no symbols. "
+                "Run `python scripts/migrate_ohlcv_to_mongo.py`, or set "
+                "ohlcv_backend='csv' to use backend/data/Stock_Data.csv."
+            )
+        return syms
+
     if not _IN_MEMORY_STOCK_CACHE:
         refresh_in_memory_cache()
     return list(_IN_MEMORY_STOCK_CACHE.keys())
@@ -457,8 +518,22 @@ async def download_incremental_ohlc() -> str:
     
     log.info(f"Total stocks to check (including benchmark): {len(symbols_df)}")
 
-    # Load existing CSV database with lowercase columns
-    if os.path.exists(output_csv):
+    # Load existing history.
+    #
+    # Mongo backend: only the per-symbol LAST DATE is read here (2,200 tiny
+    # documents), not the bars themselves. Pulling every bar just to compute
+    # that map would defeat the point of the migration — the merge happens
+    # per symbol further down instead, so peak memory stays at one symbol.
+    EMPTY_COLS = ["symbol", "date", "open", "high", "low", "close", "volume"]
+    existing_df = pd.DataFrame(columns=EMPTY_COLS)
+
+    if _use_mongo():
+        from services.ohlcv_store import last_dates
+        last_date_map_mongo = last_dates()
+        log.info(f"Mongo backend: {len(last_date_map_mongo)} symbols already stored "
+                 f"(Stock_Data.csv is NOT read or written in this mode)")
+    elif os.path.exists(output_csv):
+        last_date_map_mongo = None
         log.info(f"Loading existing Stock_Data: {output_csv}")
         try:
             existing_df = pd.read_csv(output_csv)
@@ -467,14 +542,16 @@ async def download_incremental_ohlc() -> str:
             log.info(f"Loaded existing data: {len(existing_df)} rows")
         except Exception as e:
             log.error(f"Failed to read existing Stock_Data.csv: {e}. Rebuilding from scratch.")
-            existing_df = pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume"])
+            existing_df = pd.DataFrame(columns=EMPTY_COLS)
     else:
-        existing_df = pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume"])
+        last_date_map_mongo = None
         log.info("No existing Stock_Data.csv found. Will perform first-time setup (5yr history).")
 
     # Map last dates per symbol (case-insensitive keys for safety)
     last_date_map = {}
-    if not existing_df.empty:
+    if last_date_map_mongo is not None:
+        last_date_map = last_date_map_mongo
+    elif not existing_df.empty:
         last_date_map = (
             existing_df.groupby("symbol")["date"]
             .max()
@@ -545,6 +622,48 @@ async def download_incremental_ohlc() -> str:
     if failed_symbols:
         log.info(f"  Failed Symbols: {', '.join(failed_symbols[:20])}...")
     log.info("=========================================")
+
+    # ── Mongo backend: merge and persist ONE SYMBOL AT A TIME ────────────
+    # The CSV branch below concatenates the entire history in RAM. That is the
+    # 235 MB the migration exists to avoid, so this path never assembles a
+    # whole-universe frame — and it never touches Stock_Data.csv.
+    if _use_mongo():
+        from services.ohlcv_store import get_symbol, upsert_frame
+
+        if not new_records:
+            log.info("No new EOD candles were fetched (all tickers up to date).")
+            refresh_in_memory_cache()
+            return f"mongo:{COLLECTION_HINT}"
+
+        new_df = pd.concat(new_records, ignore_index=True)
+        new_df.columns = new_df.columns.str.lower()
+        new_df["date"] = _to_naive_datetime(new_df["date"])
+        new_df["symbol"] = new_df["symbol"].astype(str).str.strip().str.upper()
+
+        written = 0
+        for sym, incoming in new_df.groupby("symbol"):
+            prior = get_symbol(sym)
+            if not prior.empty:
+                prior = prior.rename(columns={
+                    "Symbol": "symbol", "Date": "date", "Open": "open",
+                    "High": "high", "Low": "low", "Close": "close", "Volume": "volume",
+                })[["symbol", "date", "open", "high", "low", "close", "volume"]]
+                merged = pd.concat([prior, incoming], ignore_index=True)
+            else:
+                merged = incoming
+
+            # Same validation the CSV path applies — duplicates, future dates,
+            # invalid OHLC, negative volumes.
+            merged = validate_and_clean_data(merged)
+            merged["date"] = merged["date"].dt.normalize()
+            merged = merged.sort_values("date")
+            upsert_frame(merged)
+            written += 1
+
+        refresh_in_memory_cache()
+        log.info(f"✅ MongoDB OHLCV updated: {written} symbol(s) merged. "
+                 f"Stock_Data.csv left untouched.")
+        return f"mongo:{COLLECTION_HINT}"
 
     # Merge and Save with lowercase columns and validation rules
     if new_records:

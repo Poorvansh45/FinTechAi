@@ -9,6 +9,20 @@ const scannerClient = axios.create({
     timeout: 120_000,  // 2 min — scan is slow
 });
 
+/**
+ * Attach the Express-issued JWT to every scanner request.
+ *
+ * FinTechAI is a closed private beta and FastAPI now denies by default, so the
+ * read endpoints below are no longer public — they were, which is why only
+ * triggerScan() used to bother with a token. Doing this in one interceptor
+ * rather than per method means a call added later is authenticated by default
+ * instead of silently 401-ing.
+ */
+scannerClient.interceptors.request.use(async (config) => {
+    Object.assign(config.headers, await authHeader());
+    return config;
+});
+
 export const screenerService = {
     async getMomentum(params: Record<string, any> = {}) {
         return scannerClient.get("/api/scanner/momentum", { params });
@@ -81,14 +95,12 @@ export const screenerService = {
     },
 
     /**
-     * Manually trigger a full market scan. Requires a signed-in user — the
-     * endpoint verifies the Express-issued JWT, so the bearer token must be
-     * attached (read endpoints above stay public and don't need it).
+     * Manually trigger a full market scan. Requires a signed-in, non-demo user:
+     * a scan pins the CPU for 30-40 minutes, so the shared demo account is
+     * refused (403). The bearer token comes from the interceptor above.
      */
     async triggerScan() {
-        return scannerClient.post("/api/v2/scanner/trigger-scan", null, {
-            headers: await authHeader(),
-        });
+        return scannerClient.post("/api/v2/scanner/trigger-scan");
     },
 
     async getScanStatus() {

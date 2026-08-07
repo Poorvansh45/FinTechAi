@@ -17,7 +17,6 @@ import {
   EMPTY_RANGE,
   isRangeActive,
   formatCompact,
-  CONFIDENCE_PRESETS,
   PRICE_PRESETS,
   RETURN_PRESETS,
   VOLUME_PRESETS,
@@ -27,7 +26,6 @@ import { LAUNCHPAD_TERMS, LAUNCHPAD_FAQS } from "@/lib/screener/quantContent";
 
 // Slider bounds. A bound is only sent to the API when the user actually sets
 // it — an empty box (null) means "no constraint", exactly as before.
-const CONF_BOUNDS: [number, number] = [0, 100];
 const PRICE_BOUNDS: [number, number] = [100, 5000];
 const RETURN_BOUNDS: [number, number] = [0, 50];
 const VOLUME_BOUNDS: [number, number] = [0, 10_000_000];
@@ -63,7 +61,6 @@ export default function LaunchPadPage() {
   // Filters state
   const [market, setMarket] = useState("all");
   // Range filters — `null` on either side means that bound isn't sent.
-  const [conf, setConf] = useState<RangeValue>(EMPTY_RANGE);
   const [price, setPrice] = useState<RangeValue>(EMPTY_RANGE);
   const [ret, setRet] = useState<RangeValue>(EMPTY_RANGE);
   const [vol, setVol] = useState<RangeValue>(EMPTY_RANGE);
@@ -108,9 +105,6 @@ export default function LaunchPadPage() {
       const params: Record<string, any> = {};
       if (market !== "all") params.market = market;
 
-      if (conf.min !== null) params.min_confidence = conf.min;
-      if (conf.max !== null) params.max_confidence = conf.max;
-
       if (price.min !== null) params.price_min = price.min;
       if (price.max !== null) params.price_max = price.max;
 
@@ -136,7 +130,7 @@ export default function LaunchPadPage() {
     } finally {
       setLoading(false);
     }
-  }, [market, conf, price, ret, vol, gap]);
+  }, [market, price, ret, vol, gap]);
 
   // Debounced apply: dragging a range meter updates the readout instantly, but
   // the API is only queried once the user pauses — otherwise every pixel of a
@@ -153,12 +147,11 @@ export default function LaunchPadPage() {
   const activeCount =
     (market !== "all" ? 1 : 0) +
     (risk !== "all" ? 1 : 0) +
-    [conf, price, ret, vol, gap].filter(isRangeActive).length;
+    [price, ret, vol, gap].filter(isRangeActive).length;
 
   const resetFilters = () => {
     setMarket("all");
     setRisk("all");
-    setConf(EMPTY_RANGE);
     setPrice(EMPTY_RANGE);
     setRet(EMPTY_RANGE);
     setVol(EMPTY_RANGE);
@@ -183,9 +176,9 @@ export default function LaunchPadPage() {
   });
 
   const getConfidenceBadgeColor = (conf: number) => {
-    if (conf >= 90) return "bg-purple-500/20 text-purple-300 border-purple-500/30";
-    if (conf >= 80) return "bg-violet-500/20 text-violet-300 border-violet-500/30";
-    return "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+    if (conf >= 90) return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+    if (conf >= 80) return "bg-sky-500/20 text-sky-300 border-sky-500/30";
+    return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
   };
 
   return (
@@ -194,10 +187,10 @@ export default function LaunchPadPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-purple-500/10 border border-purple-500/25 text-purple-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-400">
               <Rocket size={12} />
             </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-purple-400">Proprietary Strategy</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Proprietary Strategy</span>
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white">🚀 LaunchPad Swing Scanner</h1>
           <p className="text-sm text-gray-400">
@@ -205,8 +198,8 @@ export default function LaunchPadPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-purple-950/20 border border-purple-500/20 rounded-2xl px-5 py-2.5 text-center min-w-[100px]">
-            <div className="text-2xl font-black text-purple-400 font-mono">
+          <div className="bg-blue-950/20 border border-blue-500/20 rounded-2xl px-5 py-2.5 text-center min-w-[100px]">
+            <div className="text-2xl font-black text-blue-400 font-mono">
               {loading ? "..." : filteredStocks.length}
             </div>
             <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Stocks Found</div>
@@ -232,7 +225,7 @@ export default function LaunchPadPage() {
       <FilterPanel
         activeCount={activeCount}
         onReset={resetFilters}
-        accent="purple"
+        accent="blue"
         columns={3}
         footer={
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
@@ -245,13 +238,13 @@ export default function LaunchPadPage() {
                 placeholder="Search symbol or company..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-purple-500 focus:outline-none"
+                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-blue-500 focus:outline-none"
               />
             </div>
             <button
               onClick={runScan}
               disabled={loading}
-              className="w-full rounded-lg bg-purple-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-purple-500 active:scale-98 sm:w-auto"
+              className="w-full rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-500 active:scale-98 sm:w-auto"
             >
               {loading ? "Scanning Universe…" : "Re-Run Scanner"}
             </button>
@@ -262,7 +255,7 @@ export default function LaunchPadPage() {
           label="Market Index"
           value={market}
           onChange={setMarket}
-          accent="purple"
+          accent="blue"
           options={[
             { value: "all", label: "All NSE Stocks" },
             { value: "nifty50", label: "Nifty 50" },
@@ -275,29 +268,13 @@ export default function LaunchPadPage() {
           label="Risk"
           value={risk}
           onChange={setRisk}
-          accent="purple"
+          accent="blue"
           options={[
             { value: "all", label: "Any Risk" },
             { value: "Low", label: "Low" },
             { value: "Medium", label: "Medium" },
             { value: "High", label: "High" },
           ]}
-        />
-
-        {/* Confidence replaces the old star-bucket "Signal Strength" filter —
-            Strong/Medium/Weak is just a re-label of this same score, so a
-            typed band is finer-grained and non-redundant. */}
-        <RangeFilter
-          label="Confidence"
-          value={conf}
-          onChange={setConf}
-          min={CONF_BOUNDS[0]}
-          max={CONF_BOUNDS[1]}
-          step={1}
-          unit="%"
-          presets={CONFIDENCE_PRESETS}
-          accent="purple"
-          description="Engine confidence score, 0–100."
         />
 
         <RangeFilter
@@ -311,7 +288,7 @@ export default function LaunchPadPage() {
           unitPosition="prefix"
           format={(v) => `₹${v.toLocaleString("en-IN")}`}
           presets={PRICE_PRESETS}
-          accent="purple"
+          accent="blue"
           description="Current market price."
         />
 
@@ -324,7 +301,7 @@ export default function LaunchPadPage() {
           step={1}
           unit="%"
           presets={RETURN_PRESETS}
-          accent="purple"
+          accent="blue"
           description="Target return implied by the trade plan."
         />
 
@@ -337,7 +314,7 @@ export default function LaunchPadPage() {
           step={10_000}
           format={formatCompact}
           presets={VOLUME_PRESETS}
-          accent="purple"
+          accent="blue"
           description="20-day average traded volume (liquidity)."
         />
 
@@ -350,7 +327,7 @@ export default function LaunchPadPage() {
           step={0.5}
           unit="%"
           presets={FVG_PRESETS}
-          accent="purple"
+          accent="blue"
           description="Gap height as % of the FVG floor. LaunchPad caps gaps at 10%."
         />
       </FilterPanel>
@@ -394,7 +371,7 @@ export default function LaunchPadPage() {
           </p>
           <Link
             href="/screener"
-            className="mt-2 inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
+            className="mt-2 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
           >
             Go to Overview &amp; Run Full Scan
           </Link>
@@ -412,9 +389,9 @@ export default function LaunchPadPage() {
           {filteredStocks.map((s) => (
             <div 
               key={s.symbol}
-              className="group relative overflow-hidden rounded-3xl border border-gray-800 hover:border-purple-500/40 bg-gradient-to-b from-gray-900/40 to-gray-950/80 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
+              className="group relative overflow-hidden rounded-3xl border border-gray-800 hover:border-blue-500/40 bg-gradient-to-b from-gray-900/40 to-gray-950/80 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
             >
-              <div className="absolute top-0 right-0 -z-10 h-24 w-24 rounded-full bg-purple-500/5 blur-2xl opacity-50" />
+              <div className="absolute top-0 right-0 -z-10 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl opacity-50" />
               
               {/* Header */}
               <div className="flex justify-between items-start">
@@ -434,7 +411,7 @@ export default function LaunchPadPage() {
               <div className="mt-5 grid grid-cols-3 gap-3 bg-gray-900/40 border border-gray-850 rounded-2xl p-4 text-xs">
                 <div>
                   <span className="text-gray-500 text-[10px] block">Exp. Return</span>
-                  <span className="font-bold text-purple-400 text-sm font-mono">+{s.expected_return}%</span>
+                  <span className="font-bold text-blue-400 text-sm font-mono">+{s.expected_return}%</span>
                 </div>
                 <div>
                   <span className="text-gray-500 text-[10px] block">Hold</span>
@@ -461,9 +438,9 @@ export default function LaunchPadPage() {
               {/* Historical bullish-FVG track record for THIS stock: how often
                   its past FVGs continued up, and the avg win vs avg loss. */}
               {s.fvg_sample > 0 && (
-                <div className="mt-4 rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] p-3">
+                <div className="mt-4 rounded-2xl border border-blue-500/15 bg-blue-500/[0.04] p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300">
                       FVG Track Record
                     </span>
                     <span className="text-[10px] text-gray-500" title="Historical bullish FVGs tested">
@@ -497,7 +474,7 @@ export default function LaunchPadPage() {
               <ExplainPanel
                 rationale={buildRationale(s)}
                 scores={s.confidence_breakdown}
-                accent="purple"
+                accent="blue"
                 rows={[
                   { label: "FVG Zone", value: `₹${s.fvg_low}–₹${s.fvg_high}` },
                   { label: "Gap %", value: `${s.gap_pct}%` },
@@ -527,7 +504,7 @@ export default function LaunchPadPage() {
 
                 <Link
                   href={`/ai-copilot?prompt=Analyze+the+LaunchPad+momentum+setup+for+${s.symbol}+with+entry+at+${s.entry}+and+expected+return+of+${s.expected_return}%25.`}
-                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-purple-600/10 border border-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
+                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-blue-600/10 border border-blue-500/20 text-blue-300 hover:bg-blue-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
                 >
                   <Sparkles size={11} /> AI Anal.
                 </Link>
@@ -538,7 +515,7 @@ export default function LaunchPadPage() {
       )}
 
       {/* ── Footer: glossary + FAQ ────────────────────────────────── */}
-      <StrategyFooter terms={LAUNCHPAD_TERMS} faqs={LAUNCHPAD_FAQS} accent="purple" />
+      <StrategyFooter terms={LAUNCHPAD_TERMS} faqs={LAUNCHPAD_FAQS} accent="blue" />
 
       {selectedStock && (
         <AddToWatchlistModal

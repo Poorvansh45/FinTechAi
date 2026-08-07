@@ -51,18 +51,13 @@ export function UserMenu() {
   };
 
   if (!isAuthenticated || !user) {
+    // Private beta: no "Get Started" — there is nothing to sign up for.
     return (
       <div className="flex items-center gap-2">
         <Link
-          href="/auth?mode=signup"
-          className="hidden sm:inline-flex px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white hover:opacity-90 transition-opacity"
-          style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}
-        >
-          Get Started
-        </Link>
-        <Link
           href="/auth?mode=signin"
-          className="px-3.5 py-1.5 rounded-lg text-[13px] font-semibold transition-colors hover:bg-black/5 dark:hover:bg-white/5 text-slate-700 dark:text-white/80 border border-black/10 dark:border-white/10"
+          className="px-3.5 py-1.5 rounded-lg text-[13px] font-semibold text-white hover:opacity-90 transition-opacity"
+          style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)' }}
         >
           Sign In
         </Link>

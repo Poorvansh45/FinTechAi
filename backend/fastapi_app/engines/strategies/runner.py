@@ -300,6 +300,7 @@ async def run_alphazone_scan(
                 ob=ob,
                 ema200_dist_pct=ind.ema_200_dist_pct,
                 atr=ind.atr_14,
+                avg_volume=ind.avg_volume_20,
             )
         except Exception as e:
             log.warning(f"[alpha_zone] evaluate failed for {sym}: {e}")

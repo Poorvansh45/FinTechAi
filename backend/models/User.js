@@ -26,6 +26,31 @@ const userSchema = new mongoose.Schema(
       minlength: [6, 'Password must be at least 6 characters'],
       select: false, // Never return password in queries by default
     },
+    /**
+     * Access tier. FinTechAI runs as a closed private beta — accounts are
+     * seeded, never self-registered.
+     *   owner — full access
+     *   beta  — full access, invited testers
+     *   demo  — SHARED, publicly-distributed credential. Treat as untrusted:
+     *           blocked from expensive operations and read-only where practical.
+     */
+    role: {
+      type: String,
+      enum: ['owner', 'beta', 'demo'],
+      default: 'beta',
+      index: true,
+    },
+    /**
+     * Soft revocation. Preferred over deletion so a revoked account keeps its
+     * data and can be restored. Both Express `protect` and the FastAPI auth
+     * guard reject inactive users, so clearing this invalidates any outstanding
+     * JWT immediately rather than waiting out its 30-day expiry.
+     */
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
   },
   {
     timestamps: true, // adds createdAt and updatedAt automatically

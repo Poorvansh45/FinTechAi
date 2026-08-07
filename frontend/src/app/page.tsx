@@ -282,8 +282,8 @@ export default function HomePage() {
               </>
             ) : (
               <>
-                <LightBeamButton href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')}>
-                  Get Started Free <ArrowRight className="w-4 h-4" />
+                <LightBeamButton href="/auth?mode=signin" onClick={handleAuthNavigation('/auth?mode=signin')}>
+                  Sign In <ArrowRight className="w-4 h-4" />
                 </LightBeamButton>
                 
                 <Link href="#product"
@@ -1001,7 +1001,7 @@ export default function HomePage() {
             <div className="pt-4 border-t border-white/[0.04] flex items-center justify-between text-[11px] text-[#94A3B8]">
               <span className="font-mono">FINTECHAI ENGINE v1.2</span>
               <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }} className="inline-flex">
-                <Link href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="flex items-center gap-1 text-[#8B5CF6] hover:text-[#A78BFA] transition-colors font-semibold">
+                <Link href="/auth?mode=signin" onClick={handleAuthNavigation('/auth?mode=signin')} className="flex items-center gap-1 text-[#8B5CF6] hover:text-[#A78BFA] transition-colors font-semibold">
                   Explore Module <ChevronRight className="w-3 h-3" />
                 </Link>
               </motion.div>
@@ -1107,8 +1107,8 @@ export default function HomePage() {
               </ul>
             </div>
             <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }}>
-              <Link href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
-                Get Started Free
+              <Link href="/auth?mode=signin" onClick={handleAuthNavigation('/auth?mode=signin')} className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
+                Sign In
               </Link>
             </motion.div>
           </div>
@@ -1145,7 +1145,7 @@ export default function HomePage() {
                 ))}
               </ul>
             </div>
-            <LightBeamButton href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="mt-8 w-full">
+            <LightBeamButton href="/auth?mode=signin" onClick={handleAuthNavigation('/auth?mode=signin')} className="mt-8 w-full">
               Upgrade to Pro
             </LightBeamButton>
           </div>
@@ -1179,7 +1179,7 @@ export default function HomePage() {
               </ul>
             </div>
             <motion.div whileTap={{ scale: 0.97 }} transition={{ duration: 0.12, ease: 'easeOut' }}>
-              <Link href="/auth?mode=signup" onClick={handleAuthNavigation('/auth?mode=signup')} className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
+              <Link href="/auth?mode=signin" onClick={handleAuthNavigation('/auth?mode=signin')} className="mt-8 w-full block text-center py-3 rounded-full text-xs font-semibold bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all" style={{ height: '48px', lineHeight: '48px', padding: '0' }}>
                 Join Elite Tier
               </Link>
             </motion.div>
@@ -1277,7 +1277,7 @@ export default function HomePage() {
           </p>
           <div className="pt-2">
             <LightBeamButton href="/journal">
-              Get Started Free <ArrowRight className="w-4 h-4" />
+              Sign In <ArrowRight className="w-4 h-4" />
             </LightBeamButton>
           </div>
         </div>
