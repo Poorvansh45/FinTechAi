@@ -20,6 +20,22 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
+// ── Reverse proxy ──────────────────────────────────────────────
+// Render (like most PaaS) terminates TLS at a load balancer and forwards the
+// real caller in X-Forwarded-For. Without this, req.ip is the proxy's address
+// on EVERY request, so the rate limiter below collapses into a single global
+// bucket — 100 requests per 15 minutes shared by all users rather than each.
+// express-rate-limit detects this itself and raises
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+//
+// The value is 1, not `true`. `true` trusts the whole X-Forwarded-For chain,
+// so a caller could prepend a forged address and mint a fresh rate-limit
+// bucket per request, bypassing the limiter entirely. 1 trusts only the
+// nearest hop — Render's own proxy — and reads the client address from there.
+// Harmless locally: with no X-Forwarded-For present, req.ip is the socket
+// address as before.
+app.set('trust proxy', 1);
+
 // ── Security & Logging ─────────────────────────────────────────
 app.use(helmet());
 app.use(morgan(env.isProduction ? 'combined' : 'dev'));
