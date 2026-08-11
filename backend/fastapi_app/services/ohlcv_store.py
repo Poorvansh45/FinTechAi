@@ -40,7 +40,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections import OrderedDict
-from typing import Dict, Iterable, List, Optional
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
@@ -53,8 +53,13 @@ COLLECTION = "ohlcv"
 EPOCH = np.datetime64("1970-01-01")
 
 # Columns as stored, and the numpy dtype each blob decodes with.
-_BLOBS = (("o", np.float64), ("h", np.float64), ("l", np.float64),
-          ("c", np.float64), ("v", np.int64))
+_BLOBS = (
+    ("o", np.float64),
+    ("h", np.float64),
+    ("l", np.float64),
+    ("c", np.float64),
+    ("v", np.int64),
+)
 _OUT = {"o": "Open", "h": "High", "l": "Low", "c": "Close", "v": "Volume"}
 
 # Bounded LRU. 128 symbols x ~70 KB is ~9 MB — enough to cover a read-ahead
@@ -65,17 +70,18 @@ _CACHE_MAX = 128
 # Atlas round-trip latency dominates, so batching is not optional.
 _READAHEAD = 50
 
-_cache: "OrderedDict[str, pd.DataFrame]" = OrderedDict()
+_cache: OrderedDict[str, pd.DataFrame] = OrderedDict()
 _lock = threading.Lock()
 # Separate lock for client construction. Sharing `_lock` would risk a deadlock
 # the moment a future caller invoked _coll() while already holding it —
 # threading.Lock is not reentrant.
 _client_lock = threading.Lock()
 _client = None
-_universe: List[str] = []
+_universe: list[str] = []
 
 
 # ── Connection ────────────────────────────────────────────────────────────────
+
 
 def _coll():
     """Lazily open a SYNC pymongo handle.
@@ -94,6 +100,7 @@ def _coll():
         with _client_lock:
             if _client is None:
                 from pymongo import MongoClient
+
                 s = get_settings()
                 _client = MongoClient(
                     s.mongodb_uri,
@@ -117,6 +124,7 @@ def close() -> None:
 
 # ── Encode / decode ───────────────────────────────────────────────────────────
 
+
 def encode(symbol: str, df: pd.DataFrame) -> dict:
     """Build the stored document from a per-symbol frame.
 
@@ -132,7 +140,7 @@ def encode(symbol: str, df: pd.DataFrame) -> dict:
 
     doc = {
         "_id": symbol,
-        "n": int(len(d)),
+        "n": len(d),
         "start": pd.Timestamp(dates[0]).to_pydatetime(),
         "end": pd.Timestamp(dates[-1]).to_pydatetime(),
         "d": Binary(days.tobytes()),
@@ -157,6 +165,7 @@ def decode(doc: dict) -> pd.DataFrame:
 
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
+
 
 def _cache_put(symbol: str, df: pd.DataFrame) -> None:
     _cache[symbol] = df
@@ -198,13 +207,17 @@ def invalidate(symbols: Iterable[str]) -> None:
 
 def cache_stats() -> dict:
     with _lock:
-        return {"cached_symbols": len(_cache), "max": _CACHE_MAX,
-                "universe_known": len(_universe)}
+        return {
+            "cached_symbols": len(_cache),
+            "max": _CACHE_MAX,
+            "universe_known": len(_universe),
+        }
 
 
 # ── Reads ─────────────────────────────────────────────────────────────────────
 
-def list_symbols() -> List[str]:
+
+def list_symbols() -> list[str]:
     """Every symbol held in the store, ordered. The order is retained so
     `get_symbol()` can read ahead along the sequence callers iterate."""
     global _universe
@@ -217,23 +230,26 @@ def list_symbols() -> List[str]:
     return list(syms)
 
 
-def last_dates() -> Dict[str, pd.Timestamp]:
+def last_dates() -> dict[str, pd.Timestamp]:
     """Newest stored bar per symbol, for incremental download planning.
 
     Reads only the `end` field — 2,200 tiny documents — so the downloader can
     decide what to fetch without pulling a single bar into memory.
     """
-    return {d["_id"]: pd.Timestamp(d["end"])
-            for d in _coll().find({}, {"end": 1}) if d.get("end") is not None}
+    return {
+        d["_id"]: pd.Timestamp(d["end"])
+        for d in _coll().find({}, {"end": 1})
+        if d.get("end") is not None
+    }
 
 
-def get_many(symbols: Iterable[str]) -> Dict[str, pd.DataFrame]:
+def get_many(symbols: Iterable[str]) -> dict[str, pd.DataFrame]:
     """Fetch several symbols in one round-trip, populating the cache."""
     wanted = [s for s in symbols if s]
     if not wanted:
         return {}
-    out: Dict[str, pd.DataFrame] = {}
-    missing: List[str] = []
+    out: dict[str, pd.DataFrame] = {}
+    missing: list[str] = []
     with _lock:
         for s in wanted:
             hit = _cache.get(s)
@@ -271,7 +287,7 @@ def get_symbol(symbol: str) -> pd.DataFrame:
         universe = list_symbols()
         if sym in universe:
             i = universe.index(sym)
-            batch = universe[i:i + _READAHEAD]
+            batch = universe[i : i + _READAHEAD]
     except Exception as e:  # read-ahead is an optimisation, never a hard failure
         log.debug(f"[ohlcv] read-ahead skipped for {sym}: {e}")
 
@@ -281,6 +297,7 @@ def get_symbol(symbol: str) -> pd.DataFrame:
 
 
 # ── Writes ────────────────────────────────────────────────────────────────────
+
 
 def upsert_frame(df: pd.DataFrame) -> int:
     """Replace stored history for every symbol present in `df`.
@@ -292,14 +309,15 @@ def upsert_frame(df: pd.DataFrame) -> int:
     from pymongo import ReplaceOne
 
     cols = {c.lower(): c for c in df.columns}
-    ops = [ReplaceOne({"_id": str(sym).upper()},
-                      encode(str(sym).upper(), g), upsert=True)
-           for sym, g in df.groupby(cols["symbol"])]
+    ops = [
+        ReplaceOne({"_id": str(sym).upper()}, encode(str(sym).upper(), g), upsert=True)
+        for sym, g in df.groupby(cols["symbol"])
+    ]
     if not ops:
         return 0
     written = 0
-    for i in range(0, len(ops), 200):          # modest batches: M0 is shared
-        res = _coll().bulk_write(ops[i:i + 200], ordered=False)
+    for i in range(0, len(ops), 200):  # modest batches: M0 is shared
+        res = _coll().bulk_write(ops[i : i + 200], ordered=False)
         written += res.upserted_count + res.modified_count
     # Evict only what changed — see `invalidate()` for why this is not clear_cache().
     invalidate(str(s).upper() for s in df[cols["symbol"]].unique())
@@ -311,9 +329,24 @@ def stats() -> dict:
     verifier."""
     c = _coll()
     n_syms = c.count_documents({})
-    agg = list(c.aggregate([{"$group": {"_id": None, "bars": {"$sum": "$n"},
-                                        "newest": {"$max": "$end"},
-                                        "oldest": {"$min": "$start"}}}]))
+    agg = list(
+        c.aggregate(
+            [
+                {
+                    "$group": {
+                        "_id": None,
+                        "bars": {"$sum": "$n"},
+                        "newest": {"$max": "$end"},
+                        "oldest": {"$min": "$start"},
+                    }
+                }
+            ]
+        )
+    )
     a = agg[0] if agg else {}
-    return {"symbols": n_syms, "bars": a.get("bars", 0),
-            "oldest": a.get("oldest"), "newest": a.get("newest")}
+    return {
+        "symbols": n_syms,
+        "bars": a.get("bars", 0),
+        "oldest": a.get("oldest"),
+        "newest": a.get("newest"),
+    }

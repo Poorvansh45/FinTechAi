@@ -21,7 +21,9 @@ VALID_ROUTES = ["portfolio", "market", "planning", "education"]
 
 async def supervisor_node(state: CopilotState, config=None) -> dict:
     llm_manager = get_llm_manager()
-    route = await supervisor_agent.classify(llm_manager, state.get("message", ""), config)
+    route = await supervisor_agent.classify(
+        llm_manager, state.get("message", ""), config
+    )
     if route not in VALID_ROUTES:
         route = "education"
     return {"route": route}

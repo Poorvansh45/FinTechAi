@@ -24,7 +24,6 @@ Deliberate honesty constraints baked into the output:
 from __future__ import annotations
 
 from statistics import median
-from typing import Optional
 
 from .ipo_vintage import HORIZONS
 
@@ -42,7 +41,7 @@ def _horizon_stats(docs: list[dict], h: int) -> dict:
         hz = (d.get("horizons") or {}).get(key) or {}
         status = hz.get("status")
         if status not in ("resolved", "stopped"):
-            continue                      # pending -> not a finished trade
+            continue  # pending -> not a finished trade
         r = hz.get("return_pct")
         if r is None:
             continue
@@ -52,8 +51,14 @@ def _horizon_stats(docs: list[dict], h: int) -> dict:
 
     if not rets:
         return {
-            "horizon": h, "trades": 0, "win_rate": None, "median_return_pct": None,
-            "mean_return_pct": None, "stopped_pct": None, "best_pct": None, "worst_pct": None,
+            "horizon": h,
+            "trades": 0,
+            "win_rate": None,
+            "median_return_pct": None,
+            "mean_return_pct": None,
+            "stopped_pct": None,
+            "best_pct": None,
+            "worst_pct": None,
         }
 
     wins = sum(1 for r in rets if r > 0)
@@ -70,7 +75,8 @@ def _horizon_stats(docs: list[dict], h: int) -> dict:
 
 
 def _equity_curve(
-    docs: list[dict], h: int,
+    docs: list[dict],
+    h: int,
     starting_capital: float = 100_000.0,
     slots: int = 10,
 ) -> dict:
@@ -144,12 +150,14 @@ def _per_year(docs: list[dict], h: int) -> list[dict]:
     for year in sorted(buckets):
         rets = buckets[year]
         wins = sum(1 for r in rets if r > 0)
-        out.append({
-            "year": year,
-            "trades": len(rets),
-            "win_rate": _pct(wins, len(rets)),
-            "median_return_pct": round(median(rets), 2),
-        })
+        out.append(
+            {
+                "year": year,
+                "trades": len(rets),
+                "win_rate": _pct(wins, len(rets)),
+                "median_return_pct": round(median(rets), 2),
+            }
+        )
     return out
 
 
@@ -178,11 +186,14 @@ def build_ipo_vintage_study(docs: list[dict], headline_horizon: int = 15) -> dic
         # than hardcoded — a stale caveat is worse than no caveat.
         "caveats": [
             "Historical study of setups this scanner produced — not a forecast and not a recommendation.",
-            f"Fixed ₹{equity['position_size']:,.0f} per trade across {equity['slots']} positions — NOT full-capital compounding. "
-            "Excludes brokerage, slippage and taxes, which make real results worse.",
+            (
+                f"Fixed ₹{equity['position_size']:,.0f} per trade across {equity['slots']} positions — NOT full-capital compounding. "
+                "Excludes brokerage, slippage and taxes, which make real results worse."
+            ),
             "Every trade is taken in sequence with no capital or concurrency limit; a real account could not always have a slot free.",
             "Covers a single, unusually strong IPO cycle. Per-year rows show how much the result moves depending on when you sample.",
-            f"Stops are wide — median risk to stop is {median_risk}%." if median_risk is not None
+            f"Stops are wide — median risk to stop is {median_risk}%."
+            if median_risk is not None
             else "Stops on this setup are wide.",
         ],
     }

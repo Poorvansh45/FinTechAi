@@ -15,7 +15,7 @@ from langchain_core.tools import tool
 def _sip_future_value(monthly: float, annual_rate_pct: float, years: float) -> float:
     """FV of a monthly SIP (contribution at end of each month)."""
     i = (annual_rate_pct / 100.0) / 12.0
-    n = int(round(years * 12))
+    n = round(years * 12)
     if n <= 0:
         return 0.0
     if i == 0:
@@ -24,14 +24,16 @@ def _sip_future_value(monthly: float, annual_rate_pct: float, years: float) -> f
 
 
 @tool
-def sip_calculator(monthly_investment: float, annual_return_pct: float, years: float) -> str:
+def sip_calculator(
+    monthly_investment: float, annual_return_pct: float, years: float
+) -> str:
     """Project the future value of a monthly SIP given a monthly amount, an assumed
     annual return %, and a horizon in years. Always frame the return as an assumption,
     not a guarantee."""
     if monthly_investment <= 0 or years <= 0:
         return "Provide a positive monthly amount and horizon."
     fv = _sip_future_value(monthly_investment, annual_return_pct, years)
-    invested = monthly_investment * int(round(years * 12))
+    invested = monthly_investment * round(years * 12)
     gain = fv - invested
     return (
         f"Investing ₹{monthly_investment:,.0f}/month for {years:g} years at an ASSUMED "
@@ -42,7 +44,9 @@ def sip_calculator(monthly_investment: float, annual_return_pct: float, years: f
 
 
 @tool
-def compound_interest(principal: float, annual_rate_pct: float, years: float, compounds_per_year: int = 1) -> str:
+def compound_interest(
+    principal: float, annual_rate_pct: float, years: float, compounds_per_year: int = 1
+) -> str:
     """Future value of a one-time lump sum under compound interest. Use for 'if I invest
     ₹X once for Y years' questions."""
     if principal <= 0 or years <= 0:
@@ -63,7 +67,7 @@ def future_value(target_amount: float, annual_return_pct: float, years: float) -
     if target_amount <= 0 or years <= 0:
         return "Provide a positive target amount and horizon."
     i = (annual_return_pct / 100.0) / 12.0
-    n = int(round(years * 12))
+    n = round(years * 12)
     if i == 0:
         monthly = target_amount / n
     else:
@@ -94,4 +98,9 @@ def risk_profile_mapper(horizon_years: float, comfort_with_loss: str) -> str:
     )
 
 
-CALCULATOR_TOOLS = [sip_calculator, compound_interest, future_value, risk_profile_mapper]
+CALCULATOR_TOOLS = [
+    sip_calculator,
+    compound_interest,
+    future_value,
+    risk_profile_mapper,
+]

@@ -19,4 +19,16 @@ if (!process.env.JWT_SECRET) {
   console.warn('[WARN] JWT_SECRET not set in .env — using insecure default. Set it before deploying.');
 }
 
+// Same fail-closed rule for the database. The localhost default above is
+// correct for development, but in production it is an operational footgun:
+// the service would start "successfully" against an empty local database that
+// does not exist on the host, and a seed or migration run in that state writes
+// to the wrong place. Fail at startup instead of discovering it later.
+if (!process.env.MONGODB_URI && !process.env.MONGO_URI) {
+  if (env.isProduction) {
+    throw new Error('[FATAL] MONGODB_URI is not set. Refusing to start in production with the localhost default.');
+  }
+  console.warn('[WARN] MONGODB_URI not set in .env — using local default (mongodb://localhost:27017/finai_edge).');
+}
+
 module.exports = env;

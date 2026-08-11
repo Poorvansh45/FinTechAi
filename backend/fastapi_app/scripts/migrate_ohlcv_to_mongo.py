@@ -29,15 +29,22 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services import ohlcv_store as store  # noqa: E402
+from services import ohlcv_store as store
 
 CHUNK = 400_000
 COLS = ["symbol", "date", "open", "high", "low", "close", "volume"]
-OUT = {"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"}
+OUT = {
+    "open": "Open",
+    "high": "High",
+    "low": "Low",
+    "close": "Close",
+    "volume": "Volume",
+}
 
 
 def csv_path() -> str:
     from services.ohlc_downloader import get_downloader_paths
+
     return get_downloader_paths()["output_csv"]
 
 
@@ -83,7 +90,7 @@ def migrate(limit=None, resume=False) -> None:
     path = csv_path()
     if not os.path.exists(path):
         sys.exit(f"CSV not found: {path}")
-    print(f"source : {path}  ({os.path.getsize(path)/1e6:.0f} MB)")
+    print(f"source : {path}  ({os.path.getsize(path) / 1e6:.0f} MB)")
     print(f"target : MongoDB '{store.COLLECTION}'  (CSV is read-only here)\n")
 
     existing: set[str] = set()
@@ -107,17 +114,24 @@ def migrate(limit=None, resume=False) -> None:
         if len(ops) >= 200:
             coll.bulk_write(ops, ordered=False)
             ops.clear()
-            print(f"  {n_sym:5d} symbols · {n_bar:9,} bars · {time.time()-t0:5.1f}s", flush=True)
+            print(
+                f"  {n_sym:5d} symbols · {n_bar:9,} bars · {time.time() - t0:5.1f}s",
+                flush=True,
+            )
     if ops:
         coll.bulk_write(ops, ordered=False)
 
     store.clear_cache()
-    print(f"\nwrote {n_sym} symbols / {n_bar:,} bars in {time.time()-t0:.1f}s"
-          + (f" (skipped {skipped} existing)" if skipped else ""))
+    print(
+        f"\nwrote {n_sym} symbols / {n_bar:,} bars in {time.time() - t0:.1f}s"
+        + (f" (skipped {skipped} existing)" if skipped else "")
+    )
 
     s = store.stats()
-    print(f"collection now: {s['symbols']} symbols, {s['bars']:,} bars, "
-          f"{s['oldest']:%Y-%m-%d} -> {s['newest']:%Y-%m-%d}")
+    print(
+        f"collection now: {s['symbols']} symbols, {s['bars']:,} bars, "
+        f"{s['oldest']:%Y-%m-%d} -> {s['newest']:%Y-%m-%d}"
+    )
 
 
 def verify(sample: int = 40) -> int:
@@ -141,7 +155,9 @@ def verify(sample: int = 40) -> int:
     if s["bars"] != total:
         problems.append(f"bar count differs: mongo {s['bars']:,} vs csv {total:,}")
     if s["symbols"] != len(counts):
-        problems.append(f"symbol count differs: mongo {s['symbols']} vs csv {len(counts)}")
+        problems.append(
+            f"symbol count differs: mongo {s['symbols']} vs csv {len(counts)}"
+        )
 
     # Per-symbol bar counts
     stored = {d["_id"]: d["n"] for d in store._coll().find({}, {"n": 1})}
@@ -176,18 +192,26 @@ def verify(sample: int = 40) -> int:
             problems.append(f"{sym}: absent")
             continue
         got = store.decode(doc)
-        for col, dtype in (("Open", np.float64), ("High", np.float64),
-                           ("Low", np.float64), ("Close", np.float64),
-                           ("Volume", np.int64)):
+        for col, dtype in (
+            ("Open", np.float64),
+            ("High", np.float64),
+            ("Low", np.float64),
+            ("Close", np.float64),
+            ("Volume", np.int64),
+        ):
             a = csv_df[col].to_numpy(dtype)
             b = got[col].to_numpy(dtype)
             if a.shape != b.shape or not np.array_equal(a, b):
                 bad = int((a != b).sum()) if a.shape == b.shape else -1
-                problems.append(f"{sym}.{col}: {bad} values differ (expected exact match)")
+                problems.append(
+                    f"{sym}.{col}: {bad} values differ (expected exact match)"
+                )
                 mismatched += 1
                 break
-        if not (csv_df["Date"].to_numpy("datetime64[D]")
-                == got["Date"].to_numpy("datetime64[D]")).all():
+        if not (
+            csv_df["Date"].to_numpy("datetime64[D]")
+            == got["Date"].to_numpy("datetime64[D]")
+        ).all():
             problems.append(f"{sym}.Date: dates differ")
 
     print()
@@ -196,10 +220,10 @@ def verify(sample: int = 40) -> int:
         for p in problems[:25]:
             print(f"  - {p}")
         if len(problems) > 25:
-            print(f"  … and {len(problems)-25} more")
+            print(f"  … and {len(problems) - 25} more")
         return 1
     print("PASSED — MongoDB matches the CSV exactly (bar counts and values).")
-    print("The CSV is unchanged and remains a valid rollback: ohlcv_backend=\"csv\".")
+    print('The CSV is unchanged and remains a valid rollback: ohlcv_backend="csv".')
     return 0
 
 

@@ -13,7 +13,7 @@ means writing one more class here — no agent, tool, or graph code changes.
 from __future__ import annotations
 
 import abc
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
@@ -63,8 +63,8 @@ class BaseLLMProvider(abc.ABC):
         self,
         messages: Sequence[BaseMessage],
         *,
-        tools: Optional[list] = None,
-        config: Optional[RunnableConfig] = None,
+        tools: list | None = None,
+        config: RunnableConfig | None = None,
     ) -> AIMessage:
         """Invoke the model asynchronously. Must raise LLMProviderError on
         unrecoverable failure (after this provider's own retry budget)."""
@@ -75,8 +75,8 @@ class BaseLLMProvider(abc.ABC):
         self,
         messages: Sequence[BaseMessage],
         *,
-        tools: Optional[list] = None,
-        config: Optional[RunnableConfig] = None,
+        tools: list | None = None,
+        config: RunnableConfig | None = None,
     ) -> AIMessage:
         """Synchronous variant of ainvoke."""
         ...

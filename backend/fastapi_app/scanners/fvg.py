@@ -12,22 +12,25 @@ Key fixes in v3:
   - Debug output helper for verification.
 """
 
-import math
 import logging
-import pandas as pd
-import numpy as np
+import math
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import Any
+
+import pandas as pd
 
 log = logging.getLogger("finai_edge.fvg_scanner")
 
-MIN_FVG_GAP_PCT = 0.01   # 1% minimum gap size threshold
-MAX_FVG_GAP_PCT = 10.0   # 10% maximum gap size — wider gaps are bad data or not actionable
-MAX_FVG_AGE_DAYS = 365   # Exclude FVGs older than 1 year
+MIN_FVG_GAP_PCT = 0.01  # 1% minimum gap size threshold
+MAX_FVG_GAP_PCT = (
+    10.0  # 10% maximum gap size — wider gaps are bad data or not actionable
+)
+MAX_FVG_AGE_DAYS = 365  # Exclude FVGs older than 1 year
 MAX_FVG_DISTANCE_PCT = 100.0  # Exclude FVGs more than 100% away from price
 MAX_CANDLE_SPAN_DAYS = 5  # Max calendar days between C1 and C3 (catches data gaps)
 
-def _safe(v) -> Optional[float]:
+
+def _safe(v) -> float | None:
     try:
         f = float(v)
         return None if (math.isnan(f) or math.isinf(f)) else round(f, 2)
@@ -35,7 +38,9 @@ def _safe(v) -> Optional[float]:
         return None
 
 
-def detect_bullish_fvgs(df: pd.DataFrame, min_gap_pct: float = MIN_FVG_GAP_PCT) -> List[Dict[str, Any]]:
+def detect_bullish_fvgs(
+    df: pd.DataFrame, min_gap_pct: float = MIN_FVG_GAP_PCT
+) -> list[dict[str, Any]]:
     """
     Detect all bullish FVGs for a single stock's full history, ICT-style:
     - Candle 2 Low > Candle 1 High
@@ -60,7 +65,6 @@ def detect_bullish_fvgs(df: pd.DataFrame, min_gap_pct: float = MIN_FVG_GAP_PCT) 
 
     for i in range(N - 2):
         c1 = df.iloc[i]
-        c2 = df.iloc[i + 1]
         c3 = df.iloc[i + 2]
 
         # Data continuity check: skip if the 3 candles span too many days
@@ -95,7 +99,7 @@ def detect_bullish_fvgs(df: pd.DataFrame, min_gap_pct: float = MIN_FVG_GAP_PCT) 
                 # ICT-correct mitigation check:
                 # A bullish FVG is mitigated when price trades INTO the gap.
                 # This means any subsequent candle's Low <= gap_high.
-                future_lows = df.iloc[i + 3:]["Low"]
+                future_lows = df.iloc[i + 3 :]["Low"]
                 is_active = True
                 mitigation_reason = None
                 if not future_lows.empty:
@@ -108,18 +112,24 @@ def detect_bullish_fvgs(df: pd.DataFrame, min_gap_pct: float = MIN_FVG_GAP_PCT) 
                         else:
                             mitigation_reason = "partially_filled"
 
-                results.append({
-                    "formed_idx": i + 2,
-                    "low": round(gap_low, 2),
-                    "high": round(gap_high, 2),
-                    "gap_pct": round((gap_high - gap_low) / ref_price * 100, 2),
-                    "start_date": c1["Date"].strftime("%Y-%m-%d") if hasattr(c1["Date"], "strftime") else str(c1["Date"]),
-                    "end_date": c3["Date"].strftime("%Y-%m-%d") if hasattr(c3["Date"], "strftime") else str(c3["Date"]),
-                    "age_days": max(0, age_days),
-                    "is_active": is_active,
-                    "mitigation_reason": mitigation_reason,
-                    "is_duplicate": False,
-                })
+                results.append(
+                    {
+                        "formed_idx": i + 2,
+                        "low": round(gap_low, 2),
+                        "high": round(gap_high, 2),
+                        "gap_pct": round((gap_high - gap_low) / ref_price * 100, 2),
+                        "start_date": c1["Date"].strftime("%Y-%m-%d")
+                        if hasattr(c1["Date"], "strftime")
+                        else str(c1["Date"]),
+                        "end_date": c3["Date"].strftime("%Y-%m-%d")
+                        if hasattr(c3["Date"], "strftime")
+                        else str(c3["Date"]),
+                        "age_days": max(0, age_days),
+                        "is_active": is_active,
+                        "mitigation_reason": mitigation_reason,
+                        "is_duplicate": False,
+                    }
+                )
 
     # Flag duplicate overlapping chains
     for idx in range(1, len(results)):
@@ -134,11 +144,11 @@ def detect_bullish_fvgs(df: pd.DataFrame, min_gap_pct: float = MIN_FVG_GAP_PCT) 
 
 
 def filter_active_fvgs(
-    all_fvgs: List[Dict[str, Any]],
+    all_fvgs: list[dict[str, Any]],
     current_price: float,
     max_age_days: int = MAX_FVG_AGE_DAYS,
     max_distance_pct: float = MAX_FVG_DISTANCE_PCT,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Filter FVGs to keep only valid, actionable active FVGs.
 
@@ -165,7 +175,11 @@ def filter_active_fvgs(
             continue
 
         # Distance filter: skip FVGs too far from current price
-        distance_pct = abs((current_price - f["high"]) / f["high"] * 100) if f["high"] > 0 else float("inf")
+        distance_pct = (
+            abs((current_price - f["high"]) / f["high"] * 100)
+            if f["high"] > 0
+            else float("inf")
+        )
         if distance_pct > max_distance_pct:
             continue
 
@@ -177,7 +191,9 @@ def filter_active_fvgs(
     return active
 
 
-def analyze_fvg_for_symbol(df: pd.DataFrame, symbol: str, company_name: str = "") -> Dict[str, Any]:
+def analyze_fvg_for_symbol(
+    df: pd.DataFrame, symbol: str, company_name: str = ""
+) -> dict[str, Any]:
     """
     Analyzes historical candles for a single symbol to extract FVG results:
     - 52-week High/Low
@@ -201,14 +217,15 @@ def analyze_fvg_for_symbol(df: pd.DataFrame, symbol: str, company_name: str = ""
     wk52_low = float(low_window.iloc[-1])
 
     # Distance % from 52W High and Low
-    distance_high_pct = round(((ltp - wk52_high) / wk52_high) * 100, 2) if wk52_high else 0.0
-    distance_low_pct = round(((ltp - wk52_low) / wk52_low) * 100, 2) if wk52_low else 0.0
+    distance_high_pct = (
+        round(((ltp - wk52_high) / wk52_high) * 100, 2) if wk52_high else 0.0
+    )
+    distance_low_pct = (
+        round(((ltp - wk52_low) / wk52_low) * 100, 2) if wk52_low else 0.0
+    )
 
     # Detect all bullish FVGs
     all_fvgs = detect_bullish_fvgs(df)
-
-    # Count raw active (before age/distance filtering) for stats
-    raw_active_count = sum(1 for f in all_fvgs if f.get("is_active", False))
 
     # Filter to valid, actionable active FVGs
     active_fvgs = filter_active_fvgs(all_fvgs, ltp)
@@ -249,14 +266,15 @@ def analyze_fvg_for_symbol(df: pd.DataFrame, symbol: str, company_name: str = ""
         "last_updated": datetime.now(timezone.utc),
     }
 
+
 def get_latest_fvgs_for_symbol(
     df: pd.DataFrame,
     symbol: str,
     ltp: float,
-    rsi: Optional[float] = None,
-    ema_200_dist: Optional[float] = None,
+    rsi: float | None = None,
+    ema_200_dist: float | None = None,
     max_fvgs: int = 3,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Backward-compatibility wrapper for local OHLC service.
     Uses the new detect_bullish_fvgs with proper active filtering.
@@ -269,41 +287,47 @@ def get_latest_fvgs_for_symbol(
     # Map to the old structure, limited to max_fvgs nearest FVGs
     top_bull = []
     for f in active_fvgs[:max_fvgs]:
-        top_bull.append({
-            "low": f["low"],
-            "high": f["high"],
-            "gap_low": f["low"],
-            "gap_high": f["high"],
-            "gap_mid": (f["low"] + f["high"]) / 2,
-            "gap_size": f["high"] - f["low"],
-            "gap_size_pct": f["gap_pct"],
-            "mitigation_pct": 0.0,
-            "touch_count": 0,
-            "age_days": f["age_days"],
-            "start_date": f["start_date"],
-            "end_date": f["end_date"],
-            "status": "Untouched",
-            "fvg_score": 0,
-            "strength": "Medium",
-            "direction": "bullish"
-        })
+        top_bull.append(
+            {
+                "low": f["low"],
+                "high": f["high"],
+                "gap_low": f["low"],
+                "gap_high": f["high"],
+                "gap_mid": (f["low"] + f["high"]) / 2,
+                "gap_size": f["high"] - f["low"],
+                "gap_size_pct": f["gap_pct"],
+                "mitigation_pct": 0.0,
+                "touch_count": 0,
+                "age_days": f["age_days"],
+                "start_date": f["start_date"],
+                "end_date": f["end_date"],
+                "status": "Untouched",
+                "fvg_score": 0,
+                "strength": "Medium",
+                "direction": "bullish",
+            }
+        )
 
-    nearest_bull = min(top_bull, key=lambda f: abs(ltp - f["gap_mid"])) if top_bull else None
+    nearest_bull = (
+        min(top_bull, key=lambda f: abs(ltp - f["gap_mid"])) if top_bull else None
+    )
 
     return {
-        "symbol":              symbol,
-        "has_fvg_bullish":     len(top_bull) > 0,
-        "has_fvg_bearish":     False,
-        "total_fvgs_bullish":  len(active_fvgs),
-        "total_fvgs_bearish":  0,
-        "top_bullish_fvgs":    top_bull,
-        "top_bearish_fvgs":    [],
+        "symbol": symbol,
+        "has_fvg_bullish": len(top_bull) > 0,
+        "has_fvg_bearish": False,
+        "total_fvgs_bullish": len(active_fvgs),
+        "total_fvgs_bearish": 0,
+        "top_bullish_fvgs": top_bull,
+        "top_bearish_fvgs": [],
         "nearest_bullish_fvg": nearest_bull,
-        "best_fvg_score":      0,
+        "best_fvg_score": 0,
     }
 
 
-def debug_fvg_for_symbol(df: pd.DataFrame, symbol: str, ltp: Optional[float] = None) -> str:
+def debug_fvg_for_symbol(
+    df: pd.DataFrame, symbol: str, ltp: float | None = None
+) -> str:
     """
     Debug helper — returns a formatted string with complete FVG analysis
     for verification purposes.
@@ -323,9 +347,14 @@ def debug_fvg_for_symbol(df: pd.DataFrame, symbol: str, ltp: Optional[float] = N
     active_fvgs = filter_active_fvgs(all_fvgs, ltp)
 
     mitigated_count = sum(1 for f in all_fvgs if not f.get("is_active", False))
-    stale_count = sum(1 for f in all_fvgs if f.get("is_active", False) and f.get("age_days", 0) > MAX_FVG_AGE_DAYS)
+    stale_count = sum(
+        1
+        for f in all_fvgs
+        if f.get("is_active", False) and f.get("age_days", 0) > MAX_FVG_AGE_DAYS
+    )
     distant_count = sum(
-        1 for f in all_fvgs
+        1
+        for f in all_fvgs
         if f.get("is_active", False)
         and f.get("age_days", 0) <= MAX_FVG_AGE_DAYS
         and abs((ltp - f["high"]) / f["high"] * 100) > MAX_FVG_DISTANCE_PCT
@@ -347,8 +376,12 @@ def debug_fvg_for_symbol(df: pd.DataFrame, symbol: str, ltp: Optional[float] = N
     if active_fvgs:
         nearest = active_fvgs[0]
         dist = round(((ltp - nearest["high"]) / nearest["high"]) * 100, 2)
-        lines.append(f"  Nearest Active FVG   : ₹{nearest['low']:.2f} – ₹{nearest['high']:.2f}")
-        lines.append(f"  Nearest FVG Date     : {nearest['end_date']} ({nearest['age_days']}d ago)")
+        lines.append(
+            f"  Nearest Active FVG   : ₹{nearest['low']:.2f} – ₹{nearest['high']:.2f}"
+        )
+        lines.append(
+            f"  Nearest FVG Date     : {nearest['end_date']} ({nearest['age_days']}d ago)"
+        )
         lines.append(f"  Distance to Nearest  : {dist:+.2f}%")
         lines.append("-" * 60)
 
@@ -356,7 +389,7 @@ def debug_fvg_for_symbol(df: pd.DataFrame, symbol: str, ltp: Optional[float] = N
         for i, f in enumerate(active_fvgs[:10]):
             d = round(((ltp - f["high"]) / f["high"]) * 100, 2)
             lines.append(
-                f"    #{i+1}: ₹{f['low']:.2f}–₹{f['high']:.2f}  "
+                f"    #{i + 1}: ₹{f['low']:.2f}–₹{f['high']:.2f}  "
                 f"Date: {f['end_date']}  Age: {f['age_days']}d  Dist: {d:+.2f}%"
             )
     else:

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from .base import Strategy
 from .launchpad import LaunchPadStrategy
 
@@ -13,5 +11,5 @@ STRATEGIES: dict[str, Strategy] = {
 }
 
 
-def get_strategy(name: str) -> Optional[Strategy]:
+def get_strategy(name: str) -> Strategy | None:
     return STRATEGIES.get((name or "").lower())

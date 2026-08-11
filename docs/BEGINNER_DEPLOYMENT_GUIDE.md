@@ -393,7 +393,7 @@ MongoDB Atlas hosts your database. The free tier ("M0") gives 512 MB, and this a
 
 1. **Open:** <https://www.mongodb.com/cloud/atlas>
 2. **Sign up** (or sign in). Signing in with Google is fine.
-3. Create a project when prompted. Name it anything — `FinTechAI` works.
+3. Create a project when prompted. Name it anything — `Nivro` works.
 4. Look for the option to **deploy a new cluster** or **build a database**.
 5. **Choose the M0 / Free tier.** It may be labelled "Free", "Shared", or "M0". **Do not pick a paid
    tier** — you will be charged.

@@ -1,0 +1,89 @@
+# Ruff configuration for the FastAPI backend.
+#
+# No config existed before this pass; ruff was running on its full default
+# rule set. Everything mechanically fixable (imports, unused names, bare
+# except, redundant casts, unnecessary dict()/int() calls, log.error(...,
+# exc_info=True) -> log.exception(...), silent except:pass/continue -> debug
+# log, real bugs like the undefined `pd` in jobs/scanner_cron.py and the
+# mutable dict default in scanner_service.py) was fixed in the code itself.
+#
+# The two ignores below are NOT "couldn't be bothered" — each is a deliberate
+# architectural pattern used consistently across dozens of call sites, and
+# mechanically "fixing" either one is a real regression risk, not a style
+# improvement. Both were investigated with sampled call sites before this
+# file was written.
+
+[lint]
+# Explicit, not implicit. Ruff's *implicit* default rule set turned out to
+# differ across runs in this project in a way that had nothing to do with the
+# code: it depends on whether a config file exists at all, and enabling a
+# rule's category PREFIX (e.g. "S" for flake8-bandit) pulls in every rule in
+# that plugin rather than the curated subset ruff enables with zero config
+# present (confirmed directly: selecting "S" surfaced 378 S101 "assert used"
+# findings and 4 more S-codes that were never part of this project's baseline
+# at all). So this list is deliberately an exact enumeration of rule CODES,
+# not category prefixes — it is exactly what a from-scratch, unconfigured
+# `ruff check .` reported on this codebase before this file existed, plus two
+# genuinely new findings this cleanup pass itself surfaced (TRY401, from
+# converting log.error(..., exc_info=True) to log.exception(...); F401, a
+# real unused import). Extend this list deliberately, not by widening a
+# category.
+select = [
+    "B006", "B008",                    # bugbear: mutable default, FastAPI File/Form
+    "BLE001",                          # blind except (see ignore below)
+    "C408",                            # unnecessary dict() call
+    "DTZ003", "DTZ005", "DTZ006", "DTZ011",  # naive datetime (see ignore below)
+    "E722",                            # bare except
+    "E9",                              # pycodestyle syntax errors
+    "F401", "F821", "F841",            # pyflakes: unused import, undefined name, unused var
+    "G201",                            # log.error(..., exc_info=True) -> log.exception
+    "I001",                            # import sorting
+    "ISC004",                          # implicit string concat needs parens
+    "LOG014",                          # exc_info= outside an except block
+    "PLW0602",                         # unnecessary `global` declaration
+    "RUF012", "RUF013", "RUF046", "RUF059", "RUF100",  # ruff-specific, see per-code notes
+    "S110", "S112",                    # silent except: pass / continue
+    "SIM102", "SIM113", "SIM222",      # simplification
+    "TRY401",                          # redundant exception object in log.exception()
+]
+ignore = [
+    # BLE001 — "do not catch blind Exception". ~130 sites across ~30 files
+    # (scan loops, provider fallbacks, startup subsystem init) are `except
+    # Exception:` on purpose: one bad symbol/provider/subsystem must not
+    # crash the whole scan or the whole app (see main.py's lifespan, and the
+    # per-symbol gates in engines/strategies/runner.py). Narrowing each of
+    # ~130 catches to its true exception set would be a large, high-risk
+    # refactor with no test coverage to catch a wrong narrowing — out of
+    # scope for a lint pass.
+    "BLE001",
+
+    # DTZ003/005/006/011 — naive datetime.utcnow()/datetime.now() without a
+    # tz argument. This codebase deliberately stores and compares NAIVE UTC
+    # datetimes throughout the MongoDB-backed services (watchlist_service.py,
+    # universe_cache.py, market providers, scanners). It has a documented
+    # past incident specifically about tz-aware/tz-naive datetime mixing
+    # (see ohlc_downloader.py's _to_naive_datetime() docstring). Switching
+    # `datetime.utcnow()` -> `datetime.now(timezone.utc)` at 26 call sites
+    # would make those values tz-aware while everything already stored in
+    # Mongo (and everything still read from OHLCV) stays naive, which raises
+    # TypeError on the first subtraction/comparison between the two — i.e.
+    # exactly the bug class this project has already been burned by. Treat
+    # this as an intentional, if outdated, convention rather than a bug.
+    "DTZ003",
+    "DTZ005",
+    "DTZ006",
+    "DTZ011",
+]
+
+[lint.per-file-ignores]
+# json_encoders = {ObjectId: str} is a pydantic v1 `class Config:` idiom (5
+# identical occurrences) — a class-definition-time schema attribute consumed
+# once by pydantic internals, never mutated at runtime, not the
+# shared-mutable-default-argument bug RUF012 exists to catch.
+"db/models/watchlist.py" = ["RUF012"]
+
+[lint.flake8-bugbear]
+# File(...) / Form(...) as a route parameter default is the standard,
+# required FastAPI dependency-injection pattern (same idea as Depends(...),
+# which ruff already treats as immutable) — not a shared-mutable-default bug.
+extend-immutable-calls = ["fastapi.File", "fastapi.Form"]

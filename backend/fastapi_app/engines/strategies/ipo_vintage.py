@@ -36,11 +36,9 @@ subscription/GMP data — this is pure price action on the first-day range.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pandas as pd
 
-HORIZONS = (7, 15, 30, 60, 90)   # trading sessions from entry — fixed, time-based exits
+HORIZONS = (7, 15, 30, 60, 90)  # trading sessions from entry — fixed, time-based exits
 HOLDING_PERIOD = "7-90"
 
 # How many sessions a trigger stays ACTIONABLE.
@@ -96,7 +94,7 @@ def _risk_quality_score(risk_pct: float) -> float:
     return _clamp((25.0 - risk_pct) / 20.0 * 100.0)
 
 
-def _volume_score(ratio: Optional[float]) -> float:
+def _volume_score(ratio: float | None) -> float:
     """Trigger-session volume vs the prior VOL_LOOKBACK-session average.
     1.0x → 50 (neutral), 100 by 2.5x. None → neutral."""
     if ratio is None:
@@ -111,7 +109,9 @@ _WEIGHTS = {"breakout_strength": 0.35, "risk_quality": 0.40, "volume": 0.25}
 
 
 def score_ipo_vintage(
-    breakout_strength_pct: float, risk_pct: float, volume_ratio: Optional[float],
+    breakout_strength_pct: float,
+    risk_pct: float,
+    volume_ratio: float | None,
 ) -> tuple[float, dict]:
     """Return (confidence 0-100, named sub-score breakdown). Purely rule-based —
     there is no trained model anywhere in this strategy."""
@@ -138,9 +138,9 @@ def build_ipo_vintage_result(
     company_name: str,
     df: pd.DataFrame,
     listing_date,
-    issue_price: Optional[float] = None,
-    max_age_days: Optional[int] = MAX_LISTING_AGE_DAYS,
-) -> Optional[dict]:
+    issue_price: float | None = None,
+    max_age_days: int | None = MAX_LISTING_AGE_DAYS,
+) -> dict | None:
     """
     Evaluate one tracked listing. Returns None (no signal) when:
       - the OHLC history has no bar within MAX_LISTING_GAP_DAYS of `listing_date`
@@ -170,7 +170,10 @@ def build_ipo_vintage_result(
         return None  # listing candle genuinely absent — do NOT use a later bar
 
     last_idx = len(d) - 1
-    if max_age_days is not None and (d["_date"].iloc[last_idx] - listing_ts).days > max_age_days:
+    if (
+        max_age_days is not None
+        and (d["_date"].iloc[last_idx] - listing_ts).days > max_age_days
+    ):
         return None  # aged out of the tracked vintage window
 
     opening_high = float(d.loc[i0, "High"])
@@ -180,7 +183,7 @@ def build_ipo_vintage_result(
         return None
 
     # ── Entry trigger: first session AFTER the opening candle closing > high ──
-    trigger_idx: Optional[int] = None
+    trigger_idx: int | None = None
     for i in range(i0 + 1, last_idx + 1):
         if float(d.loc[i, "Close"]) > opening_high:
             trigger_idx = i
@@ -195,7 +198,7 @@ def build_ipo_vintage_result(
     trigger_date = d.loc[trigger_idx, "_date"]
 
     # ── Stop-hit scan: first session after entry whose LOW <= stop ────────────
-    stop_idx: Optional[int] = None
+    stop_idx: int | None = None
     for i in range(trigger_idx + 1, last_idx + 1):
         if float(d.loc[i, "Low"]) <= stop_loss:
             stop_idx = i
@@ -204,10 +207,10 @@ def build_ipo_vintage_result(
     stop_return_pct = round((stop_loss - entry) / entry * 100.0, 2)  # negative
 
     # ── Volume confirmation (prior sessions, never crossing the opening bar) ──
-    vol_ratio: Optional[float] = None
+    vol_ratio: float | None = None
     lo = max(i0, trigger_idx - VOL_LOOKBACK)
     if trigger_idx > lo and "Volume" in d.columns:
-        prior_avg = float(d.loc[lo:trigger_idx - 1, "Volume"].mean())
+        prior_avg = float(d.loc[lo : trigger_idx - 1, "Volume"].mean())
         if prior_avg > 0:
             vol_ratio = round(float(d.loc[trigger_idx, "Volume"]) / prior_avg, 2)
 
@@ -249,8 +252,10 @@ def build_ipo_vintage_result(
     # so its own intraday swing happened before the position existed — counting
     # it would report a drawdown on a trade that has not yet moved (a setup that
     # triggered today would show the trigger day's full range as "heat taken").
-    win_end = min(stop_idx if stop_hit else last_idx, trigger_idx + HORIZONS[-1], last_idx)
-    win = d.loc[trigger_idx + 1:win_end]
+    win_end = min(
+        stop_idx if stop_hit else last_idx, trigger_idx + HORIZONS[-1], last_idx
+    )
+    win = d.loc[trigger_idx + 1 : win_end]
 
     if win.empty:
         # Triggered on the latest bar — nothing has happened to the position yet.
@@ -258,7 +263,9 @@ def build_ipo_vintage_result(
     else:
         lowest_low = float(win["Low"].min())
         if stop_hit:
-            lowest_low = max(lowest_low, stop_loss)   # floor MAE at the stop — we exited there
+            lowest_low = max(
+                lowest_low, stop_loss
+            )  # floor MAE at the stop — we exited there
         highest_high = float(win["High"].max())
         # Excursions are measured against ENTRY, so a position that only ever went
         # up has MAE 0 (not a positive number) and vice versa.
@@ -271,8 +278,8 @@ def build_ipo_vintage_result(
         # stopped out — the two numbers must not be able to contradict.
         lows = win["Low"].copy()
         if stop_hit:
-            lows = lows.clip(lower=stop_loss)          # exited at the stop; no deeper
-        running_peak = win["High"].cummax().clip(lower=entry)   # peak starts at entry
+            lows = lows.clip(lower=stop_loss)  # exited at the stop; no deeper
+        running_peak = win["High"].cummax().clip(lower=entry)  # peak starts at entry
         dd = (lows - running_peak) / running_peak * 100.0
         max_drawdown_pct = round(float(min(0.0, dd.min())), 2)
 
@@ -288,10 +295,14 @@ def build_ipo_vintage_result(
         unrealized_return_pct = stop_return_pct
     else:
         unrealized_return_pct = round((current_price - entry) / entry * 100.0, 2)
-        setup_status = "live" if days_since_trigger <= LIVE_WINDOW_SESSIONS else "expired"
+        setup_status = (
+            "live" if days_since_trigger <= LIVE_WINDOW_SESSIONS else "expired"
+        )
     is_live = setup_status == "live"
 
-    confidence, breakdown = score_ipo_vintage(breakout_strength_pct, risk_pct, vol_ratio)
+    confidence, breakdown = score_ipo_vintage(
+        breakout_strength_pct, risk_pct, vol_ratio
+    )
 
     return {
         "symbol": symbol,
@@ -311,16 +322,20 @@ def build_ipo_vintage_result(
         "cmp": round(current_price, 2),
         "unrealized_return_pct": unrealized_return_pct,
         "stop_hit": stop_hit,
-        "stop_hit_date": d.loc[stop_idx, "_date"].strftime("%Y-%m-%d") if stop_hit else None,
+        "stop_hit_date": d.loc[stop_idx, "_date"].strftime("%Y-%m-%d")
+        if stop_hit
+        else None,
         "stop_hit_session": (stop_idx - trigger_idx) if stop_hit else None,
         "mae_pct": mae_pct,
         "mfe_pct": mfe_pct,
         "max_drawdown_pct": max_drawdown_pct,
         "volume_ratio": vol_ratio,
         "days_since_trigger": days_since_trigger,
-        "sessions_left_in_window": max(0, LIVE_WINDOW_SESSIONS - days_since_trigger) if is_live else 0,
-        "is_live": is_live,                    # the single flag the UI keys on
-        "setup_status": setup_status,          # "live" | "stopped" | "expired"
+        "sessions_left_in_window": max(0, LIVE_WINDOW_SESSIONS - days_since_trigger)
+        if is_live
+        else 0,
+        "is_live": is_live,  # the single flag the UI keys on
+        "setup_status": setup_status,  # "live" | "stopped" | "expired"
         "confidence": confidence,
         "confidence_breakdown": breakdown,
         "signal_strength": strength_label(confidence),

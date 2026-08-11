@@ -21,9 +21,45 @@ ROUTES = {"portfolio", "market", "planning", "education"}
 
 # Keyword fallback if the LLM answer isn't one of the routes.
 _HEURISTICS = [
-    ("portfolio", ("my portfolio", "my holdings", "my risk", "health score", "rebalance", "diversif", "my stocks")),
-    ("planning", ("sip", "retire", "crore", "lakh a month", "monthly invest", "goal", "how much should i invest", "wealth")),
-    ("market", ("price of", " vs ", "compare", "sector", "analyze ", "analyse ", "stock", "nifty", "share")),
+    (
+        "portfolio",
+        (
+            "my portfolio",
+            "my holdings",
+            "my risk",
+            "health score",
+            "rebalance",
+            "diversif",
+            "my stocks",
+        ),
+    ),
+    (
+        "planning",
+        (
+            "sip",
+            "retire",
+            "crore",
+            "lakh a month",
+            "monthly invest",
+            "goal",
+            "how much should i invest",
+            "wealth",
+        ),
+    ),
+    (
+        "market",
+        (
+            "price of",
+            " vs ",
+            "compare",
+            "sector",
+            "analyze ",
+            "analyse ",
+            "stock",
+            "nifty",
+            "share",
+        ),
+    ),
     ("education", ("what is", "explain", "define", "how does", "meaning of")),
 ]
 
@@ -41,7 +77,10 @@ async def classify(llm_manager, user_message: str, config=None) -> str:
     LLMManager — Gemini -> Groq failover is handled transparently inside it."""
     try:
         resp, _provider = await llm_manager.ainvoke(
-            [SystemMessage(content=SUPERVISOR_PROMPT), HumanMessage(content=user_message)],
+            [
+                SystemMessage(content=SUPERVISOR_PROMPT),
+                HumanMessage(content=user_message),
+            ],
             config=config,
         )
         raw = extract_answer_text(resp.content).strip().lower()

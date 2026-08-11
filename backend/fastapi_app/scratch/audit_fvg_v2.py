@@ -11,22 +11,17 @@ Steps:
 """
 
 import os
-import sys
 import random
-import pandas as pd
-from datetime import datetime
+import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from services.ohlc_downloader import load_stock_dataframe, get_cached_symbols
 from scanners.fvg import (
+    debug_fvg_for_symbol,
     detect_bullish_fvgs,
     filter_active_fvgs,
-    analyze_fvg_for_symbol,
-    debug_fvg_for_symbol,
-    MAX_FVG_AGE_DAYS,
-    MAX_FVG_DISTANCE_PCT,
 )
+from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
 
 
 def step1_sumeetinds_trace():
@@ -63,7 +58,9 @@ def step1_sumeetinds_trace():
     print("Checking if the ₹3.79 FVG from bug report is correctly mitigated:")
     bug_fvgs = [f for f in all_fvgs if f["low"] < 10 and f["high"] > 50]
     for f in bug_fvgs:
-        print(f"  FVG ₹{f['low']:.2f}–₹{f['high']:.2f} | Active: {f['is_active']} | Reason: {f.get('mitigation_reason', 'N/A')}")
+        print(
+            f"  FVG ₹{f['low']:.2f}–₹{f['high']:.2f} | Active: {f['is_active']} | Reason: {f.get('mitigation_reason', 'N/A')}"
+        )
 
     if not bug_fvgs:
         print("  No FVG matching ₹3.79-₹55.96 found (may have different exact values)")
@@ -72,7 +69,9 @@ def step1_sumeetinds_trace():
         if low_fvgs:
             print(f"  FVGs with low < ₹10 ({len(low_fvgs)} found):")
             for f in low_fvgs[:5]:
-                print(f"    ₹{f['low']:.2f}–₹{f['high']:.2f} | Active: {f['is_active']} | Reason: {f.get('mitigation_reason', 'N/A')}")
+                print(
+                    f"    ₹{f['low']:.2f}–₹{f['high']:.2f} | Active: {f['is_active']} | Reason: {f.get('mitigation_reason', 'N/A')}"
+                )
 
     print()
     # Show final active FVGs
@@ -80,9 +79,13 @@ def step1_sumeetinds_trace():
         print("Final active FVGs (should be near ₹24 range):")
         for i, f in enumerate(filtered[:5]):
             dist = round(((ltp - f["high"]) / f["high"]) * 100, 2)
-            print(f"  #{i+1}: ₹{f['low']:.2f}–₹{f['high']:.2f} | Date: {f['end_date']} | Age: {f['age_days']}d | Dist: {dist:+.2f}%")
+            print(
+                f"  #{i + 1}: ₹{f['low']:.2f}–₹{f['high']:.2f} | Date: {f['end_date']} | Age: {f['age_days']}d | Dist: {dist:+.2f}%"
+            )
     else:
-        print("No active FVGs remaining after filtering (stock may have filled all recent gaps).")
+        print(
+            "No active FVGs remaining after filtering (stock may have filled all recent gaps)."
+        )
 
     print()
 
@@ -101,7 +104,9 @@ def step4_validate_50_stocks():
     random.seed(42)
     sample = random.sample(list(symbols), min(len(symbols), 50))
 
-    print(f"\n{'Symbol':15} | {'LTP':>8} | {'Total':>5} | {'Mitig':>5} | {'Active':>6} | {'Nearest FVG':>20} | {'Dist':>8}")
+    print(
+        f"\n{'Symbol':15} | {'LTP':>8} | {'Total':>5} | {'Mitig':>5} | {'Active':>6} | {'Nearest FVG':>20} | {'Dist':>8}"
+    )
     print("-" * 85)
 
     issues = []
@@ -113,7 +118,9 @@ def step4_validate_50_stocks():
         ltp = float(df.iloc[-1]["Close"])
         all_fvgs = detect_bullish_fvgs(df)
         active = filter_active_fvgs(all_fvgs, ltp)
-        mitigated = len(all_fvgs) - sum(1 for f in all_fvgs if f.get("is_active", False))
+        mitigated = len(all_fvgs) - sum(
+            1 for f in all_fvgs if f.get("is_active", False)
+        )
 
         nearest_str = "—"
         dist_str = "—"
@@ -125,9 +132,13 @@ def step4_validate_50_stocks():
 
             # Sanity check: nearest FVG should be reasonably close
             if abs(dist) > 100:
-                issues.append(f"{sym}: nearest FVG at {dist:+.2f}% (should be filtered)")
+                issues.append(
+                    f"{sym}: nearest FVG at {dist:+.2f}% (should be filtered)"
+                )
 
-        print(f"{sym:15} | {ltp:>8.2f} | {len(all_fvgs):>5} | {mitigated:>5} | {len(active):>6} | {nearest_str:>20} | {dist_str:>8}")
+        print(
+            f"{sym:15} | {ltp:>8.2f} | {len(all_fvgs):>5} | {mitigated:>5} | {len(active):>6} | {nearest_str:>20} | {dist_str:>8}"
+        )
 
     if issues:
         print(f"\n⚠️ Issues found ({len(issues)}):")
@@ -165,7 +176,9 @@ def step8_accuracy_check():
     random.seed(123)
     sample = random.sample(list(symbols), min(len(symbols), 20))
 
-    print(f"\n{'Symbol':15} | {'Total':>5} | {'Mitigated':>9} | {'Active(raw)':>11} | {'Active(filt)':>12} | {'Verdict':>10}")
+    print(
+        f"\n{'Symbol':15} | {'Total':>5} | {'Mitigated':>9} | {'Active(raw)':>11} | {'Active(filt)':>12} | {'Verdict':>10}"
+    )
     print("-" * 80)
 
     correct = 0
@@ -188,7 +201,7 @@ def step8_accuracy_check():
         manual_active_count = 0
         for f in all_fvgs:
             idx = f["formed_idx"]
-            future = df.iloc[idx + 1:]
+            future = df.iloc[idx + 1 :]
             if future.empty:
                 manual_active_count += 1
                 continue
@@ -201,7 +214,9 @@ def step8_accuracy_check():
         if matches:
             correct += 1
 
-        print(f"{sym:15} | {len(all_fvgs):>5} | {mitigated:>9} | {len(active_raw):>11} | {len(active_filtered):>12} | {verdict:>10}")
+        print(
+            f"{sym:15} | {len(all_fvgs):>5} | {mitigated:>9} | {len(active_raw):>11} | {len(active_filtered):>12} | {verdict:>10}"
+        )
 
     accuracy = (correct / total * 100) if total > 0 else 0
     print(f"\nAccuracy: {correct}/{total} = {accuracy:.1f}%")

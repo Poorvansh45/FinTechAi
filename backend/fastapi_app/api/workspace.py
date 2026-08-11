@@ -10,12 +10,22 @@ All endpoints are JWT-scoped to the caller (`get_current_user`).
 """
 
 import logging
-from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, HTTPException, Query
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import Response
 
-from utils.auth import get_current_user
-from services.media_service import MediaService, MediaError
 from config import get_settings
+from services.media_service import MediaError, MediaService
+from utils.auth import get_current_user
 
 log = logging.getLogger("finai_edge.api.workspace")
 router = APIRouter()
@@ -36,6 +46,7 @@ async def ping(user_id: str = Depends(get_current_user)):
 
 # ── Media ─────────────────────────────────────────────────────────────────────
 
+
 @router.post("/media")
 async def upload_media(
     request: Request,
@@ -52,9 +63,13 @@ async def upload_media(
     data = await file.read()
     try:
         res = await svc.upload(
-            user_id=user_id, filename=file.filename or "upload",
-            data=data, content_type=file.content_type or "application/octet-stream",
-            kind=kind, linked_type=linked_type, linked_id=linked_id,
+            user_id=user_id,
+            filename=file.filename or "upload",
+            data=data,
+            content_type=file.content_type or "application/octet-stream",
+            kind=kind,
+            linked_type=linked_type,
+            linked_id=linked_id,
         )
     except MediaError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -62,15 +77,20 @@ async def upload_media(
 
 
 @router.get("/media/{media_id}/raw")
-async def serve_media(media_id: str, request: Request, user_id: str = Depends(get_current_user)):
+async def serve_media(
+    media_id: str, request: Request, user_id: str = Depends(get_current_user)
+):
     """Stream a stored media object back (authenticated — private like a bucket)."""
     svc = MediaService(_db(request))
     got = await svc.open(user_id, media_id)
     if got is None:
         raise HTTPException(status_code=404, detail="Media not found")
     data, mime = got
-    return Response(content=data, media_type=mime,
-                    headers={"Cache-Control": "private, max-age=3600"})
+    return Response(
+        content=data,
+        media_type=mime,
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
 
 
 @router.get("/media")
@@ -82,11 +102,16 @@ async def list_media(
 ):
     """List media linked to an entity (e.g. all screenshots on a trade)."""
     svc = MediaService(_db(request))
-    return {"success": True, "media": await svc.list_for(user_id, linked_type, linked_id)}
+    return {
+        "success": True,
+        "media": await svc.list_for(user_id, linked_type, linked_id),
+    }
 
 
 @router.delete("/media/{media_id}")
-async def delete_media(media_id: str, request: Request, user_id: str = Depends(get_current_user)):
+async def delete_media(
+    media_id: str, request: Request, user_id: str = Depends(get_current_user)
+):
     svc = MediaService(_db(request))
     ok = await svc.delete(user_id, media_id)
     if not ok:

@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
@@ -38,7 +38,7 @@ class GeminiProvider(BaseLLMProvider):
 
     def __init__(
         self,
-        api_key: Optional[str],
+        api_key: str | None,
         model: str,
         *,
         timeout_s: float = DEFAULT_TIMEOUT_S,
@@ -50,7 +50,7 @@ class GeminiProvider(BaseLLMProvider):
         self._timeout_s = timeout_s
         self._max_retries = max_retries
         self._temperature = temperature
-        self._model: Optional[BaseChatModel] = None
+        self._model: BaseChatModel | None = None
 
     @property
     def available(self) -> bool:
@@ -72,13 +72,15 @@ class GeminiProvider(BaseLLMProvider):
         self,
         messages: Sequence[BaseMessage],
         *,
-        tools: Optional[list] = None,
-        config: Optional[RunnableConfig] = None,
+        tools: list | None = None,
+        config: RunnableConfig | None = None,
     ) -> AIMessage:
         if not self.available:
-            raise LLMProviderError(self.provider_name, RuntimeError("GEMINI_API_KEY not configured"))
+            raise LLMProviderError(
+                self.provider_name, RuntimeError("GEMINI_API_KEY not configured")
+            )
 
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
         attempts = self._max_retries + 1
         for attempt in range(1, attempts + 1):
             t0 = time.time()
@@ -96,29 +98,33 @@ class GeminiProvider(BaseLLMProvider):
                     f"[LLM] Gemini timed out after {self._timeout_s:.0f}s "
                     f"(attempt {attempt}/{attempts})"
                 )
-            except Exception as e:  # noqa: BLE001 - any provider failure is fallback-eligible
+            except Exception as e:
                 last_exc = e
                 log.warning(
                     f"[LLM] Gemini {classify_error(e)} (attempt {attempt}/{attempts}): {e}"
                 )
 
-        raise LLMProviderError(self.provider_name, last_exc or RuntimeError("unknown Gemini failure"))
+        raise LLMProviderError(
+            self.provider_name, last_exc or RuntimeError("unknown Gemini failure")
+        )
 
     def invoke(
         self,
         messages: Sequence[BaseMessage],
         *,
-        tools: Optional[list] = None,
-        config: Optional[RunnableConfig] = None,
+        tools: list | None = None,
+        config: RunnableConfig | None = None,
     ) -> AIMessage:
         # Sync path: no hard timeout enforcement (Python has no reliable
         # cross-platform sync timeout for a blocking network call). The async
         # path above is what the graph/agents actually use; this exists to
         # satisfy the provider interface for any future sync caller.
         if not self.available:
-            raise LLMProviderError(self.provider_name, RuntimeError("GEMINI_API_KEY not configured"))
+            raise LLMProviderError(
+                self.provider_name, RuntimeError("GEMINI_API_KEY not configured")
+            )
 
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
         attempts = self._max_retries + 1
         for attempt in range(1, attempts + 1):
             t0 = time.time()
@@ -128,12 +134,14 @@ class GeminiProvider(BaseLLMProvider):
                 msg = bound.invoke(messages, config=config)
                 log.info(f"[LLM] Provider: Gemini ({(time.time() - t0) * 1000:.0f}ms)")
                 return msg
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 last_exc = e
                 log.warning(
                     f"[LLM] Gemini {classify_error(e)} (attempt {attempt}/{attempts}): {e}"
                 )
-        raise LLMProviderError(self.provider_name, last_exc or RuntimeError("unknown Gemini failure"))
+        raise LLMProviderError(
+            self.provider_name, last_exc or RuntimeError("unknown Gemini failure")
+        )
 
     async def health_check(self) -> bool:
         return self.available

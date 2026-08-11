@@ -5,8 +5,8 @@ Compute diversification metrics for portfolio analysis.
 """
 
 import numpy as np
-from typing import Optional
-from utils.helpers import safe_sqrt, safe_divide
+
+from utils.helpers import safe_divide, safe_sqrt
 
 
 def compute_diversification_score(
@@ -53,7 +53,7 @@ def compute_herfindahl_index(allocations: list[float]) -> float:
         return 100.0
 
     fractions = [a / total for a in allocations]
-    hhi = sum(f ** 2 for f in fractions)
+    hhi = sum(f**2 for f in fractions)
 
     # Scale: 1/n (best) to 1 (worst) -> 0 to 100
     n = len(fractions)
@@ -76,7 +76,7 @@ def compute_effective_number_of_stocks(allocations: list[float]) -> float:
         return 0.0
 
     fractions = [a / total for a in allocations]
-    hhi = sum(f ** 2 for f in fractions)
+    hhi = sum(f**2 for f in fractions)
 
     if hhi <= 0:
         return 0.0

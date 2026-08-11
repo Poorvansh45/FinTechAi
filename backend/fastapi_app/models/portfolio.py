@@ -6,7 +6,7 @@ Save/load portfolios to MongoDB for user persistence.
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 log = logging.getLogger("finai_edge.models.portfolio")
@@ -17,7 +17,7 @@ async def save_portfolio(
     user_id: str,
     name: str,
     holdings: list[dict],
-    analysis_snapshot: Optional[dict] = None,
+    analysis_snapshot: dict | None = None,
 ) -> str:
     """
     Save a portfolio to MongoDB.
@@ -46,8 +46,7 @@ async def get_portfolios(
 ) -> list[dict]:
     """List user's saved portfolios (most recent first)."""
     cursor = (
-        db.portfolios
-        .find({"user_id": user_id}, {"analysis_snapshot": 0})
+        db.portfolios.find({"user_id": user_id}, {"analysis_snapshot": 0})
         .sort("updated_at", -1)
         .limit(limit)
     )
@@ -62,15 +61,17 @@ async def get_portfolio_by_id(
     db: AsyncIOMotorDatabase,
     portfolio_id: str,
     user_id: str,
-) -> Optional[dict]:
+) -> dict | None:
     """Get a specific portfolio by ID."""
     from bson import ObjectId
 
     try:
-        doc = await db.portfolios.find_one({
-            "_id": ObjectId(portfolio_id),
-            "user_id": user_id,
-        })
+        doc = await db.portfolios.find_one(
+            {
+                "_id": ObjectId(portfolio_id),
+                "user_id": user_id,
+            }
+        )
         if doc:
             doc["_id"] = str(doc["_id"])
         return doc
@@ -83,9 +84,9 @@ async def update_portfolio(
     db: AsyncIOMotorDatabase,
     portfolio_id: str,
     user_id: str,
-    holdings: Optional[list[dict]] = None,
-    name: Optional[str] = None,
-    analysis_snapshot: Optional[dict] = None,
+    holdings: list[dict] | None = None,
+    name: str | None = None,
+    analysis_snapshot: dict | None = None,
 ) -> bool:
     """Update an existing portfolio. Returns True if updated."""
     from bson import ObjectId
@@ -118,10 +119,12 @@ async def delete_portfolio(
     from bson import ObjectId
 
     try:
-        result = await db.portfolios.delete_one({
-            "_id": ObjectId(portfolio_id),
-            "user_id": user_id,
-        })
+        result = await db.portfolios.delete_one(
+            {
+                "_id": ObjectId(portfolio_id),
+                "user_id": user_id,
+            }
+        )
         return result.deleted_count > 0
     except Exception as e:
         log.warning(f"Portfolio delete failed: {e}")

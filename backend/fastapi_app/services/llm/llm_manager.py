@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
@@ -47,8 +47,8 @@ class LLMManager:
         self,
         messages: Sequence[BaseMessage],
         *,
-        tools: Optional[list] = None,
-        config: Optional[RunnableConfig] = None,
+        tools: list | None = None,
+        config: RunnableConfig | None = None,
     ) -> tuple[AIMessage, str]:
         """
         Try each provider in order. Returns (message, provider_name) from the

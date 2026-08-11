@@ -5,9 +5,9 @@ Pydantic Settings loading from .env with sensible defaults.
 """
 
 import os
-from pydantic_settings import BaseSettings
 from functools import lru_cache
-from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -42,10 +42,10 @@ class Settings(BaseSettings):
     jwt_secret: str = "change_this_secret_in_production"
 
     # ── API Keys (all optional — graceful fallback) ─────────────────
-    groww_api_key: Optional[str] = None
-    groww_totp_secret: Optional[str] = None
-    gemini_api_key: Optional[str] = None
-    finnhub_api_key: Optional[str] = None
+    groww_api_key: str | None = None
+    groww_totp_secret: str | None = None
+    gemini_api_key: str | None = None
+    finnhub_api_key: str | None = None
 
     # ── Bulk OHLCV ingestion (services/ohlc_downloader.py) ──────────
     # OHLCV for the scanner pipeline is sourced SOLELY from Upstox's public V3
@@ -64,8 +64,8 @@ class Settings(BaseSettings):
     # services/llm/). This flag is not consulted by the manager itself; it's
     # kept for any tooling that still wants to force a single provider.
     ai_model_provider: str = "gemini"
-    groq_api_key: Optional[str] = None
-    openai_api_key: Optional[str] = None   # placeholder — provider not wired yet
+    groq_api_key: str | None = None
+    openai_api_key: str | None = None  # placeholder — provider not wired yet
     gemini_model: str = "gemini-2.5-flash"
     groq_model: str = "llama-3.3-70b-versatile"
 
@@ -74,21 +74,21 @@ class Settings(BaseSettings):
     # during development; "r2" / "s3" (added later) use the same
     # StorageProvider interface so business logic never changes.
     storage_backend: str = "local"
-    workspace_uploads_dir: str = "uploads"          # relative to the FastAPI app root
-    workspace_max_upload_mb: int = 15               # per-file upload guard
+    workspace_uploads_dir: str = "uploads"  # relative to the FastAPI app root
+    workspace_max_upload_mb: int = 15  # per-file upload guard
     # Public base URL for cloud buckets (r2/s3). Ignored for local (served via API).
-    storage_public_base_url: Optional[str] = None
+    storage_public_base_url: str | None = None
 
     # ── Logging ─────────────────────────────────────────────────────
     log_level: str = "INFO"
 
     # ── Cache TTLs (seconds) ────────────────────────────────────────
-    quote_cache_ttl: int = 300       # 5 minutes
-    candle_cache_ttl: int = 3600     # 1 hour
-    analytics_cache_ttl: int = 600   # 10 minutes
+    quote_cache_ttl: int = 300  # 5 minutes
+    candle_cache_ttl: int = 3600  # 1 hour
+    analytics_cache_ttl: int = 600  # 10 minutes
 
     # ── Portfolio Engine Defaults ───────────────────────────────────
-    risk_free_rate: float = 0.065    # Indian 10Y treasury yield
+    risk_free_rate: float = 0.065  # Indian 10Y treasury yield
     trading_days: int = 252
     monte_carlo_simulations: int = 3000
     min_history_days: int = 60
@@ -127,7 +127,7 @@ class Settings(BaseSettings):
     }
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Cached settings singleton."""
     settings = Settings()

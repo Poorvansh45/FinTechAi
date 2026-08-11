@@ -23,7 +23,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -33,9 +32,9 @@ from scanners.fvg import detect_bullish_fvgs as _detect_bullish_fvgs
 # LaunchPad spec: minimum 0.5% gap (vs the scanner's default 1%).
 LAUNCHPAD_MIN_GAP_PCT = 0.005
 # Guard rails for LaunchPad's own detector.
-LAUNCHPAD_MAX_GAP_PCT = 10.0        # ignore >10% gaps (bad data / non-actionable)
-LAUNCHPAD_MAX_SPAN_DAYS = 7         # C1→C3 must not straddle a data gap
-LAUNCHPAD_LOOKBACK = 250            # only recent candles matter for a 5-7d swing
+LAUNCHPAD_MAX_GAP_PCT = 10.0  # ignore >10% gaps (bad data / non-actionable)
+LAUNCHPAD_MAX_SPAN_DAYS = 7  # C1→C3 must not straddle a data gap
+LAUNCHPAD_LOOKBACK = 250  # only recent candles matter for a 5-7d swing
 
 
 @dataclass
@@ -47,7 +46,9 @@ class FVG:
     start_date: str
     end_date: str
     is_active: bool  # unmitigated (price never traded back into the gap)
-    formed_idx: int = -1  # row index (sorted-by-Date) of C3 — the candle that completes the gap
+    formed_idx: int = (
+        -1
+    )  # row index (sorted-by-Date) of C3 — the candle that completes the gap
 
     @property
     def mid(self) -> float:
@@ -80,13 +81,17 @@ def _to_fvg(d: dict) -> FVG:
     )
 
 
-def detect_bullish_fvgs(df: pd.DataFrame, min_gap_pct: float = LAUNCHPAD_MIN_GAP_PCT) -> list[FVG]:
+def detect_bullish_fvgs(
+    df: pd.DataFrame, min_gap_pct: float = LAUNCHPAD_MIN_GAP_PCT
+) -> list[FVG]:
     """All bullish FVGs (non-duplicate), oldest→newest, at the LaunchPad gap threshold."""
     raw = _detect_bullish_fvgs(df, min_gap_pct=min_gap_pct)
     return [_to_fvg(d) for d in raw if not d.get("is_duplicate", False)]
 
 
-def latest_bullish_fvg(df: pd.DataFrame, min_gap_pct: float = LAUNCHPAD_MIN_GAP_PCT) -> Optional[FVG]:
+def latest_bullish_fvg(
+    df: pd.DataFrame, min_gap_pct: float = LAUNCHPAD_MIN_GAP_PCT
+) -> FVG | None:
     """Most recently formed bullish FVG (regardless of mitigation)."""
     fvgs = detect_bullish_fvgs(df, min_gap_pct=min_gap_pct)
     return fvgs[-1] if fvgs else None
@@ -94,9 +99,11 @@ def latest_bullish_fvg(df: pd.DataFrame, min_gap_pct: float = LAUNCHPAD_MIN_GAP_
 
 def nearest_active_fvg(
     df: pd.DataFrame, price: float, min_gap_pct: float = LAUNCHPAD_MIN_GAP_PCT
-) -> Optional[FVG]:
+) -> FVG | None:
     """Closest unmitigated bullish FVG to the current price."""
-    active = [f for f in detect_bullish_fvgs(df, min_gap_pct=min_gap_pct) if f.is_active]
+    active = [
+        f for f in detect_bullish_fvgs(df, min_gap_pct=min_gap_pct) if f.is_active
+    ]
     if not active:
         return None
     return min(active, key=lambda f: abs(price - f.mid))
@@ -128,7 +135,7 @@ def _fast_launchpad_fvgs(
         return []
     d = df.sort_values("Date")
     if lookback and len(d) > lookback + 2:
-        d = d.iloc[-(lookback + 2):]           # +2 so the oldest kept row can still be a C1
+        d = d.iloc[-(lookback + 2) :]  # +2 so the oldest kept row can still be a C1
     d = d.reset_index(drop=True)
 
     high = d["High"].to_numpy(dtype="float64")
@@ -146,16 +153,18 @@ def _fast_launchpad_fvgs(
 
     out: list[FVG] = []
     for i in range(n - 2):
-        gl = high[i]          # gap floor  = C1.High
-        gh = low[i + 2]       # gap ceiling = C3.Low
+        gl = high[i]  # gap floor  = C1.High
+        gh = low[i + 2]  # gap ceiling = C3.Low
         if gh <= gl:
             continue
         gap = gh - gl
         if gap < gl * min_gap_pct or gap > gl * (LAUNCHPAD_MAX_GAP_PCT / 100.0):
             continue
-        j = i + 2             # C3 index
+        j = i + 2  # C3 index
         # Data-continuity: C1→C3 must not straddle a big calendar gap.
-        if (pd.Timestamp(dates[j]) - pd.Timestamp(dates[i])).days > LAUNCHPAD_MAX_SPAN_DAYS:
+        if (
+            pd.Timestamp(dates[j]) - pd.Timestamp(dates[i])
+        ).days > LAUNCHPAD_MAX_SPAN_DAYS:
             continue
         # LaunchPad validity: no candle AFTER C3 has closed below the floor.
         if j + 1 < n and suf_min[j + 1] < gl:
@@ -169,7 +178,7 @@ def _fast_launchpad_fvgs(
                 age_days=max(0, (now - c3).days),
                 start_date=pd.Timestamp(dates[i]).strftime("%Y-%m-%d"),
                 end_date=c3.strftime("%Y-%m-%d"),
-                is_active=True,       # valid under the LaunchPad rule
+                is_active=True,  # valid under the LaunchPad rule
                 formed_idx=j,
             )
         )
@@ -192,7 +201,7 @@ def nearest_launchpad_fvg(
     min_gap_pct: float = LAUNCHPAD_MIN_GAP_PCT,
     overshoot_pct: float = LAUNCHPAD_OVERSHOOT_PCT,
     lookback: int = LAUNCHPAD_LOOKBACK,
-) -> Optional[FVG]:
+) -> FVG | None:
     """
     Nearest still-valid bullish FVG whose zone price is currently sitting in the
     LaunchPad accumulation/continuation band:
@@ -247,7 +256,12 @@ def fvg_backtest(
         {fvg_sample, fvg_win_rate (%), fvg_avg_win (%), fvg_avg_loss (%)}
     a plain dict so it can be spread straight into a StrategyResult's metrics.
     """
-    empty = {"fvg_sample": 0, "fvg_win_rate": None, "fvg_avg_win": None, "fvg_avg_loss": None}
+    empty = {
+        "fvg_sample": 0,
+        "fvg_win_rate": None,
+        "fvg_avg_win": None,
+        "fvg_avg_loss": None,
+    }
     if df is None or df.empty or len(df) < forward_days + 3:
         return empty
 
@@ -260,18 +274,20 @@ def fvg_backtest(
 
     wins: list[float] = []
     losses: list[float] = []
-    prev_zone: Optional[tuple[float, float]] = None
+    prev_zone: tuple[float, float] | None = None
 
     for i in range(n - 2):
-        gl = high[i]          # gap floor  = C1.High
-        gh = low[i + 2]       # gap ceiling = C3.Low
+        gl = high[i]  # gap floor  = C1.High
+        gh = low[i + 2]  # gap ceiling = C3.Low
         if gh <= gl:
             continue
         gap = gh - gl
         if gap < gl * min_gap_pct or gap > gl * (LAUNCHPAD_MAX_GAP_PCT / 100.0):
             continue
-        j = i + 2             # C3 index (gap completes here)
-        if (pd.Timestamp(dates[j]) - pd.Timestamp(dates[i])).days > LAUNCHPAD_MAX_SPAN_DAYS:
+        j = i + 2  # C3 index (gap completes here)
+        if (
+            pd.Timestamp(dates[j]) - pd.Timestamp(dates[i])
+        ).days > LAUNCHPAD_MAX_SPAN_DAYS:
             continue
 
         # De-dup overlapping consecutive gaps (same imbalance chain).
@@ -280,7 +296,7 @@ def fvg_backtest(
         if is_dup:
             continue
 
-        if j + forward_days >= n:   # need a full forward window to know the outcome
+        if j + forward_days >= n:  # need a full forward window to know the outcome
             continue
 
         entry, floor = gh, gl
@@ -288,15 +304,15 @@ def fvg_backtest(
             continue
         target = entry + reward_multiple * (entry - floor)
 
-        outcome: Optional[float] = None
+        outcome: float | None = None
         for k in range(j + 1, j + 1 + forward_days):
-            if close[k] < floor:                    # invalidated first → loss
+            if close[k] < floor:  # invalidated first → loss
                 outcome = (floor - entry) / entry * 100.0
                 break
-            if high[k] >= target:                   # target hit first → win
+            if high[k] >= target:  # target hit first → win
                 outcome = (target - entry) / entry * 100.0
                 break
-        if outcome is None:                         # timed out → resolve by final close
+        if outcome is None:  # timed out → resolve by final close
             outcome = (close[j + forward_days] - entry) / entry * 100.0
 
         (wins if outcome >= 0 else losses).append(outcome)
@@ -313,10 +329,10 @@ def fvg_backtest(
 
 
 def classify_continuation(
-    fvg: Optional[FVG],
+    fvg: FVG | None,
     price: float,
     max_distance_pct: float = 3.0,
-) -> Optional[str]:
+) -> str | None:
     """
     Continuation classification for a bullish FVG relative to price:
       - "at_support"  : price is within `max_distance_pct` above the gap (ideal entry)

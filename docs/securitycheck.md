@@ -1,4 +1,4 @@
-# Security Check — FinTechAI vs. "5 Security Checks Before You Launch Your App"
+# Security Check — Nivro vs. "5 Security Checks Before You Launch Your App"
 
 **Audit date:** 2026-08-08
 **Codebase audited:** branch `akarsh-feature` @ `5b7f6d3`, working tree clean
@@ -52,9 +52,9 @@ The weaknesses that do exist cluster in three areas: **(a)** two Express routes 
 | Severity | Count | Meaning |
 |---|---|---|
 | 🔴 **Critical** | **0** | Immediate compromise of data or accounts |
-| 🟠 **High** | **4** | Resource abuse, brute-force exposure, or a control that does not work as intended |
-| 🟡 **Medium** | **8** | Meaningful weakening of defence-in-depth; exploitable in combination |
-| 🔵 **Low** | **6** | Hygiene, disclosure, and documentation accuracy |
+| 🟠 **High** | **4** → **0 open** | Resource abuse, brute-force exposure, or a control that does not work as intended — *all four (H-1…H-4) fixed 2026-08-08* |
+| 🟡 **Medium** | **8** → **7 open** | Meaningful weakening of defence-in-depth; exploitable in combination — *M-8 fixed 2026-08-08* |
+| 🔵 **Low** | **6** → **5 open** | Hygiene, disclosure, and documentation accuracy — *L-3 fixed* |
 | ⚪ **Not applicable** | **11** | Recommendation targets technology this project does not use |
 
 ### Categorization across all 38 PDF recommendations
@@ -67,6 +67,65 @@ The weaknesses that do exist cluster in three areas: **(a)** two Express routes 
 | ⚪ Not applicable | **6** | 16% |
 
 *(The 38 recommendations map to 18 findings; several recommendations converge on the same defect.)*
+
+---
+
+## 1b. Document status — updated 2026-08-08
+
+> This audit was originally written before the remediation round. It is retained in full,
+> including the original analysis of findings that have since been fixed, because the
+> reasoning is still the useful part. **Do not read a finding's body without reading its
+> STATUS line.**
+>
+> **Closed since the original audit:** H-1, H-2, H-3, H-4, M-8, L-3, F-1, **M-2, M-5**
+> (and M-4 partially — API side only).
+>
+> **Still open:** M-1, M-3, M-4 (frontend half), M-6, M-7, L-1, L-2, L-4, L-5, L-6, plus
+> F-2, D-1, D-2 and S-1 from the 2026-08-08 deep audit. Each now carries a STATUS line
+> explaining *why* it is deferred rather than merely that it is.
+>
+> Every "verified" claim below refers to a **local** test run (Express suite, FastAPI suite,
+> or a live local instance). **No claim here has been verified against a deployed
+> environment** — nothing has been deployed yet.
+
+---
+
+### Findings added by the 2026-08-08 deep audit
+
+#### F-1 · Next.js `/api/markets/*` routes were unauthenticated
+
+**Where:** `frontend/src/app/api/markets/{movers,pulse,mission-control}/route.ts`
+
+Distinct from **H-2**, which covered the *Express* market routes. These are Next.js route
+handlers running on Vercel. They call Yahoo Finance from the deployment's egress IP and had
+no authentication and no rate limit, while the pages that use them
+(`src/app/(app)/markets/…`) were already behind `AuthGuard`. Classic hidden-UI/open-API gap.
+
+> **STATUS: ✅ FIXED** (2026-08-08) — all three now call `verifyAuth` (401) and
+> `isRateLimited` (429) from the existing `lib/api/aiRouteGuard.ts`, the same helper already
+> used by `/api/copilot/chat` and `/api/journal/analyze`. No second auth system, no new
+> dependency. The three callers were updated to send `authHeader()`, which is required
+> because the JWT cookie is issued by Express on the Render domain and is therefore never
+> sent by the browser to the Vercel domain.
+
+#### F-2 · `sharp` 0.34.4 — libvips CVEs reachable in principle via `/_next/image`
+
+**Where:** `frontend/next.config.ts:22` (`dangerouslyAllowSVG: true`) plus remote hosts
+`placehold.co`, `images.unsplash.com`, `picsum.photos`.
+
+`sharp@0.34.4` is below the fixed `0.35.0` and inherits libvips CVE-2026-33327/33328/35590/35591.
+Next's image optimizer is enabled (`images-manifest.json`: `loader: default`,
+`unoptimized: false`). Two of the three allowed hosts generate images from caller-supplied
+URL parameters, so the *content* reaching the decoder is more attacker-influenced than the
+host allowlist suggests.
+
+> **STATUS: 🔵 OPEN — classification D (cannot be proven without deployment).**
+> Repository evidence establishes: default loader, optimization enabled, **no custom server,
+> no self-hosted optimizer, and no direct `sharp` import anywhere in `src/`**. On Vercel with
+> `framework: nextjs`, `/_next/image` is normally served by Vercel's *managed* optimizer
+> rather than the bundled `sharp` — which would make this unreachable — but that is platform
+> runtime behaviour and **cannot be proven from this repository**. No code change has been
+> made. See the verification procedure in the deep-audit report before deciding.
 
 ---
 
@@ -83,6 +142,12 @@ No finding in this audit permits an unauthenticated attacker to read another use
 ---
 
 #### H-1 · Rate limiter collapses to a single global bucket behind Render's proxy
+
+> **STATUS: ✅ FIXED** (2026-08-08) — `app.set('trust proxy', 1)` added at [backend/server.js:37](backend/server.js:37).
+> Verified empirically: 10 distinct client IPs each received their own bucket; a forged
+> `X-Forwarded-For` chain landed in the *same* bucket as the real client, so spoofing cannot
+> mint a fresh allowance. Value is `1`, not `true`, precisely to prevent that.
+
 
 **Where:** [backend/server.js:52](backend/server.js:52) — limiter defined; `trust proxy` is never set anywhere in the file.
 
@@ -110,6 +175,12 @@ app.use('/api/', limiter);
 
 #### H-2 · `/api/markets/*` is unauthenticated and spends your third-party API quota
 
+> **STATUS: ✅ FIXED** (2026-08-08) — `protect` applied to `/overview`, `/news`, and
+> `/quote/:symbol` in [backend/routes/markets.js](backend/routes/markets.js). Verified live:
+> anonymous requests to all three return **401**; an authenticated request returns 200.
+> Note: the *Next.js* market routes were a separate surface — see **F-1** below.
+
+
 **Where:** [backend/routes/markets.js:17](backend/routes/markets.js:17), `:31`, `:47` — three routes, none using `protect`.
 
 ```
@@ -134,6 +205,12 @@ Note the asymmetry: this is precisely the class of exposure that `AuthGuardMiddl
 
 #### H-3 · `/api/portfolio/analyze` is unauthenticated and spawns a subprocess per request
 
+> **STATUS: ✅ FIXED** (2026-08-08) — `protect` applied, plus `MAX_TICKERS = 30` enforced
+> **before** `analyzePortfolio()` spawns Python ([backend/routes/portfolio.js](backend/routes/portfolio.js)).
+> 30 matches the existing FastAPI contract (`max_length=30`). Verified: anonymous → 401;
+> 31 tickers → 400 in 64 ms with no subprocess error; 30 tickers pass the count check.
+
+
 **Where:** [backend/routes/portfolio.js:24](backend/routes/portfolio.js:24) — no `protect`. Handler reaches [backend/services/portfolioService.js:31](backend/services/portfolioService.js:31):
 
 ```js
@@ -151,6 +228,13 @@ const proc = spawn(PY_CMD, [SCRIPT, JSON.stringify(payload)]);
 ---
 
 #### H-4 · No rate limit specific to the login endpoint
+
+> **STATUS: ✅ FIXED** (2026-08-08) — route-specific limiter on `POST /login`
+> ([backend/routes/authRoutes.js](backend/routes/authRoutes.js)): 5 failed attempts / 15 min,
+> `skipSuccessfulRequests: true`, library default `keyGenerator`. Verified live: 5 failures
+> allowed → 6th returns 429; a forged `X-Forwarded-For` chain stays in the same bucket;
+> a different client IP gets its own bucket; six consecutive *successful* logins all 200.
+
 
 **Where:** [backend/routes/authRoutes.js:12](backend/routes/authRoutes.js:12) — `POST /login` carries only the global `/api/` limiter, which H-1 shows does not function per-IP behind Render.
 
@@ -176,6 +260,15 @@ The PDF asks for a **minimum of 5 attempts per minute per IP on login**. Nothing
 
 #### M-1 · Logout does not revoke the JWT; tokens live 30 days
 
+> **STATUS: 🔵 OPEN — deliberately deferred** (2026-08-08). There is no refresh-token
+> architecture: `GET /api/auth/token` returns the *same* JWT issued at login, it does not
+> mint a new one. Shortening the 30-day expiry would therefore log users out mid-session
+> with no silent renewal path, and adding a blacklist means new state (Mongo/Redis) —
+> both are architecture changes, not hardening. **Partial mitigation already exists and
+> is the reason this is not higher priority:** both services re-check `isActive` on every
+> request (~30 s cache), so an account can be revoked without waiting for expiry.
+
+
 **Where:** [backend/controllers/authController.js:73](backend/controllers/authController.js:73) (logout clears the cookie only), [backend/config/env.js:9](backend/config/env.js:9) (`jwtExpire` default `'30d'`).
 
 Logout expires the browser cookie. The **token string itself remains cryptographically valid for its full 30-day life.** Anyone who captured it — from a shared machine, a browser extension, a proxy log, or the response body of `GET /api/auth/token` — retains access after the user believes they have logged out.
@@ -189,6 +282,14 @@ The PDF asks explicitly for a "token blacklist on logout" (Prompt 4, auth sectio
 ---
 
 #### M-2 · Express returns raw exception messages on 500 in production
+
+> **STATUS: ✅ FIXED** (2026-08-08) — [backend/middleware/errorHandler.js](backend/middleware/errorHandler.js)
+> now returns a fixed `Internal Server Error` for status >= 500 **in production only**.
+> 4xx messages are untouched (they are authored API contract). Full `err.stack` is still
+> logged server-side unconditionally — the fix changes what the *client* sees, not what is
+> recorded. Three tests cover it, including one asserting a Mongo connection string in an
+> exception message does not reach the response body.
+
 
 **Where:** [backend/middleware/errorHandler.js:17](backend/middleware/errorHandler.js:17):
 
@@ -212,6 +313,15 @@ Stack traces are correctly withheld in production. But `err.message` is returned
 
 #### M-3 · No Content-Security-Policy on the frontend
 
+> **STATUS: 🔵 OPEN — deliberately deferred** (2026-08-08). Investigated, not attempted.
+> The app embeds TradingView widgets (`s3.tradingview.com`, `in.tradingview.com`), uses
+> `next/font` (injects inline `<style>`), has one `dangerouslySetInnerHTML` for generated
+> chart CSS, and Next.js emits inline bootstrap scripts. A correct policy therefore needs
+> `'unsafe-inline'` for styles plus script allowances, and cannot be validated without a
+> full browser pass. Shipping an untested CSP risks breaking the charts for every beta
+> user, which is worse than the defence-in-depth it buys. **Requires a dedicated task.**
+
+
 **Where:** [frontend/vercel.json](frontend/vercel.json) sets `X-Content-Type-Options`, `X-Frame-Options: DENY`, `X-XSS-Protection`, `Referrer-Policy`, and `Cross-Origin-Opener-Policy` — but **no CSP**. [frontend/next.config.ts](frontend/next.config.ts) adds only COOP.
 
 CSP is the header that matters most on the surface that renders untrusted content. This app renders LLM output through `react-markdown`, and stores user-authored journal text.
@@ -226,6 +336,12 @@ CSP is the header that matters most on the surface that renders untrusted conten
 
 #### M-4 · No HSTS declared by the frontend or FastAPI
 
+> **STATUS: 🟨 PARTIALLY FIXED** (2026-08-08) — FastAPI now sends HSTS in production
+> (see M-5). The **frontend half remains open**: Vercel already sends HSTS for its own
+> `*.vercel.app` domains, so the gap only becomes real on a custom domain. Deferred
+> deliberately rather than editing `vercel.json` for no present benefit.
+
+
 **Where:** searched `frontend/vercel.json`, `frontend/next.config.ts`, and all of `backend/fastapi_app` — no `Strict-Transport-Security` anywhere.
 
 Express **does** get HSTS, via `helmet()` defaults ([backend/server.js:24](backend/server.js:24), helmet 7.2.0). Helmet's default `max-age` is approximately 180 days, short of the PDF's requested 1 year.
@@ -239,6 +355,15 @@ Express **does** get HSTS, via `helmet()` defaults ([backend/server.js:24](backe
 ---
 
 #### M-5 · FastAPI serves no security headers at all
+
+> **STATUS: ✅ FIXED** (2026-08-08) — the existing timing middleware in
+> [backend/fastapi_app/main.py](backend/fastapi_app/main.py) now also sets
+> `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
+> and `X-Permitted-Cross-Domain-Policies: none`, plus `Strict-Transport-Security`
+> **in production only** (partially addressing M-4 on the API side). Extended rather than
+> added as a second middleware, so the AuthGuard-inside-CORS ordering is unchanged.
+> Verified: headers present on 200 **and on 401**, CORS untouched, `X-Process-Time` retained.
+
 
 **Where:** [backend/fastapi_app/main.py](backend/fastapi_app/main.py) registers `AuthGuardMiddleware`, `CORSMiddleware`, and a timing middleware. There is no equivalent of helmet.
 
@@ -286,6 +411,11 @@ The nearest existing mechanism is `seedUsers.js`, which **deactivates** non-rost
 
 #### M-8 · `MONGODB_URI` silently falls back to localhost — no production fail-fast
 
+> **STATUS: ✅ FIXED** (2026-08-08) — [backend/config/env.js](backend/config/env.js) now throws in
+> production when neither `MONGODB_URI` nor `MONGO_URI` is set, mirroring the `JWT_SECRET`
+> guard. Development keeps the localhost fallback unchanged. Three tests cover it.
+
+
 **Where:** [backend/config/env.js:7](backend/config/env.js:7) and [backend/fastapi_app/config.py:33](backend/fastapi_app/config.py:33) both default to `mongodb://localhost:27017/finai_edge`.
 
 The PDF (Prompt 3 #1) asks that the app **refuse to start** if a critical variable — explicitly naming the database URL — is missing.
@@ -327,6 +457,10 @@ Not exploitable on its own — an attacker cannot make your server trust *their*
 ---
 
 #### L-3 · No `frontend/.env.example`
+
+> **STATUS: ✅ FIXED** — `frontend/.env.example` exists. Note it still does not document
+> `NEXT_PUBLIC_APP_URL`, which `layout.tsx` reads for `metadataBase` (minor, remains open).
+
 
 **Where:** `backend/.env.example` ✅ and `backend/fastapi_app/.env.example` ✅ exist and are correctly free of real values. The frontend has none, despite four variables mattering: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_FASTAPI_URL`, `NEXT_PUBLIC_APP_URL`, and `GOOGLE_API_KEY`/`GEMINI_API_KEY`.
 
@@ -434,7 +568,7 @@ Security documentation that is wrong is worse than absent: it produces false con
 
 ### Prompt 4 — Deep Security Audit for Complex Logic *(based on Trail of Bits Skills)*
 
-> The PDF asks you to declare your app's profile. Accurate declaration for FinTechAI: **custom email/password auth + complex server logic. No payments, no smart contracts.**
+> The PDF asks you to declare your app's profile. Accurate declaration for Nivro: **custom email/password auth + complex server logic. No payments, no smart contracts.**
 
 #### Authentication & Authorization
 

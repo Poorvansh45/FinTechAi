@@ -6,10 +6,11 @@ Requires FINNHUB_API_KEY in environment.
 """
 
 import logging
-import httpx
 from datetime import datetime, timedelta
-from typing import Optional
-from .base import MarketDataProvider, StockQuote, Instrument, Candle
+
+import httpx
+
+from .base import Candle, Instrument, MarketDataProvider, StockQuote
 
 log = logging.getLogger("finai_edge.finnhub")
 
@@ -111,13 +112,15 @@ class FinnhubProvider(MarketDataProvider):
                     data = resp.json()
                     results = []
                     for item in data.get("result", [])[:limit]:
-                        results.append(Instrument(
-                            ticker=item.get("symbol", ""),
-                            name=item.get("description", ""),
-                            sector="Other",
-                            exchange=item.get("displaySymbol", "NSE"),
-                            instrument_type=item.get("type", "equity").lower(),
-                        ))
+                        results.append(
+                            Instrument(
+                                ticker=item.get("symbol", ""),
+                                name=item.get("description", ""),
+                                sector="Other",
+                                exchange=item.get("displaySymbol", "NSE"),
+                                instrument_type=item.get("type", "equity").lower(),
+                            )
+                        )
                     return results
         except Exception as e:
             log.warning(f"Finnhub search failed: {e}")
@@ -141,8 +144,14 @@ class FinnhubProvider(MarketDataProvider):
 
             # Map interval to Finnhub resolution
             resolution_map = {
-                "1m": "1", "5m": "5", "15m": "15", "30m": "30",
-                "1h": "60", "1d": "D", "1wk": "W", "1mo": "M",
+                "1m": "1",
+                "5m": "5",
+                "15m": "15",
+                "30m": "30",
+                "1h": "60",
+                "1d": "D",
+                "1wk": "W",
+                "1mo": "M",
             }
             resolution = resolution_map.get(interval, "D")
 
@@ -170,14 +179,18 @@ class FinnhubProvider(MarketDataProvider):
 
                     candles = []
                     for i in range(len(timestamps)):
-                        candles.append(Candle(
-                            timestamp=datetime.fromtimestamp(timestamps[i]).isoformat(),
-                            open=round(float(opens[i]), 2),
-                            high=round(float(highs[i]), 2),
-                            low=round(float(lows[i]), 2),
-                            close=round(float(closes[i]), 2),
-                            volume=int(volumes[i]) if i < len(volumes) else 0,
-                        ))
+                        candles.append(
+                            Candle(
+                                timestamp=datetime.fromtimestamp(
+                                    timestamps[i]
+                                ).isoformat(),
+                                open=round(float(opens[i]), 2),
+                                high=round(float(highs[i]), 2),
+                                low=round(float(lows[i]), 2),
+                                close=round(float(closes[i]), 2),
+                                volume=int(volumes[i]) if i < len(volumes) else 0,
+                            )
+                        )
                     return candles
         except Exception as e:
             log.warning(f"Finnhub candles failed for {symbol}: {e}")

@@ -1,5 +1,5 @@
 /**
- * FinAI Edge — AI Copilot API client
+ * Nivro — AI Copilot API client
  * ====================================
  * Typed wrapper over the Phase 2A FastAPI copilot (`/api/v2/copilot/*`).
  * Auth is the Express-issued JWT attached as `Authorization: Bearer` (the

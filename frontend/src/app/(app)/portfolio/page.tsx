@@ -354,7 +354,7 @@ function LandingScreen({ onAnalyze, onBuild }: { onAnalyze: () => void; onBuild:
                 </h1>
                 <p className="text-slate-400 text-base max-w-lg mx-auto leading-relaxed">
                     Whether you already have investments or you&apos;re starting from scratch,
-                    FinTechAI helps you build, analyze and improve your portfolio.
+                    Nivro helps you build, analyze and improve your portfolio.
                 </p>
             </motion.div>
 

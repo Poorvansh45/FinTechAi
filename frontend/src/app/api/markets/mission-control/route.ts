@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isRateLimited, rateLimitKey, verifyAuth } from "@/lib/api/aiRouteGuard";
 
 // ── In-memory cache (60s TTL for market data) ────────────────────
 const cache = new Map<string, { data: unknown; expiresAt: number }>();
@@ -58,7 +59,19 @@ async function fetchQuotes(pairs: { ticker: string; symbol: string; name: string
 }
 
 // ── Handler ───────────────────────────────────────────────────────
-export async function GET() {
+export async function GET(req: Request) {
+  // Beta-only: these pages live under the AuthGuard-wrapped (app) route group,
+  // but the route behind them was reachable anonymously and spends Yahoo Finance
+  // requests from the deployment's egress IP. Same guard already used by
+  // /api/copilot/chat and /api/journal/analyze — no second auth system.
+  const userId = await verifyAuth(req);
+  if (!userId) {
+    return NextResponse.json({ error: 'Not authorized.' }, { status: 401 });
+  }
+  if (isRateLimited(rateLimitKey(req, userId))) {
+    return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 });
+  }
+
   try {
     // Fetch in parallel
     const [usQuotes, euQuotes, asiaQuotes, cmdQuotes, futuresQuotes, riskQuotes] = await Promise.all([

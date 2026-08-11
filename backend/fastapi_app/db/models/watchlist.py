@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
+
 from bson import ObjectId
+from pydantic import BaseModel, Field
+
 
 class PyObjectId(ObjectId):
     @classmethod
@@ -21,14 +22,16 @@ class PyObjectId(ObjectId):
 
 class WatchlistBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     is_archived: bool = False
+
 
 class WatchlistCreate(WatchlistBase):
     pass
 
+
 class WatchlistInDB(WatchlistBase):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: PyObjectId | None = Field(alias="_id", default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = "default_user"  # Placeholder until full auth is available
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -44,16 +47,18 @@ class WatchlistStockBase(BaseModel):
     company_name: str
     source_module: str
     added_price: float
-    added_volume: Optional[float] = None
-    added_rsi: Optional[float] = None
-    added_ema50: Optional[float] = None
-    added_ema200: Optional[float] = None
+    added_volume: float | None = None
+    added_rsi: float | None = None
+    added_ema50: float | None = None
+    added_ema200: float | None = None
+
 
 class WatchlistStockCreate(WatchlistStockBase):
     pass
 
+
 class WatchlistStockInDB(WatchlistStockBase):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: PyObjectId | None = Field(alias="_id", default=None)
     watchlist_id: PyObjectId
     added_date: datetime = Field(default_factory=datetime.utcnow)
 
@@ -64,7 +69,7 @@ class WatchlistStockInDB(WatchlistStockBase):
 
 
 class WatchlistHistoryInDB(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: PyObjectId | None = Field(alias="_id", default=None)
     watchlist_id: PyObjectId
     symbol: str
     added_date: datetime
@@ -79,7 +84,7 @@ class WatchlistHistoryInDB(BaseModel):
 
 
 class WatchlistSnapshotInDB(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: PyObjectId | None = Field(alias="_id", default=None)
     watchlist_id: PyObjectId
     snapshot_date: datetime = Field(default_factory=datetime.utcnow)
     total_stocks: int
@@ -94,15 +99,15 @@ class WatchlistSnapshotInDB(BaseModel):
 
 
 class WatchlistAnalyticsInDB(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    id: PyObjectId | None = Field(alias="_id", default=None)
     watchlist_id: PyObjectId
     last_computed: datetime = Field(default_factory=datetime.utcnow)
     alpha_vs_nifty50: float = 0.0
     volatility_pct: float = 0.0
     risk_adjusted_return: float = 0.0
     current_drawdown_pct: float = 0.0
-    best_source: Optional[str] = None
-    worst_source: Optional[str] = None
+    best_source: str | None = None
+    worst_source: str | None = None
 
     class Config:
         populate_by_name = True

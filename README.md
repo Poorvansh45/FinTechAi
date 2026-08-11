@@ -1,14 +1,14 @@
-# FinAI Edge
+# Nivro
 
 **AI-Powered Financial Intelligence Platform**
 
-A full-stack investment analytics platform for Indian equity markets — portfolio analysis, technical/smart-money screeners, watchlists, a trading journal, and an AI copilot — built across three coordinated services with a JWT trust boundary between them.
+A full-stack investment analytics platform for Indian equity markets — portfolio analysis, technical/smart-money screeners, watchlists, a trading journal, and an AI copilot — built across two coordinated services with a JWT trust boundary between them.
 
 ---
 
 ## 1. Overview
 
-FinAI Edge helps retail investors and active traders analyze portfolios, screen the market, and journal trades, with AI-assisted insights layered on top of quantitative analytics.
+Nivro helps retail investors and active traders analyze portfolios, screen the market, and journal trades, with AI-assisted insights layered on top of quantitative analytics.
 
 - **Portfolio analytics** — holdings P&L, sector exposure, risk metrics (Sharpe, Sortino, VaR, drawdown), health scoring, and rebalance suggestions computed with Modern Portfolio Theory.
 - **Market screeners** — Technical, Smart Money Concepts, Volume Surge, Fair Value Gap/LaunchPad, IPO Vintage, and the proprietary Alpha Zone, over the full ~2,200-symbol NSE universe, computed by a staged scan pipeline and refreshed on a daily schedule. See [§3](#3-the-screener-pipeline--deep-dive) for the architecture.
@@ -23,7 +23,7 @@ This is a personal/portfolio engineering project, not a live trading or brokerag
 
 ## 2. Architecture
 
-Three independently deployable services, each with a distinct responsibility:
+Two independently deployable services:
 
 ```
                     ┌─────────────────────────┐
@@ -31,35 +31,34 @@ Three independently deployable services, each with a distinct responsibility:
                     │   (React 18, App Router) │
                     └────────────┬─────────────┘
                                  │
-                 ┌───────────────┴───────────────┐
-                 │                                │
-                 ▼                                ▼
-   ┌───────────────────────────┐     ┌───────────────────────────┐
-   │   Express (Node)          │     │   FastAPI (Python)         │
-   │   Auth · JWT · Sessions   │     │   Portfolio · Screeners    │
-   │   MongoDB (Mongoose)      │     │   AI · Watchlists           │
-   │                            │     │   MongoDB (Motor)           │
-   └────────────┬───────────────┘     └────────────┬───────────────┘
-                │                                    │
-                └───────────────┬────────────────────┘
                                  ▼
-                        MongoDB Atlas (shared)
+                    ┌───────────────────────────┐
+                    │   FastAPI (Python)         │
+                    │   Auth · JWT · Sessions    │
+                    │   Portfolio · Screeners    │
+                    │   AI · Watchlists          │
+                    │   MongoDB (Motor)          │
+                    └────────────┬───────────────┘
+                                 ▼
+                        MongoDB Atlas
 ```
+
+> **History:** auth originally lived in a separate Express service (its own JWT-issuing process on port 8080) so the platform ran as three coordinated services. It has since been migrated into FastAPI (`backend/fastapi_app/api/auth.py`) — one fewer moving part in dev and in deployment. The Express code (`backend/`) is still in the repo for reference/rollback but is no longer part of the running system; see [`docs/DEPLOYMENT_MASTER_PLAN.md`](docs/DEPLOYMENT_MASTER_PLAN.md) before decommissioning its production Render service.
 
 ### JWT trust boundary
 
-Only Express issues tokens. FastAPI never signs a token — it **verifies** the one Express created, using the same shared secret:
+FastAPI both issues and verifies tokens — there's no longer a second signer to trust.
 
-1. On login, Express signs a JWT (`{ id: userId }`, HS256) and sets it as an HTTP-only cookie.
-2. Because Express, FastAPI, and the frontend are deployed as separate origins in production, that cookie is not automatically visible to FastAPI. The frontend fetches the token once via an authenticated `GET /api/auth/token` on Express and attaches it as `Authorization: Bearer <token>` on calls to FastAPI.
-3. FastAPI verifies the token against the shared `JWT_SECRET` with `PyJWT`, then confirms the account **still exists and is active** in Mongo (cached ~30s) before the request reaches a handler — so deactivating a user invalidates outstanding tokens promptly rather than leaving them valid for the rest of their 30-day life.
+1. On login, `POST /api/auth/login` (`api/auth.py`) checks the password with `bcrypt` against the `users` collection, signs a JWT (`{ id: userId }`, HS256, 30-day expiry) and sets it as an HTTP-only cookie.
+2. Because the frontend and FastAPI are deployed as separate origins in production, that cookie is not automatically visible to client-side calls. The frontend fetches the token once via an authenticated `GET /api/auth/token` and attaches it as `Authorization: Bearer <token>` on every other FastAPI call.
+3. Every subsequent request re-verifies the token against `JWT_SECRET` with `PyJWT`, then confirms the account **still exists and is active** in Mongo (cached ~30s) before the request reaches a handler — so deactivating a user invalidates outstanding tokens promptly rather than leaving them valid for the rest of their 30-day life.
 4. Every user-owned endpoint (saved portfolios, watchlists — create, read, update, delete) is scoped to that verified id, closing an IDOR class of bug where one user could read or modify another user's data.
 
-Because production genuinely spans two registrable domains (Vercel ↔ Render), that cookie is issued `SameSite=None; Secure` — `Strict` would stop the browser sending it on step 2, which silently breaks every downstream FastAPI call, not just login. Local development stays on `SameSite=Lax` over plain HTTP. Both paths are covered by `backend/utils/generateToken.js`, whose options object logout reuses so the clearing cookie can't drift out of sync.
+Because production genuinely spans two registrable domains (Vercel ↔ Render), that cookie is issued `SameSite=None; Secure` — `Strict` would stop the browser sending it on step 2, which silently breaks every downstream FastAPI call, not just login. Local development stays on `SameSite=Lax` over plain HTTP. Both paths are covered by `api/auth.py`'s cookie-attribute helpers, which logout reuses so the clearing cookie can't drift out of sync.
 
-**Deny by default.** `backend/fastapi_app/middleware/auth_guard.py` rejects anything not explicitly listed as public (`/health`, `/api/v2/status`, `/api/v2/copilot/health`, plus the docs in development). A newly added route is therefore protected automatically, and a test walks the live route table to fail the build if any GET route ever answers an anonymous caller.
+Tokens issued before the migration (by the old Express service) remain valid until they expire — same secret, same payload shape, so nothing forces existing sessions to re-authenticate.
 
-Express and FastAPI never share code or a process — the only thing they share is the secret used to sign/verify.
+**Deny by default.** `backend/fastapi_app/middleware/auth_guard.py` rejects anything not explicitly listed as public (`/health`, `/api/v2/status`, `/api/v2/copilot/health`, `/api/auth/login`, plus the docs in development). A newly added route is therefore protected automatically, and a test walks the live route table to fail the build if any GET route ever answers an anonymous caller.
 
 ---
 
@@ -143,14 +142,11 @@ On the frontend, `src/components/screener/filters/` is a shared component librar
 - Trading journal with setup tracking and trade history
 - AI copilot chat and AI journal analysis
 
-**Backend (Express)**
-- Login with bcrypt password hashing — no public registration; accounts are seeded via `scripts/seedUsers.js` and given passwords through an interactive, never-logged prompt (`scripts/setPassword.js`)
+**Backend / AI / Analytics (FastAPI)**
+- Login with bcrypt password hashing — no public registration; accounts are seeded via `scripts/seedUsers.js` (Express-side script, still used for provisioning) and given passwords through an interactive, never-logged prompt (`scripts/setPassword.js`)
 - HTTP-only JWT cookies (no tokens in `localStorage`), `SameSite=None; Secure` in production, `Lax` locally
 - Role (`owner`/`beta`/`demo`) and `isActive` on every user; clearing `isActive` revokes outstanding tokens
-- Rate-limited, Helmet-hardened REST API
-- Issues the shared identity token consumed by FastAPI
-
-**AI / Analytics (FastAPI)**
+- Rate-limited login (`api/auth.py`), deny-by-default on everything else (`middleware/auth_guard.py`)
 - Portfolio analytics: CAGR, Sharpe/Sortino/Treynor, VaR, max drawdown, Monte Carlo–based MPT optimization
 - Scanner pipelines pre-computed on a daily APScheduler job against a cached instrument universe
 - Gemini-backed AI portfolio generation with a deterministic rule-based fallback when no API key is configured
@@ -263,11 +259,10 @@ Frontend files live under `src/components/copilot/*`, `src/lib/api/copilot.ts`, 
 | Layer | Technology |
 |---|---|
 | **Frontend** | Next.js 15 (App Router), React 18, TypeScript, Tailwind CSS, Radix UI, Recharts, Lightweight Charts |
-| **Backend (Auth)** | Node.js, Express, Mongoose, JSON Web Tokens, bcrypt, Helmet |
-| **AI / Analytics** | FastAPI, Python 3.11, LangGraph + LangChain (agentic copilot), pandas, NumPy, SciPy, scikit-learn, PyJWT, Gemini / Groq |
+| **Backend / Auth / AI / Analytics** | FastAPI, Python 3.11, PyJWT, bcrypt, LangGraph + LangChain (agentic copilot), pandas, NumPy, SciPy, scikit-learn, Gemini / Groq |
 | **Data** | Upstox public V3 historical API (sole bulk OHLCV source for the scanner pipeline), yfinance (`^NSEI` benchmark fallback), Groww + Finnhub (live LTP quotes only — a separate, unaffected path) |
-| **Database** | MongoDB Atlas — accessed via Mongoose (Express) and Motor (FastAPI) |
-| **DevOps** | GitHub Actions CI, Render (Express + FastAPI), Vercel (frontend) |
+| **Database** | MongoDB Atlas — accessed via Motor (FastAPI); legacy Express code (unused) reads it via Mongoose |
+| **DevOps** | GitHub Actions CI, Render (FastAPI; Express service dormant), Vercel (frontend) |
 
 ---
 
@@ -276,8 +271,8 @@ Frontend files live under `src/components/copilot/*`, `src/lib/api/copilot.ts`, 
 - **Authentication**: HTTP-only JWT cookies (not readable by client JS), bcrypt-hashed passwords. Production uses `SameSite=None; Secure` because the frontend and API are genuinely cross-domain (Vercel ↔ Render); local development uses `SameSite=Lax` over HTTP. Logout clears the cookie with the *same* attributes — a mismatch is rejected cross-site, which would leave the session alive after a "successful" logout.
 - **No public registration**: the register route does not exist. Accounts are seeded from a roster that contains no secrets, and passwords are set through an interactive TTY-only prompt — never via argv, an environment variable, shell history, or a log line.
 - **Deny-by-default API**: FastAPI rejects unauthenticated requests to everything except a short, explicit public list, enforced by middleware rather than per-route decoration. A test walks the live route table so a new public hole cannot land silently.
-- **Production secret validation**: both Express (`backend/config/env.js`) and FastAPI (`backend/fastapi_app/config.py`) refuse to start in production if `JWT_SECRET` is unset — they fail closed instead of silently falling back to an insecure default.
-- **Cross-service JWT verification**: FastAPI independently verifies every Express-issued token (HS256, shared secret) *and* re-checks that the account still exists and is active, rather than trusting any client-supplied identity.
+- **Production secret validation**: FastAPI (`backend/fastapi_app/config.py`) refuses to start in production if `JWT_SECRET` is unset — it fails closed instead of silently falling back to an insecure default.
+- **Self-issued JWT verification**: every request re-verifies its token (HS256) against the same secret it was signed with, *and* re-checks that the account still exists and is active, rather than trusting any client-supplied identity.
 - **IDOR protection**: portfolio and watchlist endpoints derive the owner from the verified token, and watchlist reads/writes are checked against the resource's actual owner before returning or mutating data.
 - **Untrusted demo role**: the publicly shared demo credential cannot trigger a market scan or mutate watchlists, and carries the tightest Copilot budget. Limits are keyed per **user**, not per IP, because that one account is used by many people from many addresses.
 - **Correct client attribution behind a proxy**: `trust proxy` is set to `1` — not `true` — so the rate limiter reads the real caller from the hop Render itself inserted. Left unset, every user shares one global bucket; set to `true`, a forged `X-Forwarded-For` would mint a fresh bucket per request.
@@ -289,13 +284,14 @@ Frontend files live under `src/components/copilot/*`, `src/lib/api/copilot.ts`, 
 
 ## 8. Testing & CI
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR across all three services. The goal is a boot-safety net — proving each service still starts and its core contract holds — not exhaustive coverage:
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR. The goal is a boot-safety net — proving each service still starts and its core contract holds — not exhaustive coverage:
 
 | Service | Checks |
 |---|---|
 | **Frontend** | `tsc --noEmit`, `next lint`, production `next build` |
-| **Backend (Express)** | Syntax check, smoke tests via Node's built-in test runner (`node --test`) — boots the app on an ephemeral port and exercises `/health` and the JWT production-guard, without needing MongoDB or real secrets |
-| **FastAPI** | `pytest` — 176 tests over the pinned `requirements.txt`, all offline (no MongoDB, no secrets, no network) |
+| **FastAPI** | `pytest` — 195 tests, 1 skipped, over the pinned `requirements.txt`, all offline (no MongoDB, no secrets, no network); includes `tests/test_auth_login.py` for `api/auth.py` |
+| **Backend (Express, legacy)** | No longer part of the running system (auth was migrated into FastAPI — see [§2](#2-architecture)) but still syntax-checked/smoke-tested in CI (`node --test`) since the code remains in the repo |
+| **FastAPI lint** | `ruff check .` (config: `backend/fastapi_app/ruff.toml`) — see [§8.1](#81-fastapi-lint--dead-code-pass) |
 
 The Next.js build no longer sets `typescript.ignoreBuildErrors` or `eslint.ignoreDuringBuilds`; with those in place the deploy build happily shipped real type errors. Note that ESLint enforcement still needs a committed config — the flag was the blocker, not the whole story.
 
@@ -306,23 +302,53 @@ Two suites are worth calling out because they guard properties that are easy to 
 
 This catches broken builds, missing dependencies, and startup regressions before merge. It does not yet cover full end-to-end auth-flow integration tests — see [Roadmap](#10-roadmap).
 
+### 8.1 FastAPI lint + dead-code pass
+
+`ruff check backend/fastapi_app` runs clean (`backend/fastapi_app/ruff.toml`). Two things about that config are worth reading before trusting it:
+
+- **Explicit `select` list, not category prefixes.** Ruff's own default rule set turns out to depend on whether a config file exists at all, and enabling a whole category (e.g. `"S"` for flake8-bandit) pulls in every rule in that plugin rather than the curated subset ruff enables with zero config — confirmed directly: selecting `"S"` alone surfaced 378 `S101` ("assert used") findings that were never part of this project's baseline. The config enumerates exact rule codes instead.
+- **Two categories are deliberately allowed, not silently ignored.** `BLE001` ("blind `except Exception`") covers ~130 call sites that are a consistent, intentional resilience pattern — one bad symbol, provider, or subsystem must not crash a whole scan or the whole app. `DTZ003/005/006/011` (naive `datetime.utcnow()`) covers naive-UTC datetimes used consistently for MongoDB storage; this codebase has a documented past incident specifically about tz-aware/tz-naive datetime mixing (see `_to_naive_datetime()` in `ohlc_downloader.py`), so mechanically converting to tz-aware timestamps risks reintroducing exactly that bug class across dozens of call sites with no test coverage to catch a wrong conversion. Both are explained inline in `ruff.toml`, not just switched off.
+
+Everything else — real bugs, not style — was fixed in the code: an undefined `pd` reference (`jobs/scanner_cron.py`, since deleted along with the module), a mutable dict default argument, bare `except:` clauses narrowed to `except Exception:`, unused variables, `log.error(..., exc_info=True)` calls converted to `log.exception(...)`, and one exception handler switched from `exc_info=True` (which depends on ambient `sys.exc_info()`) to the more robust `exc_info=exc` (the handler receives `exc` as a parameter, not via an active `except` clause).
+
+**Dead-code removal**, verified via AST-precise import resolution (not string grep, which produces false positives on relative imports) before deleting anything — confirmed zero live consumers, then confirmed the FastAPI test suite (185 passed) was unchanged before vs. after:
+
+- `jobs/scanner_cron.py` and the now-empty `jobs/` directory — a legacy scan entrypoint superseded by `engines/orchestration/coordinator.py` + `schedulers/daily_refresh.py`.
+- The entire top-level `indicators/` directory — `ema.py`, `fvg.py`, `macd.py`, `rsi.py`, `volume.py` were all **empty placeholder files** (0 bytes), and `talib_engine.py`'s only consumer was the deleted `scanner_cron.py`. The live indicator engine is `engines/indicators/`, a separate package with the same file names — easy to confuse, which is presumably how the empty duplicates went unnoticed.
+- `scanners/technical.py`, `scanners/watchlists.py` — also empty placeholder files.
+- `models/smc.py` — Pydantic models with zero importers; superseded by the schemas actually used in `api/smc.py`.
+
+### 8.2 Auth migration — Express → FastAPI
+
+The platform ran as three coordinated services (frontend, Express, FastAPI) since Express was the only thing that could sign a JWT. `backend/fastapi_app/api/auth.py` now does that itself, so local dev is down to two terminals and there's one fewer service to keep in sync in production.
+
+**What moved, and what didn't.** Login (bcrypt against the `users` collection), logout, `/me`, username updates, and the `/token` cookie→bearer bridge are now native FastAPI routes at the exact same paths Express used to serve (`/api/auth/login`, `/logout`, `/me`, `/username`, `/token`) — the frontend needed only a base-URL change (`NEXT_PUBLIC_API_URL` now points at FastAPI's port), not a rewrite. Account *provisioning* did not move: `backend/scripts/seedUsers.js` and `scripts/setPassword.js` are still the only way to create an account, since Nivro has no public registration either way. Two other Express routes — `/api/portfolio/analyze` (a Python-subprocess-backed MPT calculation) and `/api/markets/overview` + `/news` (Finnhub-backed) — turned out to already be unused by the frontend (it had fully migrated to FastAPI's own, more complete portfolio/market endpoints previously), so they weren't ported; nothing currently calls them.
+
+**Compatibility, deliberately preserved:**
+- Same JWT shape: `{"id": userId}`, HS256, signed with the same `JWT_SECRET`. A token issued by the old Express service is still accepted by FastAPI today, and vice versa were Express ever restarted — nobody is forced to re-authenticate.
+- Same bcrypt hashes. Python's `bcrypt` reads hashes written by Node's `bcryptjs` with no re-hash step; verified against real Mongoose-created accounts, not just newly-created ones.
+- Same cookie contract: `httpOnly`, `SameSite=None; Secure` in production / `Lax` locally, cleared on logout with matching attributes — a mismatch there would leave a "logged out" session alive.
+- Same login rate limit: 5 failed attempts / 15 minutes, keyed by client IP via the nearest proxy hop only (mirrors Express's `trust proxy = 1` reasoning) — only failures spend budget, so a legitimate login never costs the caller anything.
+
+**Verification.** `tests/test_auth_login.py` (10 tests, offline) covers that `/login` is the one public auth path, everything else deny-by-default like any other route, and the rate limiter trips — all without a database, matching this codebase's existing no-DB TestClient pattern. Beyond that, a live pass with a throwaway synthetic account against the *running* FastAPI service (Express not started) exercised the full cycle end-to-end: wrong password → 401, correct login → 200 with a matching cookie, `/me` via both cookie and Bearer token, the `/token` bridge, an anonymous 401, a username update, a downstream FastAPI-protected scanner read authenticated with the self-issued token, logout clearing the cookie correctly, a deactivated account rejected at login, and the 6th rapid failure hitting 429 — then the identical flow again through the real browser UI (login, dashboard, an authenticated scanner page, logout), Express never running throughout.
+
+**Not yet done:** the Express service (`backend/`) and its Render deployment (`render.yaml`) still exist — they're dormant, not deleted, since decommissioning a live production service is a separate decision from migrating dev workflow. `render.yaml`'s Express entry can be removed once you're confident in the cutover; see [§9](#9-deployment).
+
 ---
 
 ## 9. Deployment
 
-Three services deployed independently:
-
 | Service | Platform | Notes |
 |---|---|---|
-| Frontend | Vercel | `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_FASTAPI_URL` / `NEXT_PUBLIC_APP_URL` are **build-time** env vars — inlined into the bundle, so changing one needs a redeploy, not a restart |
-| Express backend | Render | Defined in `render.yaml`, health check at `/health` |
-| FastAPI backend | Render | Separate service in `render.yaml`, `uvicorn main:app` bound to Render's `$PORT`, health check at `/health` |
+| Frontend | Vercel | `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_FASTAPI_URL` / `NEXT_PUBLIC_APP_URL` are **build-time** env vars — inlined into the bundle, so changing one needs a redeploy, not a restart. Both `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_FASTAPI_URL` should point at the FastAPI service — see [§8.2](#82-auth-migration--express--fastapi) |
+| FastAPI backend | Render | Defined in `render.yaml`, `uvicorn main:app` bound to Render's `$PORT`, health check at `/health`. Now serves auth as well as everything else |
+| ~~Express backend~~ | Render | **Dormant.** Still defined in `render.yaml` and still deployable, but auth was migrated into FastAPI ([§8.2](#82-auth-migration--express--fastapi)) and nothing in the frontend calls it anymore. Not yet decommissioned — remove its `render.yaml` entry and Render service once you're confident in the cutover |
 | Database | MongoDB Atlas | Shared connection string across both backends. Render free has no static egress IP, so network access needs `0.0.0.0/0` plus a strong password |
 
-Three settings are easy to miss and each breaks something specific:
+Settings that are easy to miss, each breaking something specific:
 
 - **`OHLCV_BACKEND=mongo`** on the FastAPI service. Left at the `csv` default, the 196 MB gitignored CSV isn't there, the scanners find an empty universe, and a scan that evaluates zero symbols publishes zero results — blanking every live scanner cache. **Run `scripts/migrate_ohlcv_to_mongo.py` before the first boot**, and never let Render perform a first-time download: with an empty collection every symbol would be fetched for 5 years at once and exhaust memory.
-- **Identical `JWT_SECRET`** on both backends — it's the only thing that lets FastAPI verify what Express signed.
+- **`JWT_SECRET`** on the FastAPI service — it both signs and verifies tokens now. If the dormant Express service is ever started again (or its tokens still need to work), it must use the same value.
 - **`NODE_ENV=production` / `ENVIRONMENT=production`** — these are what unmount the API docs and switch the cookie to `SameSite=None; Secure`.
 
 Full environment-variable reference and deploy steps: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). Private-beta account operations: [`docs/PRIVATE-BETA.md`](docs/PRIVATE-BETA.md).
@@ -354,39 +380,38 @@ git clone <repo-url>
 cd FinTechAI-AntiGravity
 ```
 
-**1. Express backend**
-```bash
-cd backend
-npm install
-cp .env.example .env   # fill in MONGODB_URI and JWT_SECRET at minimum
-npm run dev             # http://localhost:8080
-```
+Two services to run (a legacy `backend/` Express service exists in the repo but is no longer part of the dev workflow — see [§2](#2-architecture)):
 
-**2. FastAPI backend**
+**1. FastAPI backend**
 ```bash
 cd backend/fastapi_app
 python -m venv .venv && .venv/Scripts/activate   # or source .venv/bin/activate on macOS/Linux
 pip install -r requirements.txt
-cp .env.example .env    # use the SAME JWT_SECRET and MONGODB_URI as the Express .env
+cp ../.env.example ../.env   # fill in MONGODB_URI and JWT_SECRET at minimum
 uvicorn main:app --reload --port 8000
 ```
 
-**3. Frontend**
+**2. Frontend**
 ```bash
 cd frontend
 npm install
-cp .env.example .env.local
+cp .env.example .env.local   # NEXT_PUBLIC_API_URL and NEXT_PUBLIC_FASTAPI_URL both point at :8000
 npm run dev              # http://localhost:9002
 ```
 
-`JWT_SECRET` **must be identical** across the Express and FastAPI `.env` files — it's what lets FastAPI verify tokens Express issued. FastAPI reads `backend/.env` (`env_file: "../.env"`), so a single value there serves both.
+`JWT_SECRET` must be set in `backend/.env` (FastAPI reads it via `env_file: "../.env"`) — it's what both signs and verifies auth tokens now that both roles live in the one service. In production it must be identical to whatever value the legacy Express deployment was using, so tokens issued before the migration remain valid.
 
-> Both `scripts/seedUsers.js` and `scripts/setPassword.js` call `require('dotenv').config()` with no path, which resolves `.env` relative to **the directory you run node from**, not the script's own location. Run them from `backend/`:
+Or use the one-click starter from the repo root, which does both:
+```bash
+start-dev.bat
+```
+
+> Both `scripts/seedUsers.js` and `scripts/setPassword.js` (still Express-side, used only for account provisioning) call `require('dotenv').config()` with no path, which resolves `.env` relative to **the directory you run node from**, not the script's own location. Run them from `backend/`:
 > ```bash
 > cd backend && node scripts/setPassword.js someone@example.com
 > ```
 
-**4. Accounts** — there is no sign-up form. Seed the roster, then give each account a password (prompted twice, hidden, never logged):
+**3. Accounts** — there is no sign-up form. Seed the roster, then give each account a password (prompted twice, hidden, never logged):
 
 ```bash
 cd backend

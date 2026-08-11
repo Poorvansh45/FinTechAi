@@ -1,5 +1,5 @@
 /**
- * FinTechAI — Frontend Environment Configuration
+ * Nivro — Frontend Environment Configuration
  * ================================================
  * Single source of truth for all frontend configuration.
  *
@@ -27,7 +27,7 @@ function readPublicEnv(key: string, devFallback: string): string {
 
   if (IS_PROD) {
     console.warn(
-      `[FinTechAI] Missing ${key} in production — falling back to "${devFallback}". ` +
+      `[Nivro] Missing ${key} in production — falling back to "${devFallback}". ` +
       `Set ${key} in the frontend deployment environment (it is inlined at build time).`,
     );
   }
@@ -36,10 +36,14 @@ function readPublicEnv(key: string, devFallback: string): string {
 
 export const env = {
   /**
-   * Express backend — auth, JWT, markets proxy.
+   * FastAPI backend — auth, JWT. Historically a separate Express service on
+   * port 8080; auth was migrated into FastAPI (api/auth.py) so this now
+   * points at the same origin as fastapiUrl below. Kept as its own var
+   * because authApi.ts/aiRouteGuard.ts are still written against Express's
+   * old path shapes (/api/auth/*), which FastAPI now also serves.
    * Reads NEXT_PUBLIC_API_URL (NEXT_PUBLIC_ prefix required for the browser bundle).
    */
-  apiUrl: readPublicEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8080'),
+  apiUrl: readPublicEnv('NEXT_PUBLIC_API_URL', 'http://localhost:8000'),
 
   /**
    * FastAPI backend — portfolio analytics, AI generation, scanners.

@@ -51,7 +51,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return data as T;
 }
 
-// No apiRegister: FinTechAI is a closed private beta. The server has no
+// No apiRegister: Nivro is a closed private beta. The server has no
 // /api/auth/register route — accounts are seeded by backend/scripts/seedUsers.js.
 // See docs/PRIVATE-BETA.md.
 

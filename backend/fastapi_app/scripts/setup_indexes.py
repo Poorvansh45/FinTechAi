@@ -14,6 +14,7 @@ Or import and call from main.py lifespan:
 
 import asyncio
 import logging
+
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 log = logging.getLogger("finai_edge.setup_indexes")
@@ -43,7 +44,9 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.volume_surge_cache.create_index("symbol", unique=True, background=True)
     await db.volume_surge_cache.create_index("has_current_surge", background=True)
     await db.volume_surge_cache.create_index("current_volume_ratio", background=True)
-    await db.volume_surge_cache.create_index("surge_stats.avg_1d_return", background=True)
+    await db.volume_surge_cache.create_index(
+        "surge_stats.avg_1d_return", background=True
+    )
     await db.volume_surge_cache.create_index("surge_stats.win_rate_1d", background=True)
     await db.volume_surge_cache.create_index("ltp", background=True)
     log.info("  volume_surge_cache: indexes created")
@@ -62,8 +65,9 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     log.info("  momentum_cache: indexes created")
 
     # ── smc_zones ─────────────────────────────────────────────────────
-    await db.smc_zones.create_index([("symbol", 1), ("zone_high", 1), ("zone_low", 1)],
-                                     unique=True, background=True)
+    await db.smc_zones.create_index(
+        [("symbol", 1), ("zone_high", 1), ("zone_low", 1)], unique=True, background=True
+    )
     await db.smc_zones.create_index("status", background=True)
     await db.smc_zones.create_index("direction", background=True)
     await db.smc_zones.create_index("symbol", background=True)
@@ -72,11 +76,19 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
     # ── smc_scanner_results ───────────────────────────────────────────
     await db.smc_scanner_results.create_index("symbol", unique=True, background=True)
     await db.smc_scanner_results.create_index("smc_score", background=True)
-    await db.smc_scanner_results.create_index("structure.last_bullish_event", background=True)
+    await db.smc_scanner_results.create_index(
+        "structure.last_bullish_event", background=True
+    )
     await db.smc_scanner_results.create_index("current_zone", background=True)
-    await db.smc_scanner_results.create_index("nearest_demand.distance_pct", background=True)
-    await db.smc_scanner_results.create_index("nearest_demand.touch_count", background=True)
-    await db.smc_scanner_results.create_index("nearest_demand.zone_age_days", background=True)
+    await db.smc_scanner_results.create_index(
+        "nearest_demand.distance_pct", background=True
+    )
+    await db.smc_scanner_results.create_index(
+        "nearest_demand.touch_count", background=True
+    )
+    await db.smc_scanner_results.create_index(
+        "nearest_demand.zone_age_days", background=True
+    )
     log.info("  smc_scanner_results: indexes created")
 
     # ── zone_proximity_results ────────────────────────────────────────
@@ -112,15 +124,17 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
         await db.instrument_cache.create_index(
             "fetched_at", expireAfterSeconds=3 * 24 * 3600, background=True
         )
-    except Exception:
-        pass  # TTL index may already exist
+    except Exception as e:
+        log.debug(f"instrument_cache TTL index: already exists or skipped: {e}")
     log.info("  instrument_cache: TTL index created")
 
     # ── Workspace: media (Phase 1) ────────────────────────────────────
     await db.ws_media.create_index(
         [("user_id", 1), ("linked_type", 1), ("linked_id", 1)], background=True
     )
-    await db.ws_media.create_index([("user_id", 1), ("created_at", -1)], background=True)
+    await db.ws_media.create_index(
+        [("user_id", 1), ("created_at", -1)], background=True
+    )
     log.info("  ws_media: indexes created")
 
     log.info("All MongoDB indexes created successfully ✓")
@@ -128,16 +142,17 @@ async def create_indexes(db: AsyncIOMotorDatabase) -> None:
 
 if __name__ == "__main__":
     import os
+
     import certifi
-    from motor.motor_asyncio import AsyncIOMotorClient
     from dotenv import load_dotenv
+    from motor.motor_asyncio import AsyncIOMotorClient
 
     load_dotenv("../.env")
     MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/finai_edge")
 
     async def main():
         client = AsyncIOMotorClient(MONGODB_URI, tlsCAFile=certifi.where())
-        db     = client.get_default_database("finai_edge")
+        db = client.get_default_database("finai_edge")
         await create_indexes(db)
         client.close()
 

@@ -22,8 +22,8 @@ from fastapi import HTTPException
 
 # role -> (max_requests, window_seconds)
 _LIMITS: dict[str, tuple[int, int]] = {
-    "demo":  (10, 300),   # shared public credential — tightest
-    "beta":  (40, 300),
+    "demo": (10, 300),  # shared public credential — tightest
+    "beta": (40, 300),
     "owner": (80, 300),
 }
 _DEFAULT_LIMIT = (20, 300)

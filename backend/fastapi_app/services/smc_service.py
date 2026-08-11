@@ -12,19 +12,18 @@ Orchestrates the full SMC analysis pipeline:
 Queries and updates MongoDB smc_scanner_results collection.
 """
 
-import logging
 import asyncio
-import pandas as pd
-from typing import List, Dict, Any, Optional
+import logging
 from datetime import datetime, timezone
+from typing import Any
+
+import pandas as pd
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from services.market_service import MarketDataService
 from scanners.smc_scanner import (
     run_full_smc_analysis,
-    process_smc_zones,
-    calculate_zone_metrics,
 )
+from services.market_service import MarketDataService
 
 log = logging.getLogger("finai_edge.smc_service")
 
@@ -32,7 +31,11 @@ log = logging.getLogger("finai_edge.smc_service")
 def _serialize(obj):
     """Recursively make a dict JSON-safe (ObjectId, Timestamp, etc.)."""
     if isinstance(obj, dict):
-        return {k: _serialize(v) for k, v in obj.items() if k != "_id" or True}
+        # NOTE: `k != "_id" or True` is always True regardless of k — this has
+        # never actually excluded "_id" (kept literal-equivalent rather than
+        # "fixed" to filter it, since that would be a behavior change with no
+        # test coverage; flagged for the maintainer to confirm intent).
+        return {k: _serialize(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_serialize(i) for i in obj]
     if isinstance(obj, pd.Timestamp):
@@ -41,6 +44,7 @@ def _serialize(obj):
         return obj.strftime("%Y-%m-%d")
     try:
         from bson import ObjectId
+
         if isinstance(obj, ObjectId):
             return str(obj)
     except ImportError:
@@ -50,21 +54,22 @@ def _serialize(obj):
 
 class SMCService:
     def __init__(self, db: AsyncIOMotorDatabase, market_service: MarketDataService):
-        self.db             = db
+        self.db = db
         self.market_service = market_service
-        self.zones_col      = db.get_collection("smc_zones")
-        self.results_col    = db.get_collection("smc_scanner_results")
-        self.history_col    = db.get_collection("smc_scanner_history")
+        self.zones_col = db.get_collection("smc_zones")
+        self.results_col = db.get_collection("smc_scanner_results")
+        self.history_col = db.get_collection("smc_scanner_history")
 
     # ── Internal: run one symbol ──────────────────────────────────────────
 
-    async def run_scan_for_symbol(self, symbol: str) -> Optional[Dict[str, Any]]:
+    async def run_scan_for_symbol(self, symbol: str) -> dict[str, Any] | None:
         """
         Full SMC scan for one symbol.
         Loads candles from the local data engine cache, runs the full pipeline, persists to MongoDB.
         """
         try:
             from services.ohlc_downloader import load_stock_dataframe
+
             df = load_stock_dataframe(symbol)
             if df.empty:
                 log.warning(f"[SMC] No cached candles found for {symbol}")
@@ -72,12 +77,16 @@ class SMCService:
 
             # Fetch last indicators from screener_cache for RSI/volume_ratio
             cache_doc = await self.db.screener_cache.find_one({"symbol": symbol})
-            rsi          = cache_doc.get("indicators", {}).get("rsi_14")     if cache_doc else None
-            volume_ratio = cache_doc.get("volume_ratio")                     if cache_doc else None
+            rsi = cache_doc.get("indicators", {}).get("rsi_14") if cache_doc else None
+            volume_ratio = cache_doc.get("volume_ratio") if cache_doc else None
 
             result = await asyncio.to_thread(
-                run_full_smc_analysis, df, symbol,
-                swing_len=5, rsi=rsi, volume_ratio=volume_ratio
+                run_full_smc_analysis,
+                df,
+                symbol,
+                swing_len=5,
+                rsi=rsi,
+                volume_ratio=volume_ratio,
             )
 
             if not result:
@@ -94,33 +103,37 @@ class SMCService:
 
             # Persist individual zones
             all_zones = (
-                result.get("demand_zones", []) +
-                result.get("supply_zones", []) +
-                result.get("internal_demand_zones", []) +
-                result.get("internal_supply_zones", [])
+                result.get("demand_zones", [])
+                + result.get("supply_zones", [])
+                + result.get("internal_demand_zones", [])
+                + result.get("internal_supply_zones", [])
             )
             for zone in all_zones:
                 zone_clean = _serialize(zone)
                 zone_clean["symbol"] = symbol
                 await self.zones_col.update_one(
-                    {"symbol": symbol, "zone_high": zone["zone_high"], "zone_low": zone["zone_low"]},
+                    {
+                        "symbol": symbol,
+                        "zone_high": zone["zone_high"],
+                        "zone_low": zone["zone_low"],
+                    },
                     {"$set": zone_clean},
                     upsert=True,
                 )
 
             return result_clean
 
-        except Exception as e:
-            log.error(f"[SMC] Error scanning {symbol}: {e}", exc_info=True)
+        except Exception:
+            log.exception(f"[SMC] Error scanning {symbol}")
             return None
 
     # ── Public: scanner results ───────────────────────────────────────────
 
     async def get_scanner_results(
         self,
-        filters: Dict[str, Any],
+        filters: dict[str, Any],
         limit: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Return paginated/filtered SMC scanner results.
 
@@ -132,7 +145,7 @@ class SMCService:
           event        : "BOS"|"CHoCH"
           direction    : "bullish"|"bearish"
         """
-        query: Dict[str, Any] = {}
+        query: dict[str, Any] = {}
 
         cat = filters.get("category", "")
         if cat == "Inside Zone":
@@ -166,13 +179,23 @@ class SMCService:
             r["_id"] = str(r["_id"])
         return results
 
-    async def get_dashboard_stats(self) -> Dict[str, Any]:
-        total      = await self.results_col.count_documents({})
-        inside     = await self.results_col.count_documents({"nearest_demand.distance_pct": 0.0})
-        within_2   = await self.results_col.count_documents({"nearest_demand.distance_pct": {"$gt": 0.0, "$lte": 2.0}})
-        within_5   = await self.results_col.count_documents({"nearest_demand.distance_pct": {"$gt": 0.0, "$lte": 5.0}})
-        bos_count  = await self.results_col.count_documents({"structure.last_bullish_event": "BOS"})
-        choch_count = await self.results_col.count_documents({"structure.last_bullish_event": "CHoCH"})
+    async def get_dashboard_stats(self) -> dict[str, Any]:
+        total = await self.results_col.count_documents({})
+        inside = await self.results_col.count_documents(
+            {"nearest_demand.distance_pct": 0.0}
+        )
+        within_2 = await self.results_col.count_documents(
+            {"nearest_demand.distance_pct": {"$gt": 0.0, "$lte": 2.0}}
+        )
+        within_5 = await self.results_col.count_documents(
+            {"nearest_demand.distance_pct": {"$gt": 0.0, "$lte": 5.0}}
+        )
+        bos_count = await self.results_col.count_documents(
+            {"structure.last_bullish_event": "BOS"}
+        )
+        choch_count = await self.results_col.count_documents(
+            {"structure.last_bullish_event": "CHoCH"}
+        )
         high_score = await self.results_col.count_documents({"smc_score": {"$gte": 70}})
 
         pipeline = [{"$group": {"_id": None, "avg_score": {"$avg": "$smc_score"}}}]
@@ -181,16 +204,16 @@ class SMCService:
 
         return {
             "total_active_zones": total,
-            "inside_zone":        inside,
-            "within_2_pct":       within_2,
-            "within_5_pct":       within_5,
-            "bos_count":          bos_count,
-            "choch_count":        choch_count,
-            "high_score_count":   high_score,
-            "avg_smc_score":      avg_score,
+            "inside_zone": inside,
+            "within_2_pct": within_2,
+            "within_5_pct": within_5,
+            "bos_count": bos_count,
+            "choch_count": choch_count,
+            "high_score_count": high_score,
+            "avg_smc_score": avg_score,
         }
 
-    async def get_zone_details(self, symbol: str) -> Dict[str, Any]:
+    async def get_zone_details(self, symbol: str) -> dict[str, Any]:
         """Full SMC data for a single symbol."""
         result = await self.results_col.find_one({"symbol": symbol})
         if result:
@@ -202,5 +225,7 @@ class SMCService:
         return fresh or {"symbol": symbol, "error": "No data available"}
 
 
-def get_smc_service(db: AsyncIOMotorDatabase, market_service: MarketDataService) -> SMCService:
+def get_smc_service(
+    db: AsyncIOMotorDatabase, market_service: MarketDataService
+) -> SMCService:
     return SMCService(db, market_service)

@@ -11,7 +11,6 @@ heuristic in the graph complements it.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -24,10 +23,10 @@ log = logging.getLogger("finai_edge.copilot.tools.profile")
 @tool
 async def update_financial_profile(
     config: RunnableConfig,
-    risk_appetite: Optional[str] = None,
-    investment_horizon: Optional[str] = None,
-    goals: Optional[str] = None,
-    preferences: Optional[str] = None,
+    risk_appetite: str | None = None,
+    investment_horizon: str | None = None,
+    goals: str | None = None,
+    preferences: str | None = None,
 ) -> str:
     """Persist a financial preference the user has EXPLICITLY stated, so future
     conversations remember it. Only call this when the user clearly expresses a
@@ -58,7 +57,11 @@ async def get_financial_profile(config: RunnableConfig) -> str:
     from ai_copilot.memory.memory_manager import MemoryManager
 
     profile = await MemoryManager(ctx.db).get_profile(ctx.user_id)
-    fields = {k: profile.get(k) for k in ("risk_appetite", "investment_horizon", "goals", "preferences") if profile.get(k)}
+    fields = {
+        k: profile.get(k)
+        for k in ("risk_appetite", "investment_horizon", "goals", "preferences")
+        if profile.get(k)
+    }
     if not fields:
         return "No saved financial preferences yet for this user."
     return "Known preferences: " + ", ".join(f"{k}={v}" for k, v in fields.items())

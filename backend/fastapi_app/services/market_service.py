@@ -6,17 +6,17 @@ Includes caching, health tracking, retry logic, and structured logging.
 """
 
 import asyncio
-import time
 import logging
+import time
+
 import pandas as pd
-from typing import Optional
 
 from config import get_settings
-from market.providers.base import MarketDataProvider, StockQuote, Instrument, Candle
-from market.providers.yfinance_provider import YFinanceProvider
-from market.providers.groww import GrowwProvider
+from market.providers.base import Candle, Instrument, MarketDataProvider, StockQuote
 from market.providers.finnhub_provider import FinnhubProvider
-from utils.cache import quote_cache, candle_cache, search_cache
+from market.providers.groww import GrowwProvider
+from market.providers.yfinance_provider import YFinanceProvider
+from utils.cache import candle_cache, quote_cache, search_cache
 
 log = logging.getLogger("finai_edge.market_service")
 
@@ -59,12 +59,12 @@ class MarketDataService:
         log.info("  Provider: yfinance ✓ (default)")
 
         if settings.finnhub_available:
-            self._providers.append(
-                FinnhubProvider(api_key=settings.finnhub_api_key)
-            )
+            self._providers.append(FinnhubProvider(api_key=settings.finnhub_api_key))
             log.info("  Provider: Finnhub ✓ (tertiary)")
 
-        log.info(f"  MarketDataService initialized with {len(self._providers)} providers")
+        log.info(
+            f"  MarketDataService initialized with {len(self._providers)} providers"
+        )
 
     def _is_provider_healthy(self, provider: MarketDataProvider) -> bool:
         """Check if a provider is not in cooldown from recent failure."""
@@ -277,7 +277,7 @@ class MarketDataService:
 
 
 # ── Module-level singleton ──────────────────────────────────────────
-_service_instance: Optional[MarketDataService] = None
+_service_instance: MarketDataService | None = None
 
 
 def get_market_service() -> MarketDataService:

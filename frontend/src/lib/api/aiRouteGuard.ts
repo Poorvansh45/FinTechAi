@@ -4,7 +4,7 @@
  * unauthenticated, unlimited endpoint is a direct quota/cost-abuse vector.
  *
  * Auth is verified by forwarding the caller's Authorization header to
- * Express's existing GET /api/auth/me — Express remains the single source of
+ * FastAPI's GET /api/auth/me (api/auth.py) — FastAPI is the single source of
  * truth for JWT verification; this file never sees JWT_SECRET.
  *
  * Rate limiting is a simple in-memory sliding window (no Redis, per the
@@ -13,7 +13,7 @@
  * a basic abuse deterrent, not a distributed rate limiter.
  */
 
-const EXPRESS_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 10;
@@ -34,7 +34,7 @@ export function isRateLimited(key: string): boolean {
 }
 
 /**
- * Verifies the request is authenticated by asking Express. Returns the
+ * Verifies the request is authenticated by asking FastAPI. Returns the
  * user id on success, or null if unauthenticated/invalid.
  */
 export async function verifyAuth(req: Request): Promise<string | null> {
@@ -44,7 +44,7 @@ export async function verifyAuth(req: Request): Promise<string | null> {
   if (!authorization && !cookie) return null;
 
   try {
-    const res = await fetch(`${EXPRESS_URL}/api/auth/me`, {
+    const res = await fetch(`${AUTH_SERVICE_URL}/api/auth/me`, {
       headers: {
         ...(authorization ? { Authorization: authorization } : {}),
         ...(cookie ? { Cookie: cookie } : {}),

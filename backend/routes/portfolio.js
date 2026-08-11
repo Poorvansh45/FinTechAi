@@ -16,12 +16,27 @@ const router   = express.Router();
 const { analyzePortfolio } = require('../services/portfolioService');
 const asyncHandler = require('../utils/asyncHandler');
 const HttpError = require('../utils/httpError');
+const { protect } = require('../middleware/authMiddleware');
+
+/**
+ * Upper bound on tickers per request.
+ *
+ * Each call spawns a Python process (services/portfolioService.js), so an
+ * unbounded array is a cheap way to exhaust CPU and memory on a small
+ * instance. 30 is not an arbitrary number: it matches the contract the
+ * equivalent FastAPI endpoint already enforces —
+ * `tickers: list[str] = Field(..., min_length=2, max_length=30)` in
+ * fastapi_app/schemas/portfolio.py — so both /analyze endpoints now accept
+ * exactly the same range. The existing `< 2` check below already mirrored
+ * that schema's lower bound; this closes the upper one.
+ */
+const MAX_TICKERS = 30;
 
 /**
  * POST /api/portfolio/analyze
  * Body: { tickers: string[], weights: { ticker: number }, riskProfile?: string }
  */
-router.post('/analyze', asyncHandler(async (req, res, next) => {
+router.post('/analyze', protect, asyncHandler(async (req, res, next) => {
   try {
     const { tickers, weights, riskProfile } = req.body;
 
@@ -35,6 +50,14 @@ router.post('/analyze', asyncHandler(async (req, res, next) => {
     if (!Array.isArray(tickers) || tickers.length < 2) {
       return res.status(400).json({
         error: 'At least 2 tickers are required for portfolio optimization.',
+      });
+    }
+
+    // Bounded BEFORE analyzePortfolio() — which spawns the Python process — so
+    // an oversized array is rejected without any subprocess being created.
+    if (tickers.length > MAX_TICKERS) {
+      return res.status(400).json({
+        error: `At most ${MAX_TICKERS} tickers are supported per request.`,
       });
     }
 

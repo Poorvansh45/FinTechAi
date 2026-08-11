@@ -6,9 +6,9 @@ Thread-safe via asyncio.Lock. Designed for market data & analytics caching.
 """
 
 import asyncio
-import time
 import logging
-from typing import Any, Optional
+import time
+from typing import Any
 
 log = logging.getLogger("finai_edge.cache")
 
@@ -31,7 +31,7 @@ class AsyncTTLCache:
         self._hits = 0
         self._misses = 0
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Retrieve a cached value. Returns None if expired or missing."""
         async with self._lock:
             entry = self._store.get(key)
@@ -48,7 +48,7 @@ class AsyncTTLCache:
             self._hits += 1
             return value
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Store a value with optional custom TTL."""
         async with self._lock:
             # Evict oldest if at capacity
@@ -107,7 +107,7 @@ class AsyncTTLCache:
 # ── Pre-configured cache instances ──────────────────────────────────
 # These are module-level singletons, shared across the app
 
-quote_cache = AsyncTTLCache(default_ttl=300, max_size=500)       # 5 min
-candle_cache = AsyncTTLCache(default_ttl=3600, max_size=200)     # 1 hour
-analytics_cache = AsyncTTLCache(default_ttl=600, max_size=100)   # 10 min
-search_cache = AsyncTTLCache(default_ttl=1800, max_size=300)     # 30 min
+quote_cache = AsyncTTLCache(default_ttl=300, max_size=500)  # 5 min
+candle_cache = AsyncTTLCache(default_ttl=3600, max_size=200)  # 1 hour
+analytics_cache = AsyncTTLCache(default_ttl=600, max_size=100)  # 10 min
+search_cache = AsyncTTLCache(default_ttl=1800, max_size=300)  # 30 min

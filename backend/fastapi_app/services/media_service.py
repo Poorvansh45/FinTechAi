@@ -8,21 +8,27 @@ dev local-disk store swaps to R2/B2/S3 with zero changes to this file.
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 from repositories.media_repo import MediaRepository
 from services.storage import get_storage
+
+log = logging.getLogger("finai_edge.media_service")
 
 # Allowed upload kinds and a conservative mime allowlist (images + PDF).
 ALLOWED_KINDS = {"screenshot", "before", "after", "chart", "pdf", "attachment"}
 ALLOWED_MIME_PREFIXES = ("image/",)
 ALLOWED_MIME_EXACT = {"application/pdf"}
 _EXT = {
-    "image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg",
-    "image/webp": ".webp", "image/gif": ".gif", "application/pdf": ".pdf",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "application/pdf": ".pdf",
 }
 
 
@@ -41,13 +47,21 @@ class MediaService:
         return mime in ALLOWED_MIME_EXACT or mime.startswith(ALLOWED_MIME_PREFIXES)
 
     async def upload(
-        self, *, user_id: str, filename: str, data: bytes, content_type: str,
-        kind: str = "screenshot", linked_type: Optional[str] = None,
-        linked_id: Optional[str] = None,
+        self,
+        *,
+        user_id: str,
+        filename: str,
+        data: bytes,
+        content_type: str,
+        kind: str = "screenshot",
+        linked_type: str | None = None,
+        linked_id: str | None = None,
     ) -> dict:
         if kind not in ALLOWED_KINDS:
             raise MediaError(f"Unsupported kind '{kind}'")
-        mime = (content_type or "application/octet-stream").split(";")[0].strip().lower()
+        mime = (
+            (content_type or "application/octet-stream").split(";")[0].strip().lower()
+        )
         if not self._is_allowed_mime(mime):
             raise MediaError(f"Unsupported file type '{mime}' (images and PDF only)")
         if not data:
@@ -77,17 +91,25 @@ class MediaService:
         url = self.storage.public_url(key) or f"/api/v2/workspace/media/{media_id}/raw"
         await self.repo.set_url(user_id, media_id, url)
 
-        return {"id": media_id, "url": url, "storage_key": key,
-                "mime": mime, "size": len(data), "kind": kind}
+        return {
+            "id": media_id,
+            "url": url,
+            "storage_key": key,
+            "mime": mime,
+            "size": len(data),
+            "kind": kind,
+        }
 
-    async def open(self, user_id: str, media_id: str) -> Optional[tuple[bytes, str]]:
+    async def open(self, user_id: str, media_id: str) -> tuple[bytes, str] | None:
         doc = await self.repo.get(user_id, media_id)
         if not doc:
             return None
         data = await self.storage.open(doc["storage_key"])
         return data, doc.get("mime", "application/octet-stream")
 
-    async def list_for(self, user_id: str, linked_type: str, linked_id: str) -> list[dict]:
+    async def list_for(
+        self, user_id: str, linked_type: str, linked_id: str
+    ) -> list[dict]:
         return await self.repo.list_for(user_id, linked_type, linked_id)
 
     async def delete(self, user_id: str, media_id: str) -> bool:
@@ -96,6 +118,7 @@ class MediaService:
             return False
         try:
             await self.storage.delete(doc["storage_key"])
-        except Exception:
-            pass  # metadata already gone; orphaned blob is harmless
+        except Exception as e:
+            # metadata already gone; orphaned blob is harmless, just noted for cleanup
+            log.debug(f"orphaned blob {doc['storage_key']}: delete failed: {e}")
         return True

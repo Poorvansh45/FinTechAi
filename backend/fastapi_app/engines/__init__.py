@@ -1,5 +1,5 @@
 """
-FinTechAI — Reusable Scanner Engines
+Nivro — Reusable Scanner Engines
 =====================================
 Clean, layered engines that every scanner/strategy reuses:
 

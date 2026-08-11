@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { authHeader } from "@/lib/api/authToken";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & DATA STRUCTURES
@@ -142,7 +143,7 @@ export default function TopMoversPro() {
   // Data Fetching
   const loadMoversData = async () => {
     try {
-      const res = await fetch('/api/markets/movers');
+      const res = await fetch('/api/markets/movers', { headers: await authHeader() });
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const payload: PayloadData = await res.json();
       setData(payload);

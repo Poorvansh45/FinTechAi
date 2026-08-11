@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const systemInstruction = {
       parts: [
         {
-          text: `You are FinTechAI Copilot, an elite AI financial analyst, quant researcher, and trading coach.
+          text: `You are Nivro Copilot, an elite AI financial analyst, quant researcher, and trading coach.
 You combine the deep market intelligence of Bloomberg AI, the clean synthesis of Perplexity, and the conversational capabilities of ChatGPT.
 
 Answer the user's questions about markets, stocks, portfolios, trading, screening, macro events, or investments.
@@ -61,7 +61,7 @@ Always maintain a sophisticated, institutional-grade tone.`,
     if (!apiKey) {
       // Mock fallback response for demo mode
       const lastUserQuery = messages.filter(m => m.role === "user").at(-1)?.text || "general markets";
-      const text = `[Demo Mode] Here is a mock response from FinTechAI Copilot regarding your query: "${lastUserQuery}". To activate live AI analysis, please configure your GOOGLE_API_KEY / GEMINI_API_KEY environment variable.
+      const text = `[Demo Mode] Here is a mock response from Nivro Copilot regarding your query: "${lastUserQuery}". To activate live AI analysis, please configure your GOOGLE_API_KEY / GEMINI_API_KEY environment variable.
 
 ### Analysis & Outlook
 

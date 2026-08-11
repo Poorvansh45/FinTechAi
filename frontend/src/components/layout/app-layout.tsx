@@ -72,7 +72,7 @@ const MODULE_INFOS_DATA = [
   {
     id: 'portfolio',
     label: 'Portfolio',
-    subtitle: "Whether you already have investments or you're starting from scratch, FinTechAI helps you build, analyze and improve your portfolio.",
+    subtitle: "Whether you already have investments or you're starting from scratch, Nivro helps you build, analyze and improve your portfolio.",
     moduleIndex: 2,
   },
   {
@@ -155,9 +155,9 @@ function MobileDrawer({ open, onClose }: { open: boolean; onClose: () => void })
         <div className="flex items-center justify-between px-4 h-14 border-b border-white/5">
           <Link href="/" onClick={onClose} className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg overflow-hidden flex items-center justify-center">
-              <img src="/logo.png" alt="FinTechAI Logo" className="w-full h-full object-contain" />
+              <img src="/logo.png" alt="Nivro Logo" className="w-full h-full object-contain" />
             </div>
-            <span className="font-bold text-sm text-white">FinTechAI</span>
+            <span className="font-bold text-sm text-white">Nivro</span>
           </Link>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5">
             <X className="w-5 h-5" />
@@ -444,7 +444,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { id: 'screener',  label: 'Screener',   isActive: screenerActive  },
     { id: 'portfolio', label: 'Portfolio',  isActive: portfolioActive },
     { id: 'workspace', label: 'Workspace',  isActive: workspaceActive },
-    { id: 'copilot',   label: 'FinTechAI Copilot', isActive: copilotActive   },
+    { id: 'copilot',   label: 'Nivro Copilot', isActive: copilotActive   },
   ];
 
   const activeModule = activeMenu ? MODULE_INFOS[activeMenu] : null;
@@ -485,11 +485,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               className="relative h-10 w-10 rounded-xl overflow-hidden flex items-center justify-center transition-transform group-hover:scale-105"
               style={{ boxShadow: '0 0 16px rgba(99,102,241,0.2)' }}
             >
-              <img src="/logo.png" alt="FinTechAI Logo" className="w-full h-full object-contain" />
+              <img src="/logo.png" alt="Nivro Logo" className="w-full h-full object-contain" />
             </div>
             <div className="hidden sm:block leading-none">
               <div className="font-bold text-[16px] tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-indigo-600 to-violet-600 dark:from-indigo-400 dark:to-violet-400">
-                FinTechAI
+                Nivro
               </div>
               <div className="text-[8px] font-bold tracking-widest uppercase text-slate-500 dark:text-slate-600 mt-0.5">
                 TRADING INTELLIGENCE

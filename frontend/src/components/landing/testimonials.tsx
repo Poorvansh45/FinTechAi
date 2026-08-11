@@ -6,7 +6,7 @@ export function Testimonials() {
       name: 'Riya S.',
       role: 'Swing Trader',
       quote:
-        'FinTechAI helped me spot momentum opportunities earlier. The UI is clean and fast.'
+        'Nivro helped me spot momentum opportunities earlier. The UI is clean and fast.'
     },
     {
       name: 'Aman K.',
@@ -28,7 +28,7 @@ export function Testimonials() {
         <div className="flex flex-col items-center text-center space-y-2 mb-10">
           <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl font-headline">Loved by Investors</h2>
           <p className="text-muted-foreground max-w-[700px] md:text-xl">
-            Real stories from traders and investors using FinTechAI every day.
+            Real stories from traders and investors using Nivro every day.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 log = logging.getLogger("finai_edge.copilot.memory")
 
@@ -31,7 +31,13 @@ MESSAGES = "ai_messages"
 PROFILES = "financial_profiles"
 
 # Fields the copilot is allowed to learn/persist about a user.
-PROFILE_FIELDS = {"risk_appetite", "investment_horizon", "goals", "preferences", "notes"}
+PROFILE_FIELDS = {
+    "risk_appetite",
+    "investment_horizon",
+    "goals",
+    "preferences",
+    "notes",
+}
 
 
 def _utcnow() -> datetime:
@@ -62,7 +68,9 @@ class MemoryManager:
             )
             docs = [d async for d in cursor]
             docs.reverse()  # chronological order for the LLM
-            return [{"role": d.get("role"), "content": d.get("content", "")} for d in docs]
+            return [
+                {"role": d.get("role"), "content": d.get("content", "")} for d in docs
+            ]
         except Exception as e:
             log.warning(f"[memory] load_history failed: {e}")
             return []
@@ -73,7 +81,7 @@ class MemoryManager:
         session_id: str,
         role: str,
         content: str,
-        agent: Optional[str] = None,
+        agent: str | None = None,
     ) -> None:
         """Persist one message and touch the session record."""
         if not self.available or not session_id:
@@ -172,7 +180,11 @@ class MemoryManager:
         """
         if not user_id:
             return {}
-        applied = {k: v for k, v in (updates or {}).items() if k in PROFILE_FIELDS and v is not None}
+        applied = {
+            k: v
+            for k, v in (updates or {}).items()
+            if k in PROFILE_FIELDS and v is not None
+        }
         if not applied:
             return {}
         if not self.available:

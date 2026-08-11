@@ -14,8 +14,8 @@ Checks:
   4. Environment variables
 """
 
-import sys
 import json
+import sys
 import traceback
 
 PASS = "[PASS]"
@@ -27,7 +27,9 @@ results: list[dict] = []
 
 
 def record(category: str, name: str, status: str, detail: str = ""):
-    results.append({"category": category, "name": name, "status": status, "detail": detail})
+    results.append(
+        {"category": category, "name": name, "status": status, "detail": detail}
+    )
     symbol = {PASS: "v", FAIL: "X", SKIP: "-", WARN: "!"}.get(status, "?")
     msg = f"  [{symbol}] {name}"
     if detail:
@@ -69,7 +71,9 @@ for module, attr in module_checks:
     except ImportError as e:
         record("imports", f"{module}.{attr}", FAIL, str(e))
     except AttributeError as e:
-        record("imports", f"{module}.{attr}", WARN, f"module loaded but attr missing: {e}")
+        record(
+            "imports", f"{module}.{attr}", WARN, f"module loaded but attr missing: {e}"
+        )
 
 
 # ============================================================
@@ -83,16 +87,17 @@ print("=" * 55)
 try:
     import numpy as np
     import pandas as pd
+
     from analytics import (
-        compute_portfolio_volatility,
+        compute_concentration_score,
+        compute_max_drawdown,
+        compute_portfolio_health,
         compute_portfolio_return,
+        compute_portfolio_volatility,
+        compute_safe_covariance,
+        compute_sector_exposure,
         compute_sharpe_ratio,
         compute_var,
-        compute_max_drawdown,
-        compute_safe_covariance,
-        compute_concentration_score,
-        compute_portfolio_health,
-        compute_sector_exposure,
     )
     from portfolio.calculator import compute_all_holdings
 
@@ -140,31 +145,53 @@ try:
         stock_count=3,
     )
     assert 0 <= health["score"] <= 100
-    record("analytics", "compute_portfolio_health", PASS,
-           f"score={health['score']} label={health['label']}")
+    record(
+        "analytics",
+        "compute_portfolio_health",
+        PASS,
+        f"score={health['score']} label={health['label']}",
+    )
 
     holdings_sample = [
         {"ticker": "RELIANCE.NS", "value": 40000, "allocation": 40},
-        {"ticker": "TCS.NS",      "value": 35000, "allocation": 35},
+        {"ticker": "TCS.NS", "value": 35000, "allocation": 35},
         {"ticker": "HDFCBANK.NS", "value": 25000, "allocation": 25},
     ]
     exposure = compute_sector_exposure(holdings_sample)
     assert len(exposure) > 0
-    record("analytics", "compute_sector_exposure", PASS,
-           f"sectors={[e['sector'] for e in exposure]}")
+    record(
+        "analytics",
+        "compute_sector_exposure",
+        PASS,
+        f"sectors={[e['sector'] for e in exposure]}",
+    )
 
     raw = [
-        {"ticker": "RELIANCE.NS", "name": "Reliance", "quantity": 10,
-         "avg_buy_price": 2800, "current_price": 3000},
-        {"ticker": "TCS.NS", "name": "TCS", "quantity": 5,
-         "avg_buy_price": 3500, "current_price": 3700},
+        {
+            "ticker": "RELIANCE.NS",
+            "name": "Reliance",
+            "quantity": 10,
+            "avg_buy_price": 2800,
+            "current_price": 3000,
+        },
+        {
+            "ticker": "TCS.NS",
+            "name": "TCS",
+            "quantity": 5,
+            "avg_buy_price": 3500,
+            "current_price": 3700,
+        },
     ]
     enriched, totals = compute_all_holdings(raw)
     assert len(enriched) == 2
     assert totals["total_value"] > 0
     assert abs(sum(h["allocation"] for h in enriched) - 100.0) < 0.5
-    record("analytics", "compute_all_holdings", PASS,
-           f"total_value={totals['total_value']} pnl={totals['total_pnl']}")
+    record(
+        "analytics",
+        "compute_all_holdings",
+        PASS,
+        f"total_value={totals['total_value']} pnl={totals['total_pnl']}",
+    )
 
     # Verify allocation percentages sum correctly
     alloc_sum = sum(h["allocation"] for h in enriched)
@@ -174,10 +201,14 @@ try:
     # Verify P&L direction
     expected_pnl = (10 * 3000 - 10 * 2800) + (5 * 3700 - 5 * 3500)
     assert abs(totals["total_pnl"] - expected_pnl) < 0.01
-    record("analytics", "pnl_calculation_accuracy", PASS,
-           f"expected={expected_pnl} got={totals['total_pnl']}")
+    record(
+        "analytics",
+        "pnl_calculation_accuracy",
+        PASS,
+        f"expected={expected_pnl} got={totals['total_pnl']}",
+    )
 
-except Exception as e:
+except Exception:
     record("analytics", "ANALYTICS BLOCK", FAIL, traceback.format_exc(limit=3))
 
 
@@ -191,20 +222,30 @@ print("=" * 55)
 
 try:
     from config import get_settings
+
     s = get_settings()
 
-    record("env", "FASTAPI_PORT",    PASS, str(s.fastapi_port))
-    record("env", "MONGODB_URI",     PASS, s.mongodb_uri[:40] + "...")
-    record("env", "LOG_LEVEL",       PASS, s.log_level)
-    record("env", "GEMINI_API_KEY",
-           PASS if s.gemini_available else WARN,
-           "configured" if s.gemini_available else "NOT SET - rule-based fallback active")
-    record("env", "GROWW_API_KEY",
-           PASS if s.groww_available else WARN,
-           "configured" if s.groww_available else "NOT SET - yfinance is primary")
-    record("env", "FINNHUB_API_KEY",
-           PASS if s.finnhub_available else WARN,
-           "configured" if s.finnhub_available else "NOT SET - only yfinance available")
+    record("env", "FASTAPI_PORT", PASS, str(s.fastapi_port))
+    record("env", "MONGODB_URI", PASS, s.mongodb_uri[:40] + "...")
+    record("env", "LOG_LEVEL", PASS, s.log_level)
+    record(
+        "env",
+        "GEMINI_API_KEY",
+        PASS if s.gemini_available else WARN,
+        "configured" if s.gemini_available else "NOT SET - rule-based fallback active",
+    )
+    record(
+        "env",
+        "GROWW_API_KEY",
+        PASS if s.groww_available else WARN,
+        "configured" if s.groww_available else "NOT SET - yfinance is primary",
+    )
+    record(
+        "env",
+        "FINNHUB_API_KEY",
+        PASS if s.finnhub_available else WARN,
+        "configured" if s.finnhub_available else "NOT SET - only yfinance available",
+    )
 except Exception as e:
     record("env", "config load", FAIL, str(e))
 
@@ -218,8 +259,8 @@ print("4. FASTAPI ROUTES (requires server on port 8000)")
 print("=" * 55)
 
 try:
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     BASE = "http://localhost:8000"
 
@@ -254,76 +295,136 @@ try:
         record("routes", "GET /health", PASS, f"status={body.get('status')}")
     elif code == 0:
         record("routes", "GET /health", SKIP, "Server not running on port 8000")
-        print("  (Skipping all route checks - start server with: uvicorn main:app --port 8000)")
+        print(
+            "  (Skipping all route checks - start server with: uvicorn main:app --port 8000)"
+        )
     else:
         record("routes", "GET /health", FAIL, f"HTTP {code}")
 
     if code == 200:
         holdings_payload = {
             "holdings": [
-                {"ticker": "RELIANCE.NS", "name": "Reliance", "quantity": 10,
-                 "avg_buy_price": 2800, "current_price": 3000, "sector": "Energy"},
-                {"ticker": "TCS.NS", "name": "TCS", "quantity": 5,
-                 "avg_buy_price": 3500, "current_price": 3700, "sector": "IT"},
-                {"ticker": "HDFCBANK.NS", "name": "HDFC Bank", "quantity": 8,
-                 "avg_buy_price": 1600, "current_price": 1750, "sector": "Banking"},
+                {
+                    "ticker": "RELIANCE.NS",
+                    "name": "Reliance",
+                    "quantity": 10,
+                    "avg_buy_price": 2800,
+                    "current_price": 3000,
+                    "sector": "Energy",
+                },
+                {
+                    "ticker": "TCS.NS",
+                    "name": "TCS",
+                    "quantity": 5,
+                    "avg_buy_price": 3500,
+                    "current_price": 3700,
+                    "sector": "IT",
+                },
+                {
+                    "ticker": "HDFCBANK.NS",
+                    "name": "HDFC Bank",
+                    "quantity": 8,
+                    "avg_buy_price": 1600,
+                    "current_price": 1750,
+                    "sector": "Banking",
+                },
             ]
         }
 
         # Market routes
         code2, b2 = http_get("/api/v2/market/search?q=hdfc")
-        record("routes", "GET /api/v2/market/search", PASS if code2 == 200 else FAIL,
-               f"HTTP {code2} results={len(b2.get('results', []))}")
+        record(
+            "routes",
+            "GET /api/v2/market/search",
+            PASS if code2 == 200 else FAIL,
+            f"HTTP {code2} results={len(b2.get('results', []))}",
+        )
 
         code2, b2 = http_get("/api/v2/market/provider-status")
-        record("routes", "GET /api/v2/market/provider-status",
-               PASS if code2 == 200 else FAIL, f"HTTP {code2}")
+        record(
+            "routes",
+            "GET /api/v2/market/provider-status",
+            PASS if code2 == 200 else FAIL,
+            f"HTTP {code2}",
+        )
 
         code2, b2 = http_get("/api/v2/market/quote/RELIANCE.NS", timeout=15)
-        record("routes", "GET /api/v2/market/quote/{symbol}",
-               PASS if code2 == 200 else WARN,
-               f"HTTP {code2} available={b2.get('data', {}).get('available', '?')}")
+        record(
+            "routes",
+            "GET /api/v2/market/quote/{symbol}",
+            PASS if code2 == 200 else WARN,
+            f"HTTP {code2} available={b2.get('data', {}).get('available', '?')}",
+        )
 
-        code2, b2 = http_get("/api/v2/market/bulk-quotes?symbols=TCS.NS,INFY.NS", timeout=20)
-        record("routes", "GET /api/v2/market/bulk-quotes",
-               PASS if code2 == 200 else WARN, f"HTTP {code2}")
+        code2, b2 = http_get(
+            "/api/v2/market/bulk-quotes?symbols=TCS.NS,INFY.NS", timeout=20
+        )
+        record(
+            "routes",
+            "GET /api/v2/market/bulk-quotes",
+            PASS if code2 == 200 else WARN,
+            f"HTTP {code2}",
+        )
 
         # Portfolio routes
-        code2, b2 = http_post("/api/v2/portfolio/analyze-holdings",
-                              holdings_payload, timeout=90)
-        record("routes", "POST /api/v2/portfolio/analyze-holdings",
-               PASS if code2 == 200 else FAIL,
-               f"HTTP {code2} health={b2.get('health', {}).get('score', '?')}/100")
+        code2, b2 = http_post(
+            "/api/v2/portfolio/analyze-holdings", holdings_payload, timeout=90
+        )
+        record(
+            "routes",
+            "POST /api/v2/portfolio/analyze-holdings",
+            PASS if code2 == 200 else FAIL,
+            f"HTTP {code2} health={b2.get('health', {}).get('score', '?')}/100",
+        )
 
         code2, b2 = http_post("/api/v2/portfolio/health", holdings_payload, timeout=30)
-        record("routes", "POST /api/v2/portfolio/health",
-               PASS if code2 == 200 else FAIL, f"HTTP {code2}")
+        record(
+            "routes",
+            "POST /api/v2/portfolio/health",
+            PASS if code2 == 200 else FAIL,
+            f"HTTP {code2}",
+        )
 
-        code2, b2 = http_post("/api/v2/portfolio/rebalance", holdings_payload, timeout=30)
-        record("routes", "POST /api/v2/portfolio/rebalance",
-               PASS if code2 == 200 else FAIL,
-               f"HTTP {code2} suggestions={len(b2.get('suggestions', []))}")
+        code2, b2 = http_post(
+            "/api/v2/portfolio/rebalance", holdings_payload, timeout=30
+        )
+        record(
+            "routes",
+            "POST /api/v2/portfolio/rebalance",
+            PASS if code2 == 200 else FAIL,
+            f"HTTP {code2} suggestions={len(b2.get('suggestions', []))}",
+        )
 
         # Analytics routes (should be fast now - no market data fetch)
         for endpoint in ["risk", "sector", "diversification", "concentration"]:
-            code2, b2 = http_post(f"/api/v2/analytics/{endpoint}",
-                                  holdings_payload, timeout=10)
-            record("routes", f"POST /api/v2/analytics/{endpoint}",
-                   PASS if code2 == 200 else FAIL, f"HTTP {code2}")
+            code2, b2 = http_post(
+                f"/api/v2/analytics/{endpoint}", holdings_payload, timeout=10
+            )
+            record(
+                "routes",
+                f"POST /api/v2/analytics/{endpoint}",
+                PASS if code2 == 200 else FAIL,
+                f"HTTP {code2}",
+            )
 
         # AI generate
         ai_payload = {
-            "goal": "wealth_creation", "horizon": "7y+",
-            "risk": "balanced", "monthly_investment": 10000,
+            "goal": "wealth_creation",
+            "horizon": "7y+",
+            "risk": "balanced",
+            "monthly_investment": 10000,
         }
         code2, b2 = http_post("/api/v2/ai/generate-portfolio", ai_payload, timeout=45)
         method = b2.get("generation_method", "?")
         allocs = len(b2.get("allocations", []))
-        record("routes", "POST /api/v2/ai/generate-portfolio",
-               PASS if code2 == 200 else FAIL,
-               f"HTTP {code2} method={method} allocations={allocs}")
+        record(
+            "routes",
+            "POST /api/v2/ai/generate-portfolio",
+            PASS if code2 == 200 else FAIL,
+            f"HTTP {code2} method={method} allocations={allocs}",
+        )
 
-except Exception as e:
+except Exception:
     record("routes", "ROUTE BLOCK", FAIL, traceback.format_exc(limit=3))
 
 
@@ -335,11 +436,11 @@ print("\n" + "=" * 55)
 print("SUMMARY")
 print("=" * 55)
 
-passes  = sum(1 for r in results if r["status"] == PASS)
-fails   = sum(1 for r in results if r["status"] == FAIL)
-warns   = sum(1 for r in results if r["status"] == WARN)
-skips   = sum(1 for r in results if r["status"] == SKIP)
-total   = len(results)
+passes = sum(1 for r in results if r["status"] == PASS)
+fails = sum(1 for r in results if r["status"] == FAIL)
+warns = sum(1 for r in results if r["status"] == WARN)
+skips = sum(1 for r in results if r["status"] == SKIP)
+total = len(results)
 
 print(f"  Total checks : {total}")
 print(f"  Passed       : {passes}")

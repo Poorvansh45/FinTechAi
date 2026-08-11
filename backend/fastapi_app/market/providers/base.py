@@ -7,48 +7,52 @@ COPY TO: backend/fastapi_app/market/providers/base.py
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 # ── Data Models ────────────────────────────────────────────────────
 
+
 class StockQuote(BaseModel):
     """Normalised quote across all providers."""
-    ticker:     str
-    price:      Optional[float] = None
-    change:     Optional[float] = None
-    change_pct: Optional[float] = None
-    high:       Optional[float] = None
-    low:        Optional[float] = None
-    prev_close: Optional[float] = None
-    volume:     Optional[int]   = None
-    market_cap: Optional[float] = None
-    pe_ratio:   Optional[float] = None
-    available:  bool = False
-    source:     str = "unknown"
+
+    ticker: str
+    price: float | None = None
+    change: float | None = None
+    change_pct: float | None = None
+    high: float | None = None
+    low: float | None = None
+    prev_close: float | None = None
+    volume: int | None = None
+    market_cap: float | None = None
+    pe_ratio: float | None = None
+    available: bool = False
+    source: str = "unknown"
 
 
 class Instrument(BaseModel):
     """Search result instrument."""
-    ticker:          str
-    name:            str
-    sector:          str = "Other"
-    exchange:        str = "NSE"
+
+    ticker: str
+    name: str
+    sector: str = "Other"
+    exchange: str = "NSE"
     instrument_type: str = "equity"
 
 
 class Candle(BaseModel):
     """OHLCV candle."""
+
     timestamp: str
-    open:      float
-    high:      float
-    low:       float
-    close:     float
-    volume:    int = 0
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int = 0
 
 
 # ── Abstract Provider ──────────────────────────────────────────────
+
 
 class MarketDataProvider(ABC):
     """

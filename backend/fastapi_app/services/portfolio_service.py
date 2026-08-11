@@ -8,44 +8,43 @@ comprehensive portfolio analysis. Server-side computation layer.
 import asyncio
 import logging
 import time
-import numpy as np
-import pandas as pd
-from typing import Optional
 
+import numpy as np
+
+from analytics import (
+    compute_beta,
+    compute_cagr_from_prices,
+    compute_concentration_score,
+    compute_correlation_matrix,
+    compute_diversification_score,
+    compute_max_drawdown,
+    compute_portfolio_health,
+    compute_portfolio_return,
+    compute_portfolio_volatility,
+    compute_safe_covariance,
+    compute_sector_concentration,
+    compute_sector_exposure,
+    compute_sharpe_ratio,
+    compute_sortino_ratio,
+    compute_treynor_ratio,
+    compute_var,
+    detect_sector_bias,
+    estimate_risk_level,
+    generate_rebalance_suggestions,
+)
+from config import get_settings
 from portfolio.calculator import (
     compute_all_holdings,
     compute_cagr,
     generate_insights,
 )
-from analytics import (
-    compute_sector_exposure,
-    compute_sector_concentration,
-    detect_sector_bias,
-    compute_concentration_score,
-    compute_diversification_score,
-    compute_portfolio_health,
-    compute_portfolio_volatility,
-    compute_portfolio_return,
-    compute_sharpe_ratio,
-    compute_sortino_ratio,
-    compute_treynor_ratio,
-    compute_var,
-    compute_max_drawdown,
-    compute_beta,
-    estimate_risk_level,
-    compute_safe_covariance,
-    compute_correlation_matrix,
-    compute_cagr_from_prices,
-    generate_rebalance_suggestions,
-)
 from services.market_service import get_market_service
-from config import get_settings
 
 log = logging.getLogger("finai_edge.portfolio_service")
 
 NIFTY50_TICKER = "^NSEI"
 TRADING_DAYS = 252
-ANALYSIS_TIMEOUT = 90.0   # seconds — hard ceiling for any analyze_holdings call
+ANALYSIS_TIMEOUT = 90.0  # seconds — hard ceiling for any analyze_holdings call
 
 
 class PortfolioService:
@@ -95,12 +94,9 @@ class PortfolioService:
                     }
                 ],
             }
-        except Exception as exc:
+        except Exception:
             elapsed = time.perf_counter() - start
-            log.error(
-                f"analyze_holdings failed after {elapsed:.2f}s: {exc}",
-                exc_info=True,
-            )
+            log.exception(f"analyze_holdings failed after {elapsed:.2f}s")
             raise
 
     async def _analyze_holdings_impl(self, holdings: list[dict]) -> dict:
@@ -118,13 +114,13 @@ class PortfolioService:
 
         # ── Step 1: Basic holding stats + totals ────────────────────
         enriched, totals = compute_all_holdings(holdings)
-        log.debug(f"  [step1] calc totals: {time.perf_counter()-t0:.2f}s")
+        log.debug(f"  [step1] calc totals: {time.perf_counter() - t0:.2f}s")
 
         if not enriched:
             return self._empty_response()
 
         # ── Step 2: Sector analysis ─────────────────────────────────
-        log.debug(f"  [step2] sector analysis start: {time.perf_counter()-t0:.2f}s")
+        log.debug(f"  [step2] sector analysis start: {time.perf_counter() - t0:.2f}s")
         sector_exposure = compute_sector_exposure(enriched)
         sector_concentration = compute_sector_concentration(sector_exposure)
         sector_bias = detect_sector_bias(sector_exposure)
@@ -134,7 +130,7 @@ class PortfolioService:
         concentration = compute_concentration_score(allocations)
 
         # ── Step 4: Try to fetch historical data for advanced metrics
-        log.debug(f"  [step4] historical fetch start: {time.perf_counter()-t0:.2f}s")
+        log.debug(f"  [step4] historical fetch start: {time.perf_counter() - t0:.2f}s")
         tickers = [h["ticker"] for h in enriched]
         market_service = get_market_service()
 
@@ -164,7 +160,9 @@ class PortfolioService:
             prices = await market_service.get_bulk_prices(tickers, period="2y")
 
             if not prices.empty and len(prices) >= self._settings.min_history_days:
-                log.info(f"  Historical data: {len(prices)} days, {len(prices.columns)} tickers")
+                log.info(
+                    f"  Historical data: {len(prices)} days, {len(prices.columns)} tickers"
+                )
 
                 # Daily returns
                 returns = prices.pct_change().dropna()
@@ -215,7 +213,9 @@ class PortfolioService:
                         treynor = compute_treynor_ratio(port_return, beta)
 
                         # Diversification score
-                        diversification_score = compute_diversification_score(weights, cov_matrix)
+                        diversification_score = compute_diversification_score(
+                            weights, cov_matrix
+                        )
 
                         # CAGR from portfolio value series
                         port_prices = (aligned_returns + 1).cumprod()
@@ -226,7 +226,9 @@ class PortfolioService:
                         risk_level = estimate_risk_level(
                             volatility=volatility,
                             concentration_score=concentration.get("hhi", 50),
-                            sector_concentration=sector_concentration.get("top_sector_pct", 0),
+                            sector_concentration=sector_concentration.get(
+                                "top_sector_pct", 0
+                            ),
                             max_drawdown=max_dd,
                         )
 
@@ -252,7 +254,7 @@ class PortfolioService:
                         log.info(
                             f"  [risk] vol={risk_data['volatility_pct']}% "
                             f"sharpe={sharpe:.2f} beta={beta:.2f} "
-                            f"CAGR={cagr:.1f}% elapsed={time.perf_counter()-t0:.1f}s"
+                            f"CAGR={cagr:.1f}% elapsed={time.perf_counter() - t0:.1f}s"
                         )
         except Exception as e:
             log.warning(f"Historical analysis failed, using estimation: {e}")
@@ -262,7 +264,7 @@ class PortfolioService:
             diversification_score = min(85, len(enriched) * 12)
 
         # ── Step 5: Health score ────────────────────────────────────
-        log.debug(f"  [step5] health score: {time.perf_counter()-t0:.2f}s")
+        log.debug(f"  [step5] health score: {time.perf_counter() - t0:.2f}s")
         health = compute_portfolio_health(
             diversification_score=diversification_score,
             risk_score=risk_data["risk_level"]["score"],
@@ -272,7 +274,7 @@ class PortfolioService:
         )
 
         # ── Step 6: Rebalance suggestions ───────────────────────────
-        log.debug(f"  [step6] rebalance: {time.perf_counter()-t0:.2f}s")
+        log.debug(f"  [step6] rebalance: {time.perf_counter() - t0:.2f}s")
         current_weights = {h["ticker"]: h["allocation"] for h in enriched}
         rebalance = generate_rebalance_suggestions(
             current_weights=current_weights,
@@ -339,7 +341,9 @@ class PortfolioService:
         prices = await market_service.get_bulk_prices(tickers, period="2y")
 
         if prices.empty:
-            return {"error": "Could not fetch price data for any of the provided tickers."}
+            return {
+                "error": "Could not fetch price data for any of the provided tickers."
+            }
 
         # Filter to tickers that have data
         valid_tickers = [t for t in tickers if t in prices.columns]
@@ -355,7 +359,9 @@ class PortfolioService:
         returns = prices.pct_change().dropna()
 
         if len(returns) < 30:
-            return {"error": "Insufficient historical data (need at least 30 trading days)."}
+            return {
+                "error": "Insufficient historical data (need at least 30 trading days)."
+            }
 
         # Build weight vector
         w = np.array([weights.get(t, 1.0 / len(valid_tickers)) for t in valid_tickers])
@@ -435,14 +441,22 @@ class PortfolioService:
                     bounds=bounds,
                     constraints=[
                         {"type": "eq", "fun": lambda w: np.sum(w) - 1},
-                        {"type": "eq", "fun": lambda w, r=target: float(np.dot(w, annual_returns)) - r},
+                        {
+                            "type": "eq",
+                            "fun": lambda w, r=target: (
+                                float(np.dot(w, annual_returns)) - r
+                            ),
+                        },
                     ],
                 )
                 if result.success:
                     f_vol = float(np.sqrt(result.fun))
                     f_ret = float(np.dot(result.x, annual_returns))
-                    frontier.append({"risk": round(f_vol, 5), "return": round(f_ret, 5)})
-            except Exception:
+                    frontier.append(
+                        {"risk": round(f_vol, 5), "return": round(f_ret, 5)}
+                    )
+            except Exception as e:
+                log.debug(f"efficient frontier point skipped: {e}")
                 continue
 
         # VaR & Drawdown
@@ -455,7 +469,9 @@ class PortfolioService:
         if failed_tickers:
             warnings.append(f"No data for: {', '.join(failed_tickers)}")
         if port_vol > 0.3:
-            warnings.append("Portfolio volatility exceeds 30% — consider diversification.")
+            warnings.append(
+                "Portfolio volatility exceeds 30% — consider diversification."
+            )
 
         return {
             "success": True,
@@ -472,12 +488,16 @@ class PortfolioService:
             "optimalPortfolio": {
                 "risk": round(opt_vol, 5),
                 "return": round(opt_ret, 5),
-                "weights": {t: round(float(opt_w[i]), 4) for i, t in enumerate(valid_tickers)},
+                "weights": {
+                    t: round(float(opt_w[i]), 4) for i, t in enumerate(valid_tickers)
+                },
             },
             "minVolPortfolio": {
                 "risk": round(mv_vol, 5),
                 "return": round(mv_ret, 5),
-                "weights": {t: round(float(mv_w[i]), 4) for i, t in enumerate(valid_tickers)},
+                "weights": {
+                    t: round(float(mv_w[i]), 4) for i, t in enumerate(valid_tickers)
+                },
             },
             "currentPortfolio": {
                 "risk": round(port_vol, 5),
@@ -495,8 +515,10 @@ class PortfolioService:
         return {
             "holdings": [],
             "totals": {
-                "total_value": 0, "total_invested": 0,
-                "total_pnl": 0, "total_pnl_pct": 0,
+                "total_value": 0,
+                "total_invested": 0,
+                "total_pnl": 0,
+                "total_pnl_pct": 0,
                 "holding_count": 0,
             },
             "sector_exposure": [],
@@ -504,15 +526,27 @@ class PortfolioService:
             "sector_bias": {},
             "concentration": {},
             "risk": {},
-            "health": {"score": 0, "label": "N/A", "color": "#64748b", "breakdown": {}, "summary": "Add holdings to see analysis."},
+            "health": {
+                "score": 0,
+                "label": "N/A",
+                "color": "#64748b",
+                "breakdown": {},
+                "summary": "Add holdings to see analysis.",
+            },
             "rebalance_suggestions": [],
-            "insights": [{"title": "Empty portfolio", "body": "Add holdings to see insights.", "tone": "info"}],
+            "insights": [
+                {
+                    "title": "Empty portfolio",
+                    "body": "Add holdings to see insights.",
+                    "tone": "info",
+                }
+            ],
             "diversification_score": 0,
         }
 
 
 # ── Module-level singleton ──────────────────────────────────────────
-_service: Optional[PortfolioService] = None
+_service: PortfolioService | None = None
 
 
 def get_portfolio_service() -> PortfolioService:

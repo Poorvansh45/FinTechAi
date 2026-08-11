@@ -13,10 +13,8 @@ COPY TO: backend/fastapi_app/market/providers/groww.py
 import asyncio
 import logging
 import time
-from typing import Optional
 
-from .base import MarketDataProvider, StockQuote, Instrument, Candle
-from utils.helpers import get_sector_for_ticker
+from .base import Candle, Instrument, MarketDataProvider, StockQuote
 
 log = logging.getLogger("finai_edge.groww")
 
@@ -27,7 +25,7 @@ GROWW_API_BASE = "https://groww.in/v1/api"
 GROWW_TIMEOUT = 10.0
 
 
-def _sync_groww_quote(symbol: str, api_key: str) -> Optional[dict]:
+def _sync_groww_quote(symbol: str, api_key: str) -> dict | None:
     """
     Synchronous Groww quote fetch.
     Runs in thread pool via asyncio.to_thread().
@@ -39,6 +37,7 @@ def _sync_groww_quote(symbol: str, api_key: str) -> Optional[dict]:
     """
     try:
         import httpx
+
         # Convert NSE ticker to Groww format (remove .NS suffix)
         groww_symbol = symbol.upper().replace(".NS", "").replace(".BO", "")
 
@@ -70,14 +69,14 @@ def _sync_groww_quote(symbol: str, api_key: str) -> Optional[dict]:
         change_pct = (change / float(prev_close) * 100) if prev_close else 0
 
         return {
-            "price":      round(float(ltp), 2),
-            "change":     round(change, 2),
+            "price": round(float(ltp), 2),
+            "change": round(change, 2),
             "change_pct": round(change_pct, 2),
-            "high":       round(float(stock.get("dayHigh", ltp)), 2),
-            "low":        round(float(stock.get("dayLow",  ltp)), 2),
+            "high": round(float(stock.get("dayHigh", ltp)), 2),
+            "low": round(float(stock.get("dayLow", ltp)), 2),
             "prev_close": round(float(prev_close), 2),
-            "volume":     int(stock.get("volume", 0)),
-            "available":  True,
+            "volume": int(stock.get("volume", 0)),
+            "available": True,
         }
     except Exception as e:
         log.warning(f"Groww quote sync call failed for {symbol}: {e}")
@@ -141,6 +140,7 @@ class GrowwProvider(MarketDataProvider):
         Falls back to local NSE database (fast, offline).
         """
         from utils.helpers import search_stocks
+
         results = search_stocks(query, limit)
         return [
             Instrument(

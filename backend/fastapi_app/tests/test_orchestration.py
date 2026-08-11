@@ -16,12 +16,22 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 
-from engines.orchestration.coordinator import _new_scan_doc, _new_stage, _StageWriter, STAGE_KEYS
-from engines.orchestration.publish import write_staged, publish_staged, publish_all, staging_name
+from engines.orchestration.coordinator import (
+    STAGE_KEYS,
+    _new_scan_doc,
+    _new_stage,
+    _StageWriter,
+)
+from engines.orchestration.publish import (
+    publish_all,
+    publish_staged,
+    staging_name,
+    write_staged,
+)
 from engines.orchestration.recovery import reconcile_orphaned_scans
 
-
 # ── Fake Mongo primitives ────────────────────────────────────────────────────
+
 
 class FakeCollection:
     def __init__(self, name: str, store: dict):
@@ -45,7 +55,11 @@ class FakeCollection:
         self.store[self.name].append(doc)
 
     async def delete_one(self, query: dict) -> None:
-        self.store[self.name] = [d for d in self.store[self.name] if not all(d.get(k) == v for k, v in query.items())]
+        self.store[self.name] = [
+            d
+            for d in self.store[self.name]
+            if not all(d.get(k) == v for k, v in query.items())
+        ]
 
     async def rename(self, new_name: str, dropTarget: bool = False) -> None:
         self.calls.append(("rename", new_name, dropTarget))
@@ -96,6 +110,7 @@ class FakeDB:
 
 # ── Stage document model ─────────────────────────────────────────────────────
 
+
 def test_new_stage_starts_pending_with_zeroed_counters():
     s = _new_stage()
     assert s["status"] == "PENDING"
@@ -120,7 +135,10 @@ def test_stage_writer_start_progress_finish_transitions():
     async def run():
         db = FakeDB()
         meta_col = db.get_collection("scan_meta")
-        await meta_col.replace_one({"_id": "daily_scan"}, _new_scan_doc("S1", "manual", datetime.now(timezone.utc)))
+        await meta_col.replace_one(
+            {"_id": "daily_scan"},
+            _new_scan_doc("S1", "manual", datetime.now(timezone.utc)),
+        )
         sw = _StageWriter(meta_col, {}, "S1")
 
         await sw.start("download", total=100)
@@ -133,7 +151,9 @@ def test_stage_writer_start_progress_finish_transitions():
         assert doc["stages"]["download"]["processed"] == 50
         assert doc["stages"]["download"]["errors"] == 1
 
-        await sw.finish("download", 100, 100, 1, ["BADSTOCK"], datetime.now(timezone.utc))
+        await sw.finish(
+            "download", 100, 100, 1, ["BADSTOCK"], datetime.now(timezone.utc)
+        )
         doc = await meta_col.find_one({})
         assert doc["stages"]["download"]["status"] == "COMPLETED"
         assert doc["stages"]["download"]["failed_symbols"] == ["BADSTOCK"]
@@ -144,10 +164,13 @@ def test_stage_writer_start_progress_finish_transitions():
 
 # ── Atomic publish (staging + rename) ────────────────────────────────────────
 
+
 def test_write_staged_writes_into_staging_not_live():
     async def run():
         db = FakeDB()
-        n = await write_staged(db, "launchpad_cache", [{"symbol": "TCS"}, {"symbol": "INFY"}])
+        n = await write_staged(
+            db, "launchpad_cache", [{"symbol": "TCS"}, {"symbol": "INFY"}]
+        )
         assert n == 2
         assert db.store.get("launchpad_cache", []) == []  # live untouched
         assert len(db.store.get(staging_name("launchpad_cache"))) == 2
@@ -165,7 +188,10 @@ def test_publish_staged_renames_staging_into_live():
         await publish_staged(db, "launchpad_cache")
 
         assert [d["symbol"] for d in db.store["launchpad_cache"]] == ["TCS"]
-        assert staging_name("launchpad_cache") not in db.store or db.store[staging_name("launchpad_cache")] == []
+        assert (
+            staging_name("launchpad_cache") not in db.store
+            or db.store[staging_name("launchpad_cache")] == []
+        )
 
     asyncio.run(run())
 
@@ -173,6 +199,7 @@ def test_publish_staged_renames_staging_into_live():
 def test_publish_staged_with_zero_results_still_empties_live():
     """A stage that legitimately finds zero matches must still publish an
     empty result — not silently leave the previous scan's stale docs live."""
+
     async def run():
         db = FakeDB()
         db.store["launchpad_cache"] = [{"symbol": "OLD"}]
@@ -200,10 +227,13 @@ def test_publish_all_publishes_every_named_collection():
 
 # ── Startup crash-recovery reconciliation ───────────────────────────────────
 
+
 def test_reconcile_heals_orphaned_running_scan():
     async def run():
         db = FakeDB()
-        db.store["scan_meta"] = [{"_id": "daily_scan", "scan_id": "SCAN-DEAD-1", "overall_status": "RUNNING"}]
+        db.store["scan_meta"] = [
+            {"_id": "daily_scan", "scan_id": "SCAN-DEAD-1", "overall_status": "RUNNING"}
+        ]
 
         healed = await reconcile_orphaned_scans(db)
 

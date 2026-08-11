@@ -6,8 +6,8 @@ Portfolio risk metrics: volatility, VaR, max drawdown, beta, risk level.
 
 import numpy as np
 import pandas as pd
-from typing import Optional
-from utils.helpers import safe_sqrt, safe_divide
+
+from utils.helpers import safe_sqrt
 
 TRADING_DAYS = 252
 RISK_FREE_RATE = 0.065  # Indian 10Y treasury yield
@@ -303,7 +303,9 @@ def compute_sortino_ratio(
         if len(downside_returns) == 0:
             return 3.0  # No downside → excellent
 
-        downside_dev = float(np.sqrt(np.mean(downside_returns ** 2))) * np.sqrt(TRADING_DAYS)
+        downside_dev = float(np.sqrt(np.mean(downside_returns**2))) * np.sqrt(
+            TRADING_DAYS
+        )
 
         if downside_dev <= 0:
             return 3.0
@@ -358,7 +360,7 @@ def compute_cagr_from_prices(prices: pd.Series) -> float:
             return 0.0
 
         # Calculate years from date range
-        if hasattr(clean.index, 'to_pydatetime'):
+        if hasattr(clean.index, "to_pydatetime"):
             date_range = (clean.index[-1] - clean.index[0]).days
         else:
             date_range = len(clean)  # Fallback: assume daily data

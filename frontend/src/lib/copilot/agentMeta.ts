@@ -23,7 +23,7 @@ export const AGENT_META: Record<string, AgentMeta> = {
   market: { label: 'Market Analyst', color: 'text-blue-300', border: 'border-blue-500/25 bg-blue-500/10', Icon: LineChart },
   planning: { label: 'Planning Agent', color: 'text-amber-300', border: 'border-amber-500/25 bg-amber-500/10', Icon: PiggyBank },
   education: { label: 'Education Agent', color: 'text-emerald-300', border: 'border-emerald-500/25 bg-emerald-500/10', Icon: GraduationCap },
-  none: { label: 'FinTechAI Copilot', color: 'text-slate-300', border: 'border-white/10 bg-white/5', Icon: Bot },
+  none: { label: 'Nivro Copilot', color: 'text-slate-300', border: 'border-white/10 bg-white/5', Icon: Bot },
 };
 
 export function agentMeta(agent?: string): AgentMeta {
@@ -89,7 +89,7 @@ export function sourcesFor(agent?: string, tools: string[] = []): string[] {
   }
   if (sources.size === 0) {
     // No tools ran (e.g. education) — the model reasoned directly.
-    sources.add('FinAI Copilot');
+    sources.add('Nivro Copilot');
   }
   return [...sources];
 }

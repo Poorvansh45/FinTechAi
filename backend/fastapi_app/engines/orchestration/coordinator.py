@@ -33,11 +33,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
 
 from pymongo.errors import DuplicateKeyError
 
 from engines.indicators import IndicatorEngine, IndicatorSet
+
 from .publish import PIPELINE_COLLECTIONS, publish_all, write_staged
 
 # A scan_meta doc still marked RUNNING after this long is treated as orphaned
@@ -47,24 +47,43 @@ STALE_SCAN_HOURS = 3
 
 log = logging.getLogger("finai_edge.orchestration.coordinator")
 
-STAGE_KEYS = ("download", "indicators", "technical", "launchpad", "alpha_zone", "ipo_vintage")
+STAGE_KEYS = (
+    "download",
+    "indicators",
+    "technical",
+    "launchpad",
+    "alpha_zone",
+    "ipo_vintage",
+)
 
 # Collections the Technical stage stages+publishes (produced by _build_cache_docs).
 TECHNICAL_COLLECTIONS = (
-    "screener_cache", "fvg_cache", "fvg_scan_results",
-    "volume_surge_cache", "momentum_cache", "smc_scanner_results", "smc_zones",
+    "screener_cache",
+    "fvg_cache",
+    "fvg_scan_results",
+    "volume_surge_cache",
+    "momentum_cache",
+    "smc_scanner_results",
+    "smc_zones",
 )
 
 
 def _new_stage() -> dict:
     return {
-        "status": "PENDING", "processed": 0, "total": 0,
-        "started_at": None, "completed_at": None, "duration_s": None,
-        "errors": 0, "failed_symbols": [],
+        "status": "PENDING",
+        "processed": 0,
+        "total": 0,
+        "started_at": None,
+        "completed_at": None,
+        "duration_s": None,
+        "errors": 0,
+        "failed_symbols": [],
     }
 
 
-def _new_scan_doc(scan_id: str, trigger: str, started_at: datetime, prev: Optional[dict] = None) -> dict:
+def _new_scan_doc(
+    scan_id: str, trigger: str, started_at: datetime, prev: dict | None = None
+) -> dict:
     """A full-document replacement — never an incremental $set onto a stale
     prior doc, so a new scan can never inherit a previous run's leftover
     progress numbers (the exact mechanism behind the reported stuck-at-2067
@@ -113,11 +132,13 @@ class _StageWriter:
         now = datetime.now(timezone.utc)
         await self.meta_col.update_one(
             {"_id": "daily_scan"},
-            {"$set": {
-                f"stages.{stage}.status": "RUNNING",
-                f"stages.{stage}.total": total,
-                f"stages.{stage}.started_at": now,
-            }},
+            {
+                "$set": {
+                    f"stages.{stage}.status": "RUNNING",
+                    f"stages.{stage}.total": total,
+                    f"stages.{stage}.started_at": now,
+                }
+            },
         )
         if self.scan_id in self.active_scans:
             self.active_scans[self.scan_id]["stage"] = stage
@@ -126,27 +147,40 @@ class _StageWriter:
     async def progress(self, stage: str, processed: int, errors: int = 0) -> None:
         await self.meta_col.update_one(
             {"_id": "daily_scan"},
-            {"$set": {
-                f"stages.{stage}.processed": processed,
-                f"stages.{stage}.errors": errors,
-            }},
+            {
+                "$set": {
+                    f"stages.{stage}.processed": processed,
+                    f"stages.{stage}.errors": errors,
+                }
+            },
         )
 
-    async def finish(self, stage: str, processed: int, total: int, errors: int,
-                      failed_symbols: List[str], started_at: datetime) -> None:
+    async def finish(
+        self,
+        stage: str,
+        processed: int,
+        total: int,
+        errors: int,
+        failed_symbols: list[str],
+        started_at: datetime,
+    ) -> None:
         now = datetime.now(timezone.utc)
         duration = (now - started_at).total_seconds()
         await self.meta_col.update_one(
             {"_id": "daily_scan"},
-            {"$set": {
-                f"stages.{stage}.status": "COMPLETED",
-                f"stages.{stage}.processed": processed,
-                f"stages.{stage}.total": total,
-                f"stages.{stage}.errors": errors,
-                f"stages.{stage}.failed_symbols": failed_symbols[:50],  # cap doc size
-                f"stages.{stage}.completed_at": now,
-                f"stages.{stage}.duration_s": round(duration, 1),
-            }},
+            {
+                "$set": {
+                    f"stages.{stage}.status": "COMPLETED",
+                    f"stages.{stage}.processed": processed,
+                    f"stages.{stage}.total": total,
+                    f"stages.{stage}.errors": errors,
+                    f"stages.{stage}.failed_symbols": failed_symbols[
+                        :50
+                    ],  # cap doc size
+                    f"stages.{stage}.completed_at": now,
+                    f"stages.{stage}.duration_s": round(duration, 1),
+                }
+            },
         )
         log.info(
             f"[{self.scan_id}] stage={stage} COMPLETED processed={processed}/{total} "
@@ -154,16 +188,24 @@ class _StageWriter:
         )
 
 
-async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown") -> None:
+async def run_full_scan(
+    app_state, force: bool = False, trigger: str = "unknown"
+) -> None:
     """The Scan Coordinator's entry point — replaces the old run_daily_scan body."""
-    from schedulers.daily_refresh import (
-        _ACTIVE_SCANS, _new_scan_id, _compute_symbol_local, _build_cache_docs,
-        NIFTY_SYMBOL, BULK_BATCH_SIZE,
-    )
     import schedulers.daily_refresh as _dr
+    from schedulers.daily_refresh import (
+        _ACTIVE_SCANS,
+        BULK_BATCH_SIZE,
+        NIFTY_SYMBOL,
+        _build_cache_docs,
+        _compute_symbol_local,
+        _new_scan_id,
+    )
     from services.ohlc_downloader import (
-        download_incremental_ohlc, get_downloader_paths,
-        load_stock_dataframe, get_cached_symbols,
+        download_incremental_ohlc,
+        get_cached_symbols,
+        get_downloader_paths,
+        load_stock_dataframe,
     )
 
     db = app_state.db
@@ -182,7 +224,11 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             f"[{scan_id}] CONCURRENCY WARNING — {len(currently_active)} scan(s) already "
             f"running when this one started: {currently_active}"
         )
-    _ACTIVE_SCANS[scan_id] = {"trigger": trigger, "started_at": datetime.now(timezone.utc), "stage": "starting"}
+    _ACTIVE_SCANS[scan_id] = {
+        "trigger": trigger,
+        "started_at": datetime.now(timezone.utc),
+        "stage": "starting",
+    }
 
     start_time = datetime.now(timezone.utc)
     meta_col = db.get_collection("scan_meta")
@@ -200,7 +246,9 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
                     last_ran = last_ran.replace(tzinfo=timezone.utc)
                 age_hours = (start_time - last_ran).total_seconds() / 3600
                 if age_hours < 6:
-                    log.info(f"[{scan_id}] SCAN SKIPPED — recent scan exists (force={force})")
+                    log.info(
+                        f"[{scan_id}] SCAN SKIPPED — recent scan exists (force={force})"
+                    )
                     _ACTIVE_SCANS.pop(scan_id, None)
                     return
 
@@ -239,7 +287,9 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             # upsert tried to INSERT because the filter didn't match, and _id
             # already exists => a scan holds the lock right now. Losing this
             # race is normal and expected, not an error.
-            holder = await meta_col.find_one({"_id": "daily_scan"}, {"scan_id": 1, "trigger": 1, "started_at": 1})
+            holder = await meta_col.find_one(
+                {"_id": "daily_scan"}, {"scan_id": 1, "trigger": 1, "started_at": 1}
+            )
             log.warning(
                 f"[{scan_id}] SCAN REJECTED — another scan holds the lock "
                 f"(scan_id={(holder or {}).get('scan_id')}, "
@@ -261,33 +311,46 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             log.info(f"[{scan_id}] Download stage complete")
         except Exception as e:
             download_errors = 1
-            log.error(f"[{scan_id}] Incremental ingestion failed: {e}. Using existing file.")
+            log.error(
+                f"[{scan_id}] Incremental ingestion failed: {e}. Using existing file."
+            )
 
         symbols = get_cached_symbols()
         if not symbols:
-            log.error(f"[{scan_id}] No stocks found in cached Stock_Data.csv — aborting scan")
+            log.error(
+                f"[{scan_id}] No stocks found in cached Stock_Data.csv — aborting scan"
+            )
             await sw.finish("download", 0, 0, download_errors, [], t_download)
             await meta_col.update_one(
                 {"_id": "daily_scan"},
-                {"$set": {"overall_status": "FAILED", "status": "FAILED",
-                          "error": "no symbols available after download",
-                          "completed_at": datetime.now(timezone.utc)}},
+                {
+                    "$set": {
+                        "overall_status": "FAILED",
+                        "status": "FAILED",
+                        "error": "no symbols available after download",
+                        "completed_at": datetime.now(timezone.utc),
+                    }
+                },
             )
             _ACTIVE_SCANS.pop(scan_id, None)
             return
 
         from utils.helpers import normalize_symbol
+
         symbols = [normalize_symbol(s) for s in symbols if s]
         symbols = list(dict.fromkeys(symbols))
-        await sw.finish("download", len(symbols), len(symbols), download_errors, [], t_download)
+        await sw.finish(
+            "download", len(symbols), len(symbols), download_errors, [], t_download
+        )
 
         # Company name map (used by _compute_symbol_local via the module global).
-        company_name_map: Dict[str, str] = {}
+        company_name_map: dict[str, str] = {}
         try:
             paths = get_downloader_paths()
             symbols_csv_path = paths["symbols_csv"]
             if __import__("os").path.exists(symbols_csv_path):
                 import pandas as pd
+
                 stock_list_df = pd.read_csv(symbols_csv_path)
                 stock_list_df.columns = stock_list_df.columns.str.strip()
                 for _, row in stock_list_df.iterrows():
@@ -302,10 +365,10 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
         # ── Stage: Indicators (centralized — computed exactly once per symbol) ──
         t_ind = datetime.now(timezone.utc)
         await sw.start("indicators", total=len(symbols))
-        indicator_map: Dict[str, IndicatorSet] = {}
-        indicator_docs: List[dict] = []
+        indicator_map: dict[str, IndicatorSet] = {}
+        indicator_docs: list[dict] = []
         ind_errors = 0
-        ind_failed: List[str] = []
+        ind_failed: list[str] = []
         for i, sym in enumerate(symbols):
             try:
                 df = load_stock_dataframe(sym)
@@ -313,8 +376,13 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
                     continue
                 ind = IndicatorEngine.compute(df)
                 indicator_map[sym] = ind
-                indicator_docs.append({"symbol": sym, **ind.as_dict(),
-                                       "updated_at": datetime.now(timezone.utc)})
+                indicator_docs.append(
+                    {
+                        "symbol": sym,
+                        **ind.as_dict(),
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                )
             except Exception as e:
                 ind_errors += 1
                 ind_failed.append(sym)
@@ -322,7 +390,14 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             if (i + 1) % 200 == 0:
                 await sw.progress("indicators", i + 1, ind_errors)
         await write_staged(db, "indicator_cache", indicator_docs)
-        await sw.finish("indicators", len(indicator_map), len(symbols), ind_errors, ind_failed, t_ind)
+        await sw.finish(
+            "indicators",
+            len(indicator_map),
+            len(symbols),
+            ind_errors,
+            ind_failed,
+            t_ind,
+        )
 
         # ── Stage: Technical (reuses indicator_map — no recomputation) ──────
         t_tech = datetime.now(timezone.utc)
@@ -332,15 +407,19 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             nifty_df = load_stock_dataframe(NIFTY_SYMBOL)
             if not nifty_df.empty and len(nifty_df) >= 21:
                 closes = nifty_df["Close"].values
-                nifty_1m_return = (closes[-1] - closes[-21]) / closes[-21] * 100 if closes[-21] else 0.0
+                nifty_1m_return = (
+                    (closes[-1] - closes[-21]) / closes[-21] * 100
+                    if closes[-21]
+                    else 0.0
+                )
         except Exception as e:
             log.warning(f"[{scan_id}] Nifty baseline load failed: {e}")
 
         processed = 0
         tech_errors = 0
-        tech_failed: List[str] = []
-        batch_data: List[tuple] = []
-        all_docs: Dict[str, List[dict]] = {name: [] for name in TECHNICAL_COLLECTIONS}
+        tech_failed: list[str] = []
+        batch_data: list[tuple] = []
+        all_docs: dict[str, list[dict]] = {name: [] for name in TECHNICAL_COLLECTIONS}
         loop = asyncio.get_running_loop()
 
         for i, symbol in enumerate(symbols):
@@ -369,7 +448,9 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
                         all_docs[name].extend(docs)
                     batch_data = []
                     await sw.progress("technical", processed, tech_errors)
-                    log.info(f"[{scan_id}] PROGRESS technical {processed}/{len(symbols)}")
+                    log.info(
+                        f"[{scan_id}] PROGRESS technical {processed}/{len(symbols)}"
+                    )
 
             except Exception as e:
                 tech_errors += 1
@@ -384,7 +465,9 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
         for name, docs in all_docs.items():
             await write_staged(db, name, docs)
 
-        await sw.finish("technical", processed, len(symbols), tech_errors, tech_failed, t_tech)
+        await sw.finish(
+            "technical", processed, len(symbols), tech_errors, tech_failed, t_tech
+        )
 
         # ── Stage: LaunchPad (reuses indicator_map; keeps its own FVG detection) ──
         t_lp = datetime.now(timezone.utc)
@@ -394,9 +477,13 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             await sw.progress("launchpad", done)
 
         from engines.strategies.runner import run_launchpad_scan
+
         lp_count = await run_launchpad_scan(
-            db, scan_id=scan_id, progress_cb=_lp_progress,
-            indicator_map=indicator_map, publish=False,
+            db,
+            scan_id=scan_id,
+            progress_cb=_lp_progress,
+            indicator_map=indicator_map,
+            publish=False,
         )
         await sw.finish("launchpad", lp_count, len(symbols), 0, [], t_lp)
 
@@ -408,9 +495,13 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             await sw.progress("alpha_zone", done)
 
         from engines.strategies.runner import run_alphazone_scan
+
         az_count = await run_alphazone_scan(
-            db, scan_id=scan_id, progress_cb=_az_progress,
-            indicator_map=indicator_map, publish=False,
+            db,
+            scan_id=scan_id,
+            progress_cb=_az_progress,
+            indicator_map=indicator_map,
+            publish=False,
         )
         await sw.finish("alpha_zone", az_count, len(symbols), 0, [], t_az)
 
@@ -424,8 +515,12 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
             await sw.progress("ipo_vintage", done)
 
         from engines.strategies.runner import run_ipo_vintage_scan
+
         iv_count = await run_ipo_vintage_scan(
-            db, scan_id=scan_id, progress_cb=_iv_progress, publish=False,
+            db,
+            scan_id=scan_id,
+            progress_cb=_iv_progress,
+            publish=False,
         )
         await sw.finish("ipo_vintage", iv_count, ipo_listings_count, 0, [], t_iv)
 
@@ -439,46 +534,55 @@ async def run_full_scan(app_state, force: bool = False, trigger: str = "unknown"
         # freshly-published smc_scanner_results, not the pre-scan version.
         try:
             from services.zone_search_service import run_zone_proximity_search
+
             await run_zone_proximity_search(db)
         except Exception as e:
             log.error(f"[{scan_id}] Zone proximity search update failed: {e}")
 
         elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
-        screener_cache_count = await db.get_collection("screener_cache").count_documents({})
+        screener_cache_count = await db.get_collection(
+            "screener_cache"
+        ).count_documents({})
         now = datetime.now(timezone.utc)
         await meta_col.update_one(
             {"_id": "daily_scan"},
-            {"$set": {
-                "overall_status":    "COMPLETED",
-                "status":            "COMPLETED",
-                "stage":             "completed",
-                "completed_at":      now,
-                "last_ran":          now,
-                "last_scan_time":    now,
-                "record_count":      screener_cache_count,
-                "symbols_processed": processed,
-                "symbols_errored":   tech_errors,
-                "total_symbols":     len(symbols),
-                "elapsed_seconds":   round(elapsed, 1),
-                "scan_duration":     round(elapsed, 1),
-            }},
+            {
+                "$set": {
+                    "overall_status": "COMPLETED",
+                    "status": "COMPLETED",
+                    "stage": "completed",
+                    "completed_at": now,
+                    "last_ran": now,
+                    "last_scan_time": now,
+                    "record_count": screener_cache_count,
+                    "symbols_processed": processed,
+                    "symbols_errored": tech_errors,
+                    "total_symbols": len(symbols),
+                    "elapsed_seconds": round(elapsed, 1),
+                    "scan_duration": round(elapsed, 1),
+                }
+            },
         )
-        log.info(f"[{scan_id}] SCAN FINISHED | duration={elapsed:.1f}s | trigger={trigger}")
+        log.info(
+            f"[{scan_id}] SCAN FINISHED | duration={elapsed:.1f}s | trigger={trigger}"
+        )
         _ACTIVE_SCANS.pop(scan_id, None)
 
     except Exception as exc:
-        log.error(f"[{scan_id}] SCAN FAILED | {exc}", exc_info=True)
+        log.exception(f"[{scan_id}] SCAN FAILED")
         _ACTIVE_SCANS.pop(scan_id, None)
         await meta_col.update_one(
             {"_id": "daily_scan"},
-            {"$set": {
-                "overall_status": "FAILED",
-                "status": "FAILED",
-                "stage": "failed",
-                "error": str(exc),
-                "completed_at": datetime.now(timezone.utc),
-                "last_ran": datetime.now(timezone.utc),
-                "last_scan_time": datetime.now(timezone.utc),
-            }},
+            {
+                "$set": {
+                    "overall_status": "FAILED",
+                    "status": "FAILED",
+                    "stage": "failed",
+                    "error": str(exc),
+                    "completed_at": datetime.now(timezone.utc),
+                    "last_ran": datetime.now(timezone.utc),
+                    "last_scan_time": datetime.now(timezone.utc),
+                }
+            },
             upsert=True,
         )

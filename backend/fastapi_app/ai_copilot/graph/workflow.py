@@ -16,7 +16,7 @@ the model is only constructed when a request actually runs.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from langgraph.graph import END, START, StateGraph
 
@@ -66,7 +66,7 @@ _SUGGESTIONS = {
 }
 
 
-def _db(config: Optional[dict]) -> Any | None:
+def _db(config: dict | None) -> Any | None:
     return ((config or {}).get("configurable", {}) or {}).get("db")
 
 
@@ -154,7 +154,9 @@ async def finalize_node(state: CopilotState, config=None) -> dict:
 
     # Persist the turn (user message + assistant answer)
     await mm.append_message(user_id, session_id, "user", message)
-    await mm.append_message(user_id, session_id, "assistant", answer, agent=state.get("agent_used"))
+    await mm.append_message(
+        user_id, session_id, "assistant", answer, agent=state.get("agent_used")
+    )
 
     return {
         "answer": answer,

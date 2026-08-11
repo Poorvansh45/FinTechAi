@@ -23,12 +23,13 @@ client = TestClient(main.app)
 ENDPOINT = "/api/v2/scanner/trigger-scan"
 
 
-def _token(payload: dict, secret: str = None) -> str:
+def _token(payload: dict, secret: str | None = None) -> str:
     settings = get_settings()
     return jwt.encode(payload, secret or settings.jwt_secret, algorithm="HS256")
 
 
 # ── Auth: the endpoint must never run for an unverified caller ───────────────
+
 
 def test_anonymous_cannot_trigger_a_scan():
     """The original hole: anyone who knew the URL could start a full scan."""
@@ -48,7 +49,9 @@ def test_token_signed_with_wrong_secret_is_rejected():
 
 def test_token_without_user_id_is_rejected():
     """A validly-signed token still needs an identity claim."""
-    res = client.post(ENDPOINT, headers={"Authorization": f"Bearer {_token({'foo': 'bar'})}"})
+    res = client.post(
+        ENDPOINT, headers={"Authorization": f"Bearer {_token({'foo': 'bar'})}"}
+    )
     assert res.status_code == 401
 
 
@@ -60,6 +63,7 @@ def test_auth_runs_before_any_scan_work():
 
 # ── The read endpoints stay public ───────────────────────────────────────────
 
+
 def _route(path: str, method: str):
     for r in main.app.routes:
         if getattr(r, "path", None) == path and method in getattr(r, "methods", set()):
@@ -69,6 +73,7 @@ def _route(path: str, method: str):
 
 def _depends_on_current_user(route) -> bool:
     from utils.auth import get_current_user
+
     return any(d.call is get_current_user for d in route.dependant.dependencies)
 
 
@@ -88,8 +93,10 @@ def test_scan_status_remains_public():
 
 # ── Configuration invariants ────────────────────────────────────────────────
 
+
 def test_cooldown_is_configured_and_meaningful():
     from api.screener import MANUAL_SCAN_COOLDOWN_MIN
+
     assert MANUAL_SCAN_COOLDOWN_MIN >= 5
 
 
@@ -97,6 +104,7 @@ def test_stale_lock_window_exceeds_a_real_scan():
     """A scan runs ~30-40 min. The orphan-reclaim window must be comfortably
     longer, or a slow-but-healthy scan could have its lock stolen mid-run."""
     from engines.orchestration.coordinator import STALE_SCAN_HOURS
+
     assert STALE_SCAN_HOURS >= 1
 
 
@@ -106,6 +114,7 @@ def test_scan_doc_replace_preserves_the_cooldown_timestamp():
     to carry forward is destroyed — which silently defeated the cooldown, since
     the rate limit reads exactly this timestamp back off the same document."""
     from datetime import datetime, timezone
+
     from engines.orchestration.coordinator import _new_scan_doc
 
     now = datetime.now(timezone.utc)

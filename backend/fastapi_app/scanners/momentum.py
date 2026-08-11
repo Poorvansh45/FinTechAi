@@ -13,12 +13,10 @@ Factors:
 """
 
 import math
-import pandas as pd
-import numpy as np
-from typing import Dict, Any, Optional, List
+from typing import Any
 
 
-def _safe(v) -> Optional[float]:
+def _safe(v) -> float | None:
     try:
         f = float(v)
         return None if (math.isnan(f) or math.isinf(f)) else round(f, 4)
@@ -27,13 +25,13 @@ def _safe(v) -> Optional[float]:
 
 
 def compute_momentum_score(
-    rsi: Optional[float] = None,
-    ema_50_dist_pct: Optional[float] = None,
-    ema_200_dist_pct: Optional[float] = None,
-    volume_ratio: Optional[float] = None,
-    week52_high_dist_pct: Optional[float] = None,
-    relative_strength: Optional[float] = None,
-    macd_hist: Optional[float] = None,
+    rsi: float | None = None,
+    ema_50_dist_pct: float | None = None,
+    ema_200_dist_pct: float | None = None,
+    volume_ratio: float | None = None,
+    week52_high_dist_pct: float | None = None,
+    relative_strength: float | None = None,
+    macd_hist: float | None = None,
 ) -> int:
     """
     Momentum Score (0–100):
@@ -49,20 +47,27 @@ def compute_momentum_score(
 
     # 1. RSI (25 pts)
     if rsi is not None:
-        if rsi >= 60:    score += 25
-        elif rsi >= 55:  score += 20
-        elif rsi >= 50:  score += 14
-        elif rsi >= 45:  score += 8
-        elif rsi >= 40:  score += 4
+        if rsi >= 60:
+            score += 25
+        elif rsi >= 55:
+            score += 20
+        elif rsi >= 50:
+            score += 14
+        elif rsi >= 45:
+            score += 8
+        elif rsi >= 40:
+            score += 4
 
     # 2. EMA alignment (25 pts)
-    ema50_ok  = ema_50_dist_pct  is not None and ema_50_dist_pct  > 0
+    ema50_ok = ema_50_dist_pct is not None and ema_50_dist_pct > 0
     ema200_ok = ema_200_dist_pct is not None and ema_200_dist_pct > 0
 
     if ema50_ok and ema200_ok:
         bonus = 0
-        if ema_50_dist_pct > 5:   bonus += 5
-        if ema_200_dist_pct > 10: bonus += 5
+        if ema_50_dist_pct > 5:
+            bonus += 5
+        if ema_200_dist_pct > 10:
+            bonus += 5
         score += 15 + bonus
     elif ema50_ok:
         score += 10
@@ -71,36 +76,51 @@ def compute_momentum_score(
 
     # 3. Volume expansion (15 pts)
     if volume_ratio is not None:
-        if volume_ratio >= 3.0:   score += 15
-        elif volume_ratio >= 2.0: score += 10
-        elif volume_ratio >= 1.5: score += 6
+        if volume_ratio >= 3.0:
+            score += 15
+        elif volume_ratio >= 2.0:
+            score += 10
+        elif volume_ratio >= 1.5:
+            score += 6
 
     # 4. 52-week high proximity (15 pts)
     # week52_high_dist_pct = (ltp - 52w_high) / 52w_high * 100 (negative = below, 0 = at high)
     if week52_high_dist_pct is not None:
-        if week52_high_dist_pct >= -2:   score += 15  # At or near 52W high
-        elif week52_high_dist_pct >= -5: score += 10
-        elif week52_high_dist_pct >= -10: score += 5
+        if week52_high_dist_pct >= -2:
+            score += 15  # At or near 52W high
+        elif week52_high_dist_pct >= -5:
+            score += 10
+        elif week52_high_dist_pct >= -10:
+            score += 5
 
     # 5. Relative strength vs Nifty50 (10 pts)
     if relative_strength is not None:
-        if relative_strength > 5:   score += 10
-        elif relative_strength > 2: score += 6
-        elif relative_strength > 0: score += 3
+        if relative_strength > 5:
+            score += 10
+        elif relative_strength > 2:
+            score += 6
+        elif relative_strength > 0:
+            score += 3
 
     # 6. MACD histogram (10 pts)
     if macd_hist is not None:
-        if macd_hist > 0:   score += 10
-        elif macd_hist > -0.5: score += 4
+        if macd_hist > 0:
+            score += 10
+        elif macd_hist > -0.5:
+            score += 4
 
     return min(score, 100)
 
 
 def get_momentum_category(score: int) -> str:
-    if score >= 80:     return "Strong Momentum"
-    if score >= 65:     return "Emerging Momentum"
-    if score >= 50:     return "Breakout Candidate"
-    if score >= 35:     return "Watch"
+    if score >= 80:
+        return "Strong Momentum"
+    if score >= 65:
+        return "Emerging Momentum"
+    if score >= 50:
+        return "Breakout Candidate"
+    if score >= 35:
+        return "Watch"
     return "Weak"
 
 
@@ -108,19 +128,19 @@ def build_momentum_record(
     symbol: str,
     ltp: float,
     company_name: str = "",
-    rsi: Optional[float] = None,
-    ema_50: Optional[float] = None,
-    ema_200: Optional[float] = None,
-    ema_50_dist_pct: Optional[float] = None,
-    ema_200_dist_pct: Optional[float] = None,
-    volume: Optional[float] = None,
-    avg_volume_20d: Optional[float] = None,
-    week52_high: Optional[float] = None,
-    week52_low: Optional[float] = None,
-    nifty_return_1m: Optional[float] = None,
-    stock_return_1m: Optional[float] = None,
-    macd_hist: Optional[float] = None,
-) -> Dict[str, Any]:
+    rsi: float | None = None,
+    ema_50: float | None = None,
+    ema_200: float | None = None,
+    ema_50_dist_pct: float | None = None,
+    ema_200_dist_pct: float | None = None,
+    volume: float | None = None,
+    avg_volume_20d: float | None = None,
+    week52_high: float | None = None,
+    week52_low: float | None = None,
+    nifty_return_1m: float | None = None,
+    stock_return_1m: float | None = None,
+    macd_hist: float | None = None,
+) -> dict[str, Any]:
     """
     Build a full momentum record for storage in MongoDB.
     """
@@ -151,24 +171,24 @@ def build_momentum_record(
     category = get_momentum_category(score)
 
     return {
-        "symbol":             symbol,
-        "company_name":       company_name,
-        "ltp":                round(ltp, 2),
-        "momentum_score":     score,
-        "category":           category,
-        "rsi":                _safe(rsi),
-        "ema_50":             _safe(ema_50),
-        "ema_200":            _safe(ema_200),
-        "ema_50_dist_pct":    _safe(ema_50_dist_pct),
-        "ema_200_dist_pct":   _safe(ema_200_dist_pct),
-        "volume":             volume,
-        "avg_volume_20d":     avg_volume_20d,
-        "volume_ratio":       volume_ratio,
-        "week52_high":        _safe(week52_high),
-        "week52_low":         _safe(week52_low),
+        "symbol": symbol,
+        "company_name": company_name,
+        "ltp": round(ltp, 2),
+        "momentum_score": score,
+        "category": category,
+        "rsi": _safe(rsi),
+        "ema_50": _safe(ema_50),
+        "ema_200": _safe(ema_200),
+        "ema_50_dist_pct": _safe(ema_50_dist_pct),
+        "ema_200_dist_pct": _safe(ema_200_dist_pct),
+        "volume": volume,
+        "avg_volume_20d": avg_volume_20d,
+        "volume_ratio": volume_ratio,
+        "week52_high": _safe(week52_high),
+        "week52_low": _safe(week52_low),
         "week52_high_dist_pct": _safe(week52_high_dist),
-        "relative_strength":  _safe(relative_strength),
-        "macd_hist":          _safe(macd_hist),
-        "above_ema50":        ema_50_dist_pct > 0 if ema_50_dist_pct is not None else None,
-        "above_ema200":       ema_200_dist_pct > 0 if ema_200_dist_pct is not None else None,
+        "relative_strength": _safe(relative_strength),
+        "macd_hist": _safe(macd_hist),
+        "above_ema50": ema_50_dist_pct > 0 if ema_50_dist_pct is not None else None,
+        "above_ema200": ema_200_dist_pct > 0 if ema_200_dist_pct is not None else None,
     }

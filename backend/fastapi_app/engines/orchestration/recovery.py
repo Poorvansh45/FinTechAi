@@ -42,12 +42,14 @@ async def reconcile_orphaned_scans(db) -> bool:
     )
     await meta_col.update_one(
         {"_id": "daily_scan"},
-        {"$set": {
-            "overall_status": "FAILED",
-            "status": "FAILED",  # legacy field kept in sync for any old reader
-            "error": "orphaned by process restart",
-            "completed_at": datetime.now(timezone.utc),
-            "last_ran": datetime.now(timezone.utc),
-        }},
+        {
+            "$set": {
+                "overall_status": "FAILED",
+                "status": "FAILED",  # legacy field kept in sync for any old reader
+                "error": "orphaned by process restart",
+                "completed_at": datetime.now(timezone.utc),
+                "last_ran": datetime.now(timezone.utc),
+            }
+        },
     )
     return True

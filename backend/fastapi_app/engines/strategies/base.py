@@ -13,8 +13,7 @@ Strategy base contracts.
 from __future__ import annotations
 
 import abc
-from dataclasses import dataclass, field, asdict
-from typing import Optional
+from dataclasses import asdict, dataclass, field
 
 import pandas as pd
 
@@ -24,8 +23,9 @@ from engines.indicators import IndicatorSet
 @dataclass
 class MarketContext:
     """Broad-market context shared across all symbols in a scan run."""
+
     index_symbol: str = "^NSEI"
-    index_above_ema200: Optional[bool] = None  # regime; None if unknown
+    index_above_ema200: bool | None = None  # regime; None if unknown
 
 
 @dataclass
@@ -37,7 +37,7 @@ class SymbolContext:
     market: MarketContext = field(default_factory=MarketContext)
 
     @property
-    def price(self) -> Optional[float]:
+    def price(self) -> float | None:
         return self.indicators.price
 
 
@@ -48,18 +48,18 @@ class TradePlan:
     target: float
     risk_per_share: float
     reward_per_share: float
-    risk_reward: float          # reward / risk (e.g. 2.0 → "1:2.0")
-    risk_pct: float             # risk as % of entry
+    risk_reward: float  # reward / risk (e.g. 2.0 → "1:2.0")
+    risk_pct: float  # risk as % of entry
 
     @staticmethod
     def from_support(
         entry: float,
         support_level: float,
-        atr: Optional[float],
+        atr: float | None,
         reward_multiple: float = 2.0,
         atr_buffer: float = 0.25,
         min_risk_atr: float = 0.5,
-    ) -> "TradePlan":
+    ) -> TradePlan:
         """
         Build a trade from a real support level (e.g. an FVG floor).
         Stop = support − atr_buffer·ATR. If the resulting risk is implausibly
@@ -96,11 +96,11 @@ class StrategyResult:
     company_name: str
     strategy: str
     cmp: float
-    signal_strength: str                 # "Strong" | "Medium" | "Weak"
-    confidence: float                    # 0-100, real & explainable
-    confidence_breakdown: dict           # sub-scores → transparency in the UI
+    signal_strength: str  # "Strong" | "Medium" | "Weak"
+    confidence: float  # 0-100, real & explainable
+    confidence_breakdown: dict  # sub-scores → transparency in the UI
     trade: TradePlan
-    holding_period: str                  # strategy constant, e.g. "5-7 days"
+    holding_period: str  # strategy constant, e.g. "5-7 days"
     metrics: dict = field(default_factory=dict)  # strategy-specific fields
 
     def to_doc(self) -> dict:
@@ -126,6 +126,6 @@ class Strategy(abc.ABC):
     holding_period: str = ""
 
     @abc.abstractmethod
-    def evaluate(self, ctx: SymbolContext) -> Optional[StrategyResult]:
+    def evaluate(self, ctx: SymbolContext) -> StrategyResult | None:
         """Return a StrategyResult if `ctx` qualifies, else None."""
         ...

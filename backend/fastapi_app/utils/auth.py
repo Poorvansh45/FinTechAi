@@ -1,10 +1,9 @@
 """
-FinAI Edge — Cross-service JWT verification
-===============================================
-FastAPI does not issue tokens — Express does (backend/utils/generateToken.js,
-payload: {id: userId}, HS256). This module verifies that same token so
-user-owned data (portfolio, watchlists) can be scoped to the real caller
-instead of a client-supplied or hardcoded user id.
+FinAI Edge — Auth token verification
+========================================
+Verifies the JWT issued by api/auth.py (payload: {id: userId}, HS256, 30-day
+expiry) so user-owned data (portfolio, watchlists) can be scoped to the real
+caller instead of a client-supplied or hardcoded user id.
 
 Beyond signature checking, it also confirms the account still EXISTS and is
 ACTIVE. Verifying only the signature meant a token belonging to a deleted or
@@ -21,10 +20,10 @@ effect within one TTL window rather than instantly.
 from __future__ import annotations
 
 import time
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 import jwt
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 
 from config import get_settings
 
@@ -48,7 +47,7 @@ class AuthError(Exception):
 class AuthUser(TypedDict):
     id: str
     role: str
-    email: Optional[str]
+    email: str | None
 
 
 # user_id -> (expires_at, AuthUser)
@@ -64,7 +63,7 @@ def _extract_token(request: Request) -> str:
     """
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
-        return auth_header[len("Bearer "):]
+        return auth_header[len("Bearer ") :]
 
     cookie_token = request.cookies.get("jwt")
     if cookie_token:
@@ -109,13 +108,16 @@ async def _load_user(request: Request, user_id: str) -> AuthUser:
 
     try:
         from bson import ObjectId
+
         oid: Any = ObjectId(user_id)
     except Exception:
         raise AuthError(401, "Not authorized — malformed user id")
 
     # `db["users"]` rather than `db.get_collection("users")`: both work on Motor,
     # but the subscript form is what test doubles implement.
-    doc = await db["users"].find_one({"_id": oid}, {"role": 1, "isActive": 1, "email": 1})
+    doc = await db["users"].find_one(
+        {"_id": oid}, {"role": 1, "isActive": 1, "email": 1}
+    )
     if not doc:
         raise AuthError(401, "Not authorized — user no longer exists")
     if doc.get("isActive") is False:
@@ -130,7 +132,7 @@ async def _load_user(request: Request, user_id: str) -> AuthUser:
     return user
 
 
-def invalidate_user_cache(user_id: Optional[str] = None) -> None:
+def invalidate_user_cache(user_id: str | None = None) -> None:
     """Drop cached identities — all of them, or one. Used by tests."""
     if user_id is None:
         _cache.clear()
@@ -143,6 +145,16 @@ async def resolve_user(request: Request) -> AuthUser:
     token = _extract_token(request)
     user_id = _decode(token)
     return await _load_user(request, user_id)
+
+
+def get_raw_token(request: Request) -> str:
+    """
+    Return the caller's raw JWT string (same token already validated by
+    AuthGuardMiddleware for this request). Used only by GET /api/auth/token,
+    which hands the frontend a bearer token to attach to cross-origin FastAPI
+    calls that can't see this service's httpOnly cookie.
+    """
+    return _extract_token(request)
 
 
 async def get_current_user(request: Request) -> str:

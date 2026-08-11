@@ -5,7 +5,9 @@ Market data endpoints: quotes, search, candles, bulk quotes, provider status.
 """
 
 import logging
+
 from fastapi import APIRouter, HTTPException, Query
+
 from services.market_service import get_market_service
 
 log = logging.getLogger("finai_edge.api.market")
@@ -79,7 +81,9 @@ async def get_bulk_quotes(
         if not symbol_list:
             raise HTTPException(status_code=400, detail="No symbols provided.")
         if len(symbol_list) > 30:
-            raise HTTPException(status_code=400, detail="Maximum 30 symbols per request.")
+            raise HTTPException(
+                status_code=400, detail="Maximum 30 symbols per request."
+            )
 
         service = get_market_service()
         quotes = await service.get_bulk_quotes(symbol_list)

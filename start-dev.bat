@@ -2,16 +2,20 @@
 REM FinAI Edge — Windows One-Click Dev Starter
 REM Run from project root: FinTechAI-AntiGravity\
 REM
-REM Opens three terminals:
-REM   1. Express  (port 8080)
-REM   2. FastAPI  (port 8000)
-REM   3. Next.js  (port 9002)
+REM Opens two terminals:
+REM   1. FastAPI  (port 8000) — auth, portfolio, AI, scanners, everything
+REM   2. Next.js  (port 9002)
+REM
+REM Express (backend/) is retired from the dev workflow — its auth, JWT and
+REM portfolio-analyze routes were migrated into FastAPI (backend/fastapi_app/api/auth.py).
+REM The Express code still exists in the repo for reference/rollback but is
+REM no longer started here. See README.md.
 REM
 REM Prerequisites:
 REM   - Node.js 18+ installed
 REM   - Python 3.11+ installed
 REM   - MongoDB running (local or Atlas URI in .env)
-REM   - backend\.env configured (see README.md)
+REM   - backend\fastapi_app reads backend\.env (see README.md)
 REM   - frontend\.env configured (see README.md)
 
 setlocal
@@ -19,11 +23,10 @@ set "ROOT=%~dp0"
 
 echo.
 echo ============================================================
-echo  FinAI Edge - Phase 1 Dev Starter
+echo  FinAI Edge - Dev Starter
 echo ============================================================
 echo.
 echo Ports:
-echo   Express  : http://localhost:8080
 echo   FastAPI  : http://localhost:8000/docs
 echo   Frontend : http://localhost:9002
 echo.
@@ -45,16 +48,7 @@ if not exist "%ROOT%frontend\.env" (
 echo Press any key to start all servers...
 pause > nul
 
-REM 1. Express backend
-start "FinAI Edge: Express (8080)" cmd /k ^
-  "cd /d "%ROOT%backend" && ^
-   echo Starting Express backend on port 8080... && ^
-   npm install --silent && ^
-   npm run dev"
-
-timeout /t 3 /nobreak > nul
-
-REM 2. FastAPI backend
+REM 1. FastAPI backend
 start "FinAI Edge: FastAPI (8000)" cmd /k ^
   "cd /d "%ROOT%backend\fastapi_app" && ^
    echo Setting up Python environment... && ^
@@ -66,7 +60,7 @@ start "FinAI Edge: FastAPI (8000)" cmd /k ^
 
 timeout /t 5 /nobreak > nul
 
-REM 3. Next.js frontend
+REM 2. Next.js frontend
 start "FinAI Edge: Frontend (9002)" cmd /k ^
   "cd /d "%ROOT%frontend" && ^
    echo Starting Next.js on port 9002... && ^
@@ -74,13 +68,12 @@ start "FinAI Edge: Frontend (9002)" cmd /k ^
    npm run dev"
 
 echo.
-echo All three servers starting...
+echo Both servers starting...
 echo.
-echo Wait ~30 seconds, then open:
+echo Wait ~20 seconds, then open:
 echo   http://localhost:9002
 echo.
 echo Health checks:
-echo   curl http://localhost:8080/health
 echo   curl http://localhost:8000/health
 echo   curl http://localhost:8000/api/v2/status
 echo.

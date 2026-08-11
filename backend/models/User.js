@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
       select: false, // Never return password in queries by default
     },
     /**
-     * Access tier. FinTechAI runs as a closed private beta — accounts are
+     * Access tier. Nivro runs as a closed private beta — accounts are
      * seeded, never self-registered.
      *   owner — full access
      *   beta  — full access, invited testers

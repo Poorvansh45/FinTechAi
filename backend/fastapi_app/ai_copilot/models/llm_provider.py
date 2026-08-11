@@ -20,7 +20,7 @@ Design rules:
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
@@ -38,10 +38,10 @@ log = logging.getLogger("finai_edge.copilot.llm")
 # returns a single-provider manager wrapping this raw LangChain model instead
 # of building the real Gemini -> Groq chain. Keeps the whole graph deterministic
 # in CI with zero API keys.
-_override_model: Optional[BaseChatModel] = None
+_override_model: BaseChatModel | None = None
 
 
-def set_model_override(model: Optional[BaseChatModel]) -> None:
+def set_model_override(model: BaseChatModel | None) -> None:
     """Force get_llm_manager() to use `model` directly (or clear with None)."""
     global _override_model
     _override_model = model
@@ -63,8 +63,8 @@ class _RawModelProvider(BaseLLMProvider):
         self,
         messages: Sequence[BaseMessage],
         *,
-        tools: Optional[list] = None,
-        config: Optional[RunnableConfig] = None,
+        tools: list | None = None,
+        config: RunnableConfig | None = None,
     ) -> AIMessage:
         bound = self._model.bind_tools(tools) if tools else self._model
         return await bound.ainvoke(messages, config=config)
@@ -73,8 +73,8 @@ class _RawModelProvider(BaseLLMProvider):
         self,
         messages: Sequence[BaseMessage],
         *,
-        tools: Optional[list] = None,
-        config: Optional[RunnableConfig] = None,
+        tools: list | None = None,
+        config: RunnableConfig | None = None,
     ) -> AIMessage:
         bound = self._model.bind_tools(tools) if tools else self._model
         return bound.invoke(messages, config=config)
@@ -108,8 +108,14 @@ def provider_status() -> dict:
     return {
         "priority": ["gemini", "groq"],
         "providers": {
-            "gemini": {"configured": settings.gemini_available, "model": settings.gemini_model},
-            "groq": {"configured": settings.groq_available, "model": settings.groq_model},
+            "gemini": {
+                "configured": settings.gemini_available,
+                "model": settings.gemini_model,
+            },
+            "groq": {
+                "configured": settings.groq_available,
+                "model": settings.groq_model,
+            },
         },
         "configured": settings.copilot_llm_available,
         "override_active": _override_model is not None,

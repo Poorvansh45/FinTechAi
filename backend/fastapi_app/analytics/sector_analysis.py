@@ -4,12 +4,10 @@ FinAI Edge — Sector Analysis Engine
 Sector exposure, concentration, and bias detection.
 """
 
-from typing import Optional
 from utils.helpers import (
-    get_sector_for_ticker,
-    DEFENSIVE_SECTORS,
     AGGRESSIVE_SECTORS,
-    safe_divide,
+    DEFENSIVE_SECTORS,
+    get_sector_for_ticker,
 )
 
 
@@ -37,7 +35,12 @@ def compute_sector_exposure(
         sector = h.get("sector") or get_sector_for_ticker(ticker)
 
         if sector not in sector_map:
-            sector_map[sector] = {"sector": sector, "value": 0, "tickers": [], "stock_count": 0}
+            sector_map[sector] = {
+                "sector": sector,
+                "value": 0,
+                "tickers": [],
+                "stock_count": 0,
+            }
 
         sector_map[sector]["value"] += value
         sector_map[sector]["tickers"].append(ticker)
@@ -45,13 +48,15 @@ def compute_sector_exposure(
 
     result = []
     for sector, data in sector_map.items():
-        result.append({
-            "sector": sector,
-            "value": round(data["value"], 2),
-            "weight_pct": round(data["value"] / total_value * 100, 1),
-            "stock_count": data["stock_count"],
-            "tickers": data["tickers"],
-        })
+        result.append(
+            {
+                "sector": sector,
+                "value": round(data["value"], 2),
+                "weight_pct": round(data["value"] / total_value * 100, 1),
+                "stock_count": data["stock_count"],
+                "tickers": data["tickers"],
+            }
+        )
 
     result.sort(key=lambda x: x["weight_pct"], reverse=True)
     return result

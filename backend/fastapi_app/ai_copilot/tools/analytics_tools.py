@@ -43,7 +43,9 @@ def calculate_volatility(daily_returns: list[float]) -> str:
 
 
 @tool
-def calculate_risk(annual_return_pct: float, annual_volatility_pct: float, risk_free_pct: float = 6.5) -> str:
+def calculate_risk(
+    annual_return_pct: float, annual_volatility_pct: float, risk_free_pct: float = 6.5
+) -> str:
     """Sharpe ratio and a plain-language risk read from an annual return %, annual
     volatility %, and a risk-free rate % (default 6.5% ~ Indian 10Y). Use to explain
     whether returns justify the risk taken."""

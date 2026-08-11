@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { authHeader } from "@/lib/api/authToken";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -899,7 +900,7 @@ function AIMarketSummary({ data }: { data: MissionData | null }) {
                 <div className="text-[14px] font-bold text-white">AI Market Summary</div>
                 <div className="text-[9px] text-slate-500 flex items-center gap-1.5 mt-0.5">
                   <Wifi className="w-2.5 h-2.5 text-emerald-500" />
-                  Live · FinTechAI Intelligence Engine
+                  Live · Nivro Intelligence Engine
                 </div>
               </div>
             </div>
@@ -947,7 +948,7 @@ function AIMarketSummary({ data }: { data: MissionData | null }) {
 
           {/* Footer */}
           <div className="mt-4 pt-3 border-t border-white/[0.05] flex items-center justify-between">
-            <span className="text-[9px] text-slate-700">Updated every 60s · Powered by FinTechAI</span>
+            <span className="text-[9px] text-slate-700">Updated every 60s · Powered by Nivro</span>
             <span className="text-[9px] font-bold text-purple-400">
               Tomorrow: {fg >= 58 ? 'Cautiously Bullish' : fg >= 45 ? 'Neutral ↗' : 'Risk Management Priority'}
             </span>
@@ -971,7 +972,7 @@ export default function MissionControlPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/markets/mission-control');
+      const res = await fetch('/api/markets/mission-control', { headers: await authHeader() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData(await res.json());
       setLastRefresh(new Date());
@@ -1066,7 +1067,7 @@ export default function MissionControlPage() {
         {/* Footer */}
         <motion.div {...fadeUp(0.3)} className="text-center pb-4">
           <p className="text-[9px] text-slate-700 uppercase tracking-widest">
-            FinTechAI Intelligence Engine · Yahoo Finance · {loading ? 'Refreshing…' : '60s auto-refresh'} · Prices may be delayed 15min
+            Nivro Intelligence Engine · Yahoo Finance · {loading ? 'Refreshing…' : '60s auto-refresh'} · Prices may be delayed 15min
           </p>
         </motion.div>
       </div>

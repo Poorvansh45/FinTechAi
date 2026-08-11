@@ -65,7 +65,10 @@ async def publish_staged(db, name: str) -> None:
     `name` to end up empty (a real zero-result outcome), so we create an empty
     staging collection first rather than skipping the publish."""
     staging = db.get_collection(staging_name(name))
-    if await staging.count_documents({}) == 0 and staging_name(name) not in await db.list_collection_names():
+    if (
+        await staging.count_documents({}) == 0
+        and staging_name(name) not in await db.list_collection_names()
+    ):
         await staging.insert_one({"__empty__": True})
         await staging.delete_one({"__empty__": True})
     await staging.rename(name, dropTarget=True)

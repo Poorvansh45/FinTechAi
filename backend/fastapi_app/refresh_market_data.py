@@ -11,20 +11,23 @@ import asyncio
 import logging
 import os
 import sys
-import certifi
 from datetime import datetime, timezone
+
+import certifi
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # Add parent directory to sys.path so we can import local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from config import get_settings
+from schedulers.daily_refresh import run_daily_scan
 from services.market_service import get_market_service
 from services.universe_cache import get_universe
-from schedulers.daily_refresh import run_daily_scan
 
 # Ensure log directory exists
-os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"), exist_ok=True)
+os.makedirs(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"), exist_ok=True
+)
 
 # Configure logging to console and log file
 log_format = "[Ingest-CLI] %(asctime)s %(levelname)s: %(message)s"
@@ -33,8 +36,13 @@ logging.basicConfig(
     format=log_format,
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "ingestion.log"), encoding="utf-8")
-    ]
+        logging.FileHandler(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "logs", "ingestion.log"
+            ),
+            encoding="utf-8",
+        ),
+    ],
 )
 log = logging.getLogger("ingest_cli")
 
@@ -46,11 +54,31 @@ class MockAppState:
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="FinAI Edge Manual Stock Ingestion & Scanner")
-    parser.add_argument("--limit", type=int, default=None, help="Limit scanning to first N symbols (for fast dev testing)")
-    parser.add_argument("--symbols", type=str, default=None, help="Comma-separated list of symbols to scan (e.g. RELIANCE,TCS)")
-    parser.add_argument("--dry-run", action="store_true", help="Fetch data and run indicators logic without writing to MongoDB")
-    parser.add_argument("--force", action="store_true", help="Force run even if today's scan metadata says it already completed")
+    parser = argparse.ArgumentParser(
+        description="FinAI Edge Manual Stock Ingestion & Scanner"
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit scanning to first N symbols (for fast dev testing)",
+    )
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        default=None,
+        help="Comma-separated list of symbols to scan (e.g. RELIANCE,TCS)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Fetch data and run indicators logic without writing to MongoDB",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force run even if today's scan metadata says it already completed",
+    )
     args = parser.parse_args()
 
     settings = get_settings()
@@ -65,7 +93,7 @@ async def main():
         mongo_client = AsyncIOMotorClient(
             settings.mongodb_uri,
             serverSelectionTimeoutMS=5000,
-            tlsCAFile=certifi.where()
+            tlsCAFile=certifi.where(),
         )
         await mongo_client.admin.command("ping")
         db = mongo_client.get_default_database("finai_edge")
@@ -81,7 +109,10 @@ async def main():
     # 3. Universe Discovery
     symbols = []
     if args.symbols:
-        symbols = [sym.strip() + ".NS" if "." not in sym else sym.strip() for sym in args.symbols.split(",")]
+        symbols = [
+            sym.strip() + ".NS" if "." not in sym else sym.strip()
+            for sym in args.symbols.split(",")
+        ]
         log.info(f"Using explicitly specified symbols: {symbols}")
     else:
         log.info("Loading stock universe...")
@@ -100,31 +131,38 @@ async def main():
     log.info(f"Stock universe loaded. Total symbols: {len(symbols)}")
 
     if args.limit:
-        symbols = symbols[:args.limit]
+        symbols = symbols[: args.limit]
         log.info(f"Limit applied. Scanning first {len(symbols)} symbols.")
 
     # 4. App State and execution
     app_state = MockAppState(db if not args.dry_run else None, market_svc)
-    
+
     # Temporarily monkey-patch get_universe if we have custom/limited symbols or dry-run mock
     if args.symbols or args.limit:
+
         async def mock_get_universe(database_instance):
             return symbols
+
         import services.universe_cache
+
         original_get_universe = services.universe_cache.get_universe
         services.universe_cache.get_universe = mock_get_universe
 
     start_time = datetime.now(timezone.utc)
     try:
         log.info("Starting scan execution...")
-        await run_daily_scan(app_state, force=args.force or args.limit is not None or args.symbols is not None)
+        await run_daily_scan(
+            app_state,
+            force=args.force or args.limit is not None or args.symbols is not None,
+        )
         log.info("Scan execution finished successfully.")
-    except Exception as e:
-        log.error(f"Scan pipeline crashed: {e}", exc_info=True)
+    except Exception:
+        log.exception("Scan pipeline crashed")
     finally:
         # Restore monkey-patched functions if modified
         if args.symbols or args.limit:
             import services.universe_cache
+
             services.universe_cache.get_universe = original_get_universe
         mongo_client.close()
 

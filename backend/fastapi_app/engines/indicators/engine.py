@@ -9,19 +9,18 @@ recomputing EMA/RSI/MACD themselves (the previous duplication).
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, asdict
-from typing import Optional
+from dataclasses import asdict, dataclass
 
 import pandas as pd
 
-from .ema import ema, ema_distance_pct
-from .rsi import rsi
-from .macd import macd
 from .atr import atr, atr_pct
+from .ema import ema, ema_distance_pct
+from .macd import macd
+from .rsi import rsi
 from .volume import avg_volume, volume_ratio
 
 
-def _safe(v) -> Optional[float]:
+def _safe(v) -> float | None:
     try:
         f = float(v)
         return None if (math.isnan(f) or math.isinf(f)) else round(f, 4)
@@ -31,21 +30,21 @@ def _safe(v) -> Optional[float]:
 
 @dataclass
 class IndicatorSet:
-    price: Optional[float] = None
-    ema_9: Optional[float] = None
-    ema_50: Optional[float] = None
-    ema_200: Optional[float] = None
-    ema_50_dist_pct: Optional[float] = None
-    ema_200_dist_pct: Optional[float] = None
-    rsi_14: Optional[float] = None
-    macd: Optional[float] = None
-    macd_signal: Optional[float] = None
-    macd_hist: Optional[float] = None
-    atr_14: Optional[float] = None
-    atr_pct: Optional[float] = None
-    avg_volume_20: Optional[float] = None
-    volume: Optional[float] = None
-    volume_ratio: Optional[float] = None
+    price: float | None = None
+    ema_9: float | None = None
+    ema_50: float | None = None
+    ema_200: float | None = None
+    ema_50_dist_pct: float | None = None
+    ema_200_dist_pct: float | None = None
+    rsi_14: float | None = None
+    macd: float | None = None
+    macd_signal: float | None = None
+    macd_hist: float | None = None
+    atr_14: float | None = None
+    atr_pct: float | None = None
+    avg_volume_20: float | None = None
+    volume: float | None = None
+    volume_ratio: float | None = None
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -73,9 +72,15 @@ class IndicatorEngine:
         e200 = _safe(ema_200.iloc[-1])
 
         vol_series = (
-            pd.to_numeric(df[cols["volume"]], errors="coerce") if "volume" in cols else None
+            pd.to_numeric(df[cols["volume"]], errors="coerce")
+            if "volume" in cols
+            else None
         )
-        avg_vol_20 = _safe(avg_volume(vol_series, 20).iloc[-1]) if vol_series is not None else None
+        avg_vol_20 = (
+            _safe(avg_volume(vol_series, 20).iloc[-1])
+            if vol_series is not None
+            else None
+        )
         cur_vol = _safe(vol_series.iloc[-1]) if vol_series is not None else None
 
         atr_val = None
@@ -88,7 +93,9 @@ class IndicatorEngine:
             ema_50=e50,
             ema_200=e200,
             ema_50_dist_pct=ema_distance_pct(price, e50) if price is not None else None,
-            ema_200_dist_pct=ema_distance_pct(price, e200) if price is not None else None,
+            ema_200_dist_pct=ema_distance_pct(price, e200)
+            if price is not None
+            else None,
             rsi_14=_safe(rsi_series.iloc[-1]),
             macd=_safe(macd_res.macd.iloc[-1]),
             macd_signal=_safe(macd_res.signal.iloc[-1]),

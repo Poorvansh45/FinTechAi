@@ -117,7 +117,7 @@ function AuthPageContent() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // FinTechAI is a closed private beta — accounts are seeded server-side and
+  // Nivro is a closed private beta — accounts are seeded server-side and
   // there is no /api/auth/register route. Sign-in is the only mode; `isSignup`
   // stays for the sign-up-only JSX branches below, which now never render.
   const mode = 'signin' as const;
@@ -184,7 +184,7 @@ function AuthPageContent() {
       // rather than leaving the user retrying a password that is actually fine.
       const isNotInvited = err instanceof AuthApiError && err.status === 403;
       const msg = isNotInvited
-        ? 'FinTechAI is currently invite-only and this account is not active.'
+        ? 'Nivro is currently invite-only and this account is not active.'
         : err instanceof AuthApiError
           ? err.message
           : 'Something went wrong. Please try again.';
@@ -436,9 +436,9 @@ function AuthPageContent() {
           
           {/* Mobile-only Branding Header */}
           <div className="lg:hidden flex items-center gap-2.5 mb-6">
-            <img src="/logo.png" alt="FinTechAI Logo" className="w-7 h-7 object-contain" />
+            <img src="/logo.png" alt="Nivro Logo" className="w-7 h-7 object-contain" />
             <div className="leading-none">
-              <div className="font-bold text-[14px] tracking-tight text-white">FinTechAI</div>
+              <div className="font-bold text-[14px] tracking-tight text-white">Nivro</div>
               <div className="text-[7px] font-bold tracking-widest uppercase text-slate-500 mt-0.5">TRADING INTELLIGENCE</div>
             </div>
           </div>
@@ -483,7 +483,7 @@ function AuthPageContent() {
             </div>
 
             <p className="mb-4 text-center text-[11px] leading-relaxed text-slate-500">
-              FinTechAI is currently an invite-only private beta.
+              Nivro is currently an invite-only private beta.
               Accounts are created by the team — there is no public sign-up.
             </p>
 

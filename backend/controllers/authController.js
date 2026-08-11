@@ -4,7 +4,7 @@ const { jwtCookieOptions } = require('../utils/generateToken');
 const HttpError = require('../utils/httpError');
 const asyncHandler = require('../utils/asyncHandler');
 
-// NOTE: there is no `register` handler. FinTechAI runs as a closed private
+// NOTE: there is no `register` handler. Nivro runs as a closed private
 // beta — accounts are seeded via `scripts/seedUsers.js` and self-registration
 // is not supported. See docs/PRIVATE-BETA.md.
 
@@ -32,7 +32,7 @@ const login = asyncHandler(async (req, res, next) => {
     // different message for a wrong password vs a deactivated account would let
     // an outsider enumerate which addresses exist on the beta.
     if (user.isActive === false) {
-      throw new HttpError(403, 'This account is not active. FinTechAI is currently invite-only.');
+      throw new HttpError(403, 'This account is not active. Nivro is currently invite-only.');
     }
 
     // Issue JWT cookie

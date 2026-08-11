@@ -1,6 +1,6 @@
-# FinTechAI — Private Beta Operations
+# Nivro — Private Beta Operations
 
-FinTechAI runs as a **closed, invite-only beta**. There is no public sign-up:
+Nivro runs as a **closed, invite-only beta**. There is no public sign-up:
 `POST /api/auth/register` does not exist, and the FastAPI analytics API denies
 every request by default.
 

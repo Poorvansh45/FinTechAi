@@ -1,13 +1,13 @@
-# FinTechAI — Pre-Launch Compliance & Product Transformation Blueprint
+# Nivro — Pre-Launch Compliance & Product Transformation Blueprint
 
 > **Status:** DRAFT FOR REVIEW — no code has been written or files modified.
 > **Nothing in this document is legal advice.** Items marked **LEGAL REVIEW REQUIRED**
 > must be confirmed by a qualified Indian securities lawyer before launch. No wording,
-> renaming or structural change described here makes FinTechAI legally compliant.
+> renaming or structural change described here makes Nivro legally compliant.
 
 ## Context
 
-FinTechAI is preparing a public launch in India. The prior audit established that the
+Nivro is preparing a public launch in India. The prior audit established that the
 regulatory exposure sits in **what the product does**, not what it says: the Screener
 emits, for a named security, an entry price, stop-loss, target, expected return,
 confidence score and risk-reward ratio derived from technical analysis. Per SEBI's RA
@@ -214,8 +214,8 @@ screener pages inherit it (currently six have none).
 - **REMOVE:** dead `components/landing/testimonials.tsx` (3 more fabricated quotes, unrouted).
 - **MODIFY:** the mock live ticker (`L140-144`, NVDA/TSLA/AAPL with fake prices and "flash"
   animations) reads as live market data. Either label it clearly as an illustration or use
-  real delayed data. Also note the copy says **"FinAI Edge"** (L71) while the product is
-  "FinTechAI" — inconsistent branding in user-facing text.
+  real delayed data. Also note the copy says **"Nivro"** (L71) while the product is
+  "Nivro" — inconsistent branding in user-facing text.
 - **REPLACE WITH:** feature descriptions, methodology explanations, screenshots. If you want
   social proof later, it must be real, attributable, consented, and free of performance claims.
 
@@ -398,7 +398,7 @@ deep-links ask — is **squarely inside current policy** and will be answered.
 1. **Enforcement must not be prompt-only.** A system prompt is bypassable. Use (a) a
    pre-flight intent classifier, (b) hardened prompts, (c) a post-generation output check.
    Fail closed on all three.
-2. **Refusal copy** must be useful, not a wall: state that FinTechAI does not provide
+2. **Refusal copy** must be useful, not a wall: state that Nivro does not provide
    recommendations, offer the factual alternative, point to a SEBI-registered adviser.
 3. **Remove trade parameters from the deep links** (`launchpad:506`, `alpha-zone:464`,
    `ipo-vintage:768`). They currently send entry, stop, risk % and projected return — the

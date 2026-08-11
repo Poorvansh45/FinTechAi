@@ -11,23 +11,26 @@ COPY TO: backend/fastapi_app/api/analytics.py
 
 import logging
 import time
+
 from fastapi import APIRouter, HTTPException
-from schemas.portfolio import AnalyzeHoldingsRequest
-from portfolio.calculator import compute_all_holdings
+
 from analytics import (
-    compute_sector_exposure,
-    compute_sector_concentration,
-    detect_sector_bias,
     compute_concentration_score,
     compute_portfolio_health,
+    compute_sector_concentration,
+    compute_sector_exposure,
+    detect_sector_bias,
     estimate_risk_level,
 )
+from portfolio.calculator import compute_all_holdings
+from schemas.portfolio import AnalyzeHoldingsRequest
 
 log = logging.getLogger("finai_edge.api.analytics")
 router = APIRouter()
 
 
 # ── Shared fast helper ─────────────────────────────────────────────
+
 
 def _fast_analytics(holdings_raw: list[dict]) -> dict:
     """
@@ -37,7 +40,7 @@ def _fast_analytics(holdings_raw: list[dict]) -> dict:
     """
     t0 = time.perf_counter()
 
-    enriched, totals = compute_all_holdings(holdings_raw)
+    enriched, _totals = compute_all_holdings(holdings_raw)
 
     sector_exposure = compute_sector_exposure(enriched)
     sector_concentration = compute_sector_concentration(sector_exposure)
@@ -64,19 +67,20 @@ def _fast_analytics(holdings_raw: list[dict]) -> dict:
     )
 
     elapsed = time.perf_counter() - t0
-    log.debug(f"[analytics] fast_analytics: {n} holdings in {elapsed*1000:.1f}ms")
+    log.debug(f"[analytics] fast_analytics: {n} holdings in {elapsed * 1000:.1f}ms")
 
     return {
-        "sector_exposure":      sector_exposure,
+        "sector_exposure": sector_exposure,
         "sector_concentration": sector_concentration,
-        "concentration":        concentration,
+        "concentration": concentration,
         "diversification_score": diversification_score,
-        "risk":                 {"risk_level": risk_level, "data_source": "estimated"},
-        "health":               health,
+        "risk": {"risk_level": risk_level, "data_source": "estimated"},
+        "health": health,
     }
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
+
 
 @router.post("/risk")
 async def risk_analysis(req: AnalyzeHoldingsRequest):
@@ -92,13 +96,13 @@ async def risk_analysis(req: AnalyzeHoldingsRequest):
         result = _fast_analytics(holdings)
         return {
             "success": True,
-            "risk":                  result["risk"],
-            "concentration":         result["concentration"],
+            "risk": result["risk"],
+            "concentration": result["concentration"],
             "diversification_score": result["diversification_score"],
-            "data_source":           "estimated",
+            "data_source": "estimated",
         }
     except Exception as e:
-        log.error(f"Risk analysis failed: {e}", exc_info=True)
+        log.exception(f"Risk analysis failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -113,16 +117,15 @@ async def sector_analysis(req: AnalyzeHoldingsRequest):
     try:
         holdings = [h.model_dump() for h in req.holdings]
         result = _fast_analytics(holdings)
-        enriched, _ = compute_all_holdings(holdings)
         exposure = result["sector_exposure"]
         return {
-            "success":              True,
-            "sector_exposure":      exposure,
+            "success": True,
+            "sector_exposure": exposure,
             "sector_concentration": result["sector_concentration"],
-            "sector_bias":          detect_sector_bias(exposure),
+            "sector_bias": detect_sector_bias(exposure),
         }
     except Exception as e:
-        log.error(f"Sector analysis failed: {e}", exc_info=True)
+        log.exception(f"Sector analysis failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -138,13 +141,13 @@ async def diversification_analysis(req: AnalyzeHoldingsRequest):
         holdings = [h.model_dump() for h in req.holdings]
         result = _fast_analytics(holdings)
         return {
-            "success":              True,
+            "success": True,
             "diversification_score": result["diversification_score"],
-            "concentration":        result["concentration"],
-            "health":               result["health"],
+            "concentration": result["concentration"],
+            "health": result["health"],
         }
     except Exception as e:
-        log.error(f"Diversification analysis failed: {e}", exc_info=True)
+        log.exception(f"Diversification analysis failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -171,11 +174,11 @@ async def concentration_analysis(req: AnalyzeHoldingsRequest):
             health_data=result["health"],
         )
         return {
-            "success":               True,
-            "concentration":         result["concentration"],
+            "success": True,
+            "concentration": result["concentration"],
             "rebalance_suggestions": rebalance,
-            "health":                result["health"],
+            "health": result["health"],
         }
     except Exception as e:
-        log.error(f"Concentration analysis failed: {e}", exc_info=True)
+        log.exception(f"Concentration analysis failed")
         raise HTTPException(status_code=500, detail=str(e))

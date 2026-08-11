@@ -5,7 +5,9 @@ Portfolio analysis, health check, rebalancing, and persistence endpoints.
 """
 
 import logging
-from fastapi import APIRouter, Request, HTTPException, Depends
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+
 from schemas.portfolio import (
     AnalyzeHoldingsRequest,
     AnalyzePortfolioRequest,
@@ -33,7 +35,7 @@ async def analyze_holdings(req: AnalyzeHoldingsRequest):
         result = await service.analyze_holdings(holdings)
         return {"success": True, **result}
     except Exception as e:
-        log.error(f"Holdings analysis failed: {e}", exc_info=True)
+        log.exception(f"Holdings analysis failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -60,7 +62,7 @@ async def analyze_portfolio(req: AnalyzePortfolioRequest):
     except HTTPException:
         raise
     except Exception as e:
-        log.error(f"Portfolio analysis failed: {e}", exc_info=True)
+        log.exception(f"Portfolio analysis failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -78,7 +80,7 @@ async def portfolio_health(req: HealthCheckRequest):
             "concentration": result.get("concentration", {}),
         }
     except Exception as e:
-        log.error(f"Health check failed: {e}", exc_info=True)
+        log.exception(f"Health check failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -95,7 +97,7 @@ async def rebalance_suggestions(req: RebalanceRequest):
             "health": result.get("health", {}),
         }
     except Exception as e:
-        log.error(f"Rebalance failed: {e}", exc_info=True)
+        log.exception(f"Rebalance failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -107,7 +109,7 @@ async def save_portfolio(request: Request, user_id: str = Depends(get_current_us
             raise HTTPException(
                 status_code=503,
                 detail="MongoDB is not connected. Portfolio persistence is unavailable. "
-                       "Check MONGODB_URI in your .env file.",
+                "Check MONGODB_URI in your .env file.",
             )
         from models.portfolio import save_portfolio as db_save
 
@@ -131,12 +133,14 @@ async def save_portfolio(request: Request, user_id: str = Depends(get_current_us
     except HTTPException:
         raise
     except Exception as e:
-        log.error(f"Save portfolio failed: {e}", exc_info=True)
+        log.exception(f"Save portfolio failed")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/saved")
-async def list_saved_portfolios(request: Request, user_id: str = Depends(get_current_user)):
+async def list_saved_portfolios(
+    request: Request, user_id: str = Depends(get_current_user)
+):
     """List saved portfolios for the authenticated user."""
     try:
         from models.portfolio import get_portfolios
@@ -145,5 +149,5 @@ async def list_saved_portfolios(request: Request, user_id: str = Depends(get_cur
         portfolios = await get_portfolios(db, user_id)
         return {"success": True, "portfolios": portfolios}
     except Exception as e:
-        log.error(f"List portfolios failed: {e}", exc_info=True)
+        log.exception(f"List portfolios failed")
         raise HTTPException(status_code=500, detail=str(e))

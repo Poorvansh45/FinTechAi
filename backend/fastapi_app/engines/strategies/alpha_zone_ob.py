@@ -25,15 +25,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 SWING_LEN = 5
-LOOKBACK = 500                 # recent candles considered for revisitable zones
-NEAR_MAX_PCT = 3.0             # price may sit up to this % above the zone top
-ABOVE_MAX_PCT = 1.5           # actionable "above zone" band (vs "near zone")
+LOOKBACK = 500  # recent candles considered for revisitable zones
+NEAR_MAX_PCT = 3.0  # price may sit up to this % above the zone top
+ABOVE_MAX_PCT = 1.5  # actionable "above zone" band (vs "near zone")
 
 # Institutional-score weights (sum = 1.0).
 _INST_WEIGHTS = {"disp": 0.30, "vol": 0.25, "spr": 0.20, "base": 0.15, "obq": 0.10}
@@ -49,7 +48,7 @@ class AlphaZoneOB:
     zone_high: float
     ob_idx: int
     break_idx: int
-    event: str                 # "BOS" | "CHoCH"
+    event: str  # "BOS" | "CHoCH"
     start_date: str
     formed_date: str
     age_days: int
@@ -65,7 +64,9 @@ class AlphaZoneOB:
         """0 if price is inside the zone, else signed % above the zone top."""
         if self.zone_low <= price <= self.zone_high:
             return 0.0
-        return (price - self.zone_high) / self.zone_high * 100.0 if self.zone_high else 0.0
+        return (
+            (price - self.zone_high) / self.zone_high * 100.0 if self.zone_high else 0.0
+        )
 
 
 # ── Volatility parsing (parsedHigh / parsedLow) ─────────────────────────────────
@@ -81,13 +82,19 @@ def _atr_sma(df: pd.DataFrame, period: int = 14) -> np.ndarray:
 # ── Internal swings (centred pivots, leg size 5) ────────────────────────────────
 def _swings(df: pd.DataFrame, n: int = SWING_LEN):
     win = 2 * n + 1
-    sh = (df["High"] == df["High"].rolling(win, center=True, min_periods=win).max()).to_numpy()
-    sl = (df["Low"] == df["Low"].rolling(win, center=True, min_periods=win).min()).to_numpy()
+    sh = (
+        df["High"] == df["High"].rolling(win, center=True, min_periods=win).max()
+    ).to_numpy()
+    sl = (
+        df["Low"] == df["Low"].rolling(win, center=True, min_periods=win).min()
+    ).to_numpy()
     return sh, sl
 
 
 # ── Bullish internal structure events (BOS / CHoCH) ─────────────────────────────
-def _bullish_structure_events(df: pd.DataFrame, sh: np.ndarray, sl: np.ndarray) -> list[dict]:
+def _bullish_structure_events(
+    df: pd.DataFrame, sh: np.ndarray, sl: np.ndarray
+) -> list[dict]:
     """Emit bullish internal breaks with the leg start (last swing low) and break bar."""
     high = df["High"].to_numpy("float64")
     low = df["Low"].to_numpy("float64")
@@ -95,23 +102,25 @@ def _bullish_structure_events(df: pd.DataFrame, sh: np.ndarray, sl: np.ndarray) 
     n = len(df)
 
     events: list[dict] = []
-    trend: Optional[str] = None
+    trend: str | None = None
     last_sh = last_sl = None
-    last_sh_idx = last_sl_idx = None
+    last_sl_idx = None
 
     for i in range(n):
         if sh[i]:
-            last_sh, last_sh_idx = high[i], i
+            last_sh = high[i]
         if sl[i]:
             last_sl, last_sl_idx = low[i], i
 
         # Bullish break: close crosses above the last swing high.
         if last_sh is not None and close[i] > last_sh:
-            events.append({
-                "event": "BOS" if trend == "bullish" else "CHoCH",
-                "break_idx": i,
-                "leg_start_idx": last_sl_idx,
-            })
+            events.append(
+                {
+                    "event": "BOS" if trend == "bullish" else "CHoCH",
+                    "break_idx": i,
+                    "leg_start_idx": last_sl_idx,
+                }
+            )
             trend = "bullish"
             last_sh = None
         # Bearish break only flips the trend (so the next bullish break is tagged right).
@@ -123,8 +132,14 @@ def _bullish_structure_events(df: pd.DataFrame, sh: np.ndarray, sl: np.ndarray) 
 
 
 def _institutional_score(
-    high: np.ndarray, low: np.ndarray, close: np.ndarray, openp: np.ndarray,
-    vol: np.ndarray, atr: np.ndarray, ob_idx: int, brk_idx: int,
+    high: np.ndarray,
+    low: np.ndarray,
+    close: np.ndarray,
+    openp: np.ndarray,
+    vol: np.ndarray,
+    atr: np.ndarray,
+    ob_idx: int,
+    brk_idx: int,
     zone_high: float,
 ) -> tuple[float, dict]:
     """Real institutional score from the formation window (0-100 sub-scores)."""
@@ -137,13 +152,13 @@ def _institutional_score(
     # VOL — volume expansion vs the 20-bar baseline before the OB.
     base_lo = max(0, ob_idx - 20)
     prior = vol[base_lo:ob_idx]
-    depart = vol[ob_idx:brk_idx + 1]
+    depart = vol[ob_idx : brk_idx + 1]
     prior_mean = float(prior.mean()) if prior.size else float(depart.mean() or 1.0)
     v = (float(depart.mean()) / prior_mean) if prior_mean > 0 else 1.0
     s_vol = _clamp((v - 1.0) / 1.5 * 100.0)
 
     # SPR — departure candle spread vs ATR (clean displacement).
-    rng = (high[ob_idx:brk_idx + 1] - low[ob_idx:brk_idx + 1])
+    rng = high[ob_idx : brk_idx + 1] - low[ob_idx : brk_idx + 1]
     s = (float(rng.mean()) / a) if rng.size else 0.0
     s_spr = _clamp((s - 0.8) / 1.2 * 100.0)
 
@@ -157,12 +172,19 @@ def _institutional_score(
 
     # OBQ — origin candle absorption (lower-wick ratio).
     rng_ob = high[ob_idx] - low[ob_idx]
-    lw = ((min(openp[ob_idx], close[ob_idx]) - low[ob_idx]) / rng_ob) if rng_ob > 0 else 0.0
+    lw = (
+        ((min(openp[ob_idx], close[ob_idx]) - low[ob_idx]) / rng_ob)
+        if rng_ob > 0
+        else 0.0
+    )
     s_obq = _clamp(lw * 100.0)
 
     subs = {
-        "disp": round(s_disp, 1), "vol": round(s_vol, 1), "spr": round(s_spr, 1),
-        "base": round(s_base, 1), "obq": round(s_obq, 1),
+        "disp": round(s_disp, 1),
+        "vol": round(s_vol, 1),
+        "spr": round(s_spr, 1),
+        "base": round(s_base, 1),
+        "obq": round(s_obq, 1),
     }
     score = sum(subs[k] * _INST_WEIGHTS[k] for k in _INST_WEIGHTS)
     return round(_clamp(score), 1), subs
@@ -218,7 +240,7 @@ def detect_internal_bullish_obs(
             continue
 
         # VALIDITY: invalid if any candle after the break CLOSES below the floor.
-        after = close[brk + 1:]
+        after = close[brk + 1 :]
         if after.size and bool((after < zl).any()):
             continue
 
@@ -235,15 +257,21 @@ def detect_internal_bullish_obs(
             high, low, close, openp, vol, atr, ob_idx, brk, zh
         )
         c_brk = pd.Timestamp(dates[brk])
-        obs.append(AlphaZoneOB(
-            zone_low=round(zl, 2), zone_high=round(zh, 2),
-            ob_idx=ob_idx, break_idx=brk, event=ev["event"],
-            start_date=pd.Timestamp(dates[leg_start]).strftime("%Y-%m-%d"),
-            formed_date=c_brk.strftime("%Y-%m-%d"),
-            age_days=max(0, (now - c_brk).days),
-            touch_count=touches,
-            institutional_score=inst_score, inst_breakdown=inst_bd,
-        ))
+        obs.append(
+            AlphaZoneOB(
+                zone_low=round(zl, 2),
+                zone_high=round(zh, 2),
+                ob_idx=ob_idx,
+                break_idx=brk,
+                event=ev["event"],
+                start_date=pd.Timestamp(dates[leg_start]).strftime("%Y-%m-%d"),
+                formed_date=c_brk.strftime("%Y-%m-%d"),
+                age_days=max(0, (now - c_brk).days),
+                touch_count=touches,
+                institutional_score=inst_score,
+                inst_breakdown=inst_bd,
+            )
+        )
 
     return _dedupe_overlaps(obs)
 
@@ -253,29 +281,39 @@ def _dedupe_overlaps(obs: list[AlphaZoneOB]) -> list[AlphaZoneOB]:
     kept: list[AlphaZoneOB] = []
     for ob in obs:
         overlap_idx = next(
-            (i for i, k in enumerate(kept)
-             if ob.zone_low <= k.zone_high and ob.zone_high >= k.zone_low), None
+            (
+                i
+                for i, k in enumerate(kept)
+                if ob.zone_low <= k.zone_high and ob.zone_high >= k.zone_low
+            ),
+            None,
         )
         if overlap_idx is None:
             kept.append(ob)
             continue
         k = kept[overlap_idx]
-        if (ob.institutional_score, ob.break_idx) >= (k.institutional_score, k.break_idx):
+        if (ob.institutional_score, ob.break_idx) >= (
+            k.institutional_score,
+            k.break_idx,
+        ):
             kept[overlap_idx] = ob
     return kept
 
 
 def nearest_reacting_ob(
-    df: pd.DataFrame, price: float, lookback: int = LOOKBACK,
+    df: pd.DataFrame,
+    price: float,
+    lookback: int = LOOKBACK,
     near_max_pct: float = NEAR_MAX_PCT,
-) -> Optional[AlphaZoneOB]:
+) -> AlphaZoneOB | None:
     """
     The active Alpha Zone: among all valid internal bullish OBs, the one price is
     currently reacting to — inside the zone, or up to `near_max_pct`% above its
     top. Nearest by distance-to-zone wins; ties go to the more recent zone.
     """
     elig = [
-        ob for ob in detect_internal_bullish_obs(df, lookback=lookback)
+        ob
+        for ob in detect_internal_bullish_obs(df, lookback=lookback)
         if ob.zone_low <= price <= ob.zone_high * (1.0 + near_max_pct / 100.0)
     ]
     if not elig:

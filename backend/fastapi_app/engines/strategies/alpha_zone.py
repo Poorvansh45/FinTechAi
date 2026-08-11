@@ -15,17 +15,20 @@ real price structure:
 
 from __future__ import annotations
 
-from typing import Optional
-
+from .alpha_zone_ob import ABOVE_MAX_PCT, NEAR_MAX_PCT, AlphaZoneOB
 from .base import TradePlan
-from .alpha_zone_ob import AlphaZoneOB, ABOVE_MAX_PCT, NEAR_MAX_PCT
 
-ALPHAZONE_REWARD_MULTIPLE = 3.0     # institutional swings target larger moves
+ALPHAZONE_REWARD_MULTIPLE = 3.0  # institutional swings target larger moves
 HOLDING_PERIOD = "2-8 weeks"
-DAILY_PROGRESS_PCT = 0.8            # ~0.8%/day assumed swing pace toward target
+DAILY_PROGRESS_PCT = 0.8  # ~0.8%/day assumed swing pace toward target
 
 # Confidence weights (sum = 1.0). No RSI.
-_CONF_WEIGHTS = {"institutional": 0.40, "proximity": 0.25, "freshness": 0.20, "trend": 0.15}
+_CONF_WEIGHTS = {
+    "institutional": 0.40,
+    "proximity": 0.25,
+    "freshness": 0.20,
+    "trend": 0.15,
+}
 
 
 def _clamp(x: float, lo: float = 0.0, hi: float = 100.0) -> float:
@@ -38,9 +41,11 @@ def _proximity_score(distance_pct: float) -> float:
     if d <= 0:
         return 100.0
     if d <= ABOVE_MAX_PCT:
-        return _clamp(100.0 - (d / ABOVE_MAX_PCT) * 30.0)          # 100 → 70
+        return _clamp(100.0 - (d / ABOVE_MAX_PCT) * 30.0)  # 100 → 70
     if d <= NEAR_MAX_PCT:
-        return _clamp(70.0 - ((d - ABOVE_MAX_PCT) / (NEAR_MAX_PCT - ABOVE_MAX_PCT)) * 40.0)  # 70 → 30
+        return _clamp(
+            70.0 - ((d - ABOVE_MAX_PCT) / (NEAR_MAX_PCT - ABOVE_MAX_PCT)) * 40.0
+        )  # 70 → 30
     return 0.0
 
 
@@ -48,7 +53,7 @@ def _freshness_score(touch_count: int) -> float:
     return {0: 100.0, 1: 70.0, 2: 45.0}.get(touch_count or 0, 25.0)
 
 
-def _trend_score(ema200_dist_pct: Optional[float]) -> float:
+def _trend_score(ema200_dist_pct: float | None) -> float:
     """Reward demand revisits inside a constructive trend, across the wide band."""
     if ema200_dist_pct is None:
         return 60.0
@@ -56,15 +61,17 @@ def _trend_score(ema200_dist_pct: Optional[float]) -> float:
     if 0 <= d <= 15:
         return 100.0
     if -35 <= d < 0:
-        return _clamp(40.0 + (d + 35.0) / 35.0 * 60.0)   # -35 → 40, 0 → 100
+        return _clamp(40.0 + (d + 35.0) / 35.0 * 60.0)  # -35 → 40, 0 → 100
     if 15 < d <= 40:
         return _clamp(100.0 - (d - 15.0) / 25.0 * 45.0)  # 15 → 100, 40 → 55
     return 40.0
 
 
 def score_confidence(
-    institutional_score: float, distance_pct: float, touch_count: int,
-    ema200_dist_pct: Optional[float],
+    institutional_score: float,
+    distance_pct: float,
+    touch_count: int,
+    ema200_dist_pct: float | None,
 ) -> tuple[float, dict]:
     """Explainable Alpha Zone confidence (0-100) + named sub-scores. No RSI."""
     subs = {
@@ -83,10 +90,10 @@ def build_alphazone_result(
     company_name: str,
     ltp: float,
     ob: AlphaZoneOB,
-    ema200_dist_pct: Optional[float],
-    atr: Optional[float] = None,
-    avg_volume: Optional[float] = None,
-) -> Optional[dict]:
+    ema200_dist_pct: float | None,
+    atr: float | None = None,
+    avg_volume: float | None = None,
+) -> dict | None:
     """Derive a real Alpha Zone row from a valid OB price is reacting to."""
     zl, zh = ob.zone_low, ob.zone_high
     if not zh or not zl or zh <= zl or ltp is None or ltp <= 0:
@@ -96,23 +103,38 @@ def build_alphazone_result(
     if zl <= ltp <= zh:
         zone_status, distance_pct, entry = "In Zone", 0.0, float(ltp)
     elif ltp <= zh * (1.0 + ABOVE_MAX_PCT / 100.0):
-        zone_status, distance_pct, entry = "Above Zone", (ltp - zh) / zh * 100.0, float(zh)
+        zone_status, distance_pct, entry = (
+            "Above Zone",
+            (ltp - zh) / zh * 100.0,
+            float(zh),
+        )
     elif ltp <= zh * (1.0 + NEAR_MAX_PCT / 100.0):
-        zone_status, distance_pct, entry = "Near Zone", (ltp - zh) / zh * 100.0, float(zh)
+        zone_status, distance_pct, entry = (
+            "Near Zone",
+            (ltp - zh) / zh * 100.0,
+            float(zh),
+        )
     else:
         return None  # too far above (detector normally filters this already)
 
     trade = TradePlan.from_support(
-        entry=entry, support_level=float(zl), atr=atr,
+        entry=entry,
+        support_level=float(zl),
+        atr=atr,
         reward_multiple=ALPHAZONE_REWARD_MULTIPLE,
     )
-    projected_return = round(trade.reward_per_share / entry * 100.0, 1) if entry else 0.0
+    projected_return = (
+        round(trade.reward_per_share / entry * 100.0, 1) if entry else 0.0
+    )
 
     conf, breakdown = score_confidence(
         ob.institutional_score, distance_pct, ob.touch_count, ema200_dist_pct
     )
-    zone_type = "Fresh" if ob.touch_count == 0 else (
-        "Retested Once" if ob.touch_count == 1 else "Retested")
+    zone_type = (
+        "Fresh"
+        if ob.touch_count == 0
+        else ("Retested Once" if ob.touch_count == 1 else "Retested")
+    )
     zone_strength = "Strong" if conf >= 75 else ("Medium" if conf >= 55 else "Weak")
     expected_holding = int(_clamp(round(projected_return / DAILY_PROGRESS_PCT), 14, 60))
 
@@ -125,9 +147,9 @@ def build_alphazone_result(
         # Optional so a caller without an indicator set still produces a row —
         # the filter simply can't match those (see GET /alpha-zone).
         "avg_volume": round(float(avg_volume)) if avg_volume else None,
-        "institutional_score": int(round(conf)),   # headline = confidence composite
-        "score_breakdown": breakdown,              # incl. the "institutional" sub-bar
-        "origin_score": ob.institutional_score,    # §6 origin quality (context)
+        "institutional_score": round(conf),  # headline = confidence composite
+        "score_breakdown": breakdown,  # incl. the "institutional" sub-bar
+        "origin_score": ob.institutional_score,  # §6 origin quality (context)
         "origin_breakdown": ob.inst_breakdown,
         "zone_status": zone_status,
         "zone_type": zone_type,

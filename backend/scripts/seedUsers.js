@@ -2,7 +2,7 @@
 /**
  * Private-beta account seeder.
  * =============================
- * FinTechAI is a closed beta: there is no /register route, so every account is
+ * Nivro is a closed beta: there is no /register route, so every account is
  * created here. Run it as often as you like — it is idempotent.
  *
  *   node backend/scripts/seedUsers.js            # apply

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..prompts.prompts import PORTFOLIO_AGENT_PROMPT
-from ..tools import PORTFOLIO_TOOLS, ANALYTICS_TOOLS, PROFILE_TOOLS
+from ..tools import ANALYTICS_TOOLS, PORTFOLIO_TOOLS, PROFILE_TOOLS
 from .base import run_agent
 
 NAME = "portfolio"

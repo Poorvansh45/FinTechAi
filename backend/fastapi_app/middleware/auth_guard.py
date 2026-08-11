@@ -2,7 +2,7 @@
 Deny-by-default authentication guard.
 =====================================
 
-FinTechAI runs as a closed private beta, so the API must be shut by default and
+Nivro runs as a closed private beta, so the API must be shut by default and
 opened deliberately — not the other way round. Before this guard existed, 23 of
 58 routes (every scanner: technical, launchpad, alpha-zone, fvg, smc,
 volume-surge, ipo-vintage …) served their full payload to anyone who knew the
@@ -32,11 +32,14 @@ log = logging.getLogger("finai_edge.auth_guard")
 
 # Exact paths reachable with no credentials. Keep this list as short as it can
 # possibly be — every entry is public API surface.
-PUBLIC_PATHS: frozenset[str] = frozenset({
-    "/health",              # container / uptime probes
-    "/api/v2/status",       # service status board
-    "/api/v2/copilot/health",
-})
+PUBLIC_PATHS: frozenset[str] = frozenset(
+    {
+        "/health",  # container / uptime probes
+        "/api/v2/status",  # service status board
+        "/api/v2/copilot/health",
+        "/api/auth/login",  # the one endpoint that issues a session
+    }
+)
 
 # Prefixes served without auth. Only interactive docs, and only when the app
 # chooses to mount them at all (disabled outside development — see main.py).
@@ -71,7 +74,9 @@ class AuthGuardMiddleware(BaseHTTPMiddleware):
         try:
             user = await resolve_user(request)
         except AuthError as exc:
-            return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+            return JSONResponse(
+                status_code=exc.status_code, content={"detail": exc.detail}
+            )
 
         # Downstream handlers read identity from here instead of re-decoding.
         request.state.user = user

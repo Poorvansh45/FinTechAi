@@ -12,7 +12,7 @@ const scannerClient = axios.create({
 /**
  * Attach the Express-issued JWT to every scanner request.
  *
- * FinTechAI is a closed private beta and FastAPI now denies by default, so the
+ * Nivro is a closed private beta and FastAPI now denies by default, so the
  * read endpoints below are no longer public — they were, which is why only
  * triggerScan() used to bother with a token. Doing this in one interceptor
  * rather than per method means a call added later is authenticated by default

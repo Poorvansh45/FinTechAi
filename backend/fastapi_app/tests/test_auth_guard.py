@@ -22,7 +22,7 @@ from fastapi.testclient import TestClient
 
 import main
 from config import get_settings
-from middleware.auth_guard import PUBLIC_PATHS, PUBLIC_PREFIXES, _is_public
+from middleware.auth_guard import PUBLIC_PATHS, _is_public
 from utils.auth import invalidate_user_cache
 from utils.rate_limit import check_rate_limit, reset_rate_limits
 
@@ -38,7 +38,7 @@ def _clean_state():
     reset_rate_limits()
 
 
-def _token(payload: dict, secret: str = None) -> str:
+def _token(payload: dict, secret: str | None = None) -> str:
     settings = get_settings()
     return jwt.encode(payload, secret or settings.jwt_secret, algorithm="HS256")
 
@@ -64,6 +64,7 @@ FORMERLY_PUBLIC = [
 
 # ── Anonymous access is refused ──────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("path", FORMERLY_PUBLIC)
 def test_scanner_endpoints_reject_anonymous(path):
     assert client.get(path).status_code == 401
@@ -77,14 +78,19 @@ def test_rejection_happens_before_any_handler_work():
 
 # ── Bad credentials ──────────────────────────────────────────────────────────
 
+
 def test_garbage_token_is_rejected():
-    res = client.get("/api/scanner/launchpad", headers={"Authorization": "Bearer nonsense"})
+    res = client.get(
+        "/api/scanner/launchpad", headers={"Authorization": "Bearer nonsense"}
+    )
     assert res.status_code == 401
 
 
 def test_token_signed_with_wrong_secret_is_rejected():
     bad = _token({"id": "507f1f77bcf86cd799439011"}, secret="wrong-secret")
-    res = client.get("/api/scanner/launchpad", headers={"Authorization": f"Bearer {bad}"})
+    res = client.get(
+        "/api/scanner/launchpad", headers={"Authorization": f"Bearer {bad}"}
+    )
     assert res.status_code == 401
 
 
@@ -110,12 +116,15 @@ def test_valid_signature_still_needs_a_real_account():
     Without a DB connection this fails closed (503) rather than admitting the
     caller, which is the property that matters."""
     good_sig = _token({"id": "507f1f77bcf86cd799439011"})
-    res = client.get("/api/scanner/launchpad", headers={"Authorization": f"Bearer {good_sig}"})
+    res = client.get(
+        "/api/scanner/launchpad", headers={"Authorization": f"Bearer {good_sig}"}
+    )
     assert res.status_code in (401, 403, 503)
     assert res.status_code != 200
 
 
 # ── Public surface stays public, and stays small ─────────────────────────────
+
 
 @pytest.mark.parametrize("path", ["/health", "/api/v2/status"])
 def test_health_endpoints_remain_public(path):
@@ -145,6 +154,7 @@ def test_no_new_route_is_public_by_default():
 
 
 # ── Middleware ordering ──────────────────────────────────────────────────────
+
 
 def test_cors_preflight_is_not_blocked():
     """OPTIONS carries no Authorization header by design. Blocking it would
@@ -179,13 +189,17 @@ def test_docs_are_disabled_outside_development():
 
 # ── Demo restrictions ────────────────────────────────────────────────────────
 
+
 def test_trigger_scan_declares_the_demo_guard():
     """The shared demo credential is published publicly; a 30-40 minute scan
     must not be reachable from it."""
-    from utils.auth import require_not_demo  # noqa: F401  (import proves it exists)
+    from utils.auth import require_not_demo
+
+    assert require_not_demo is not None, "the demo guard dependency must still exist"
 
     route = next(
-        r for r in main.app.routes
+        r
+        for r in main.app.routes
         if getattr(r, "path", None) == "/api/v2/scanner/trigger-scan"
         and "POST" in getattr(r, "methods", set())
     )
@@ -193,16 +207,20 @@ def test_trigger_scan_declares_the_demo_guard():
     assert any("_guard" in n for n in names), f"demo guard missing: {names}"
 
 
-@pytest.mark.parametrize("path,method", [
-    ("/api/v2/watchlists", "POST"),
-    ("/api/v2/watchlists/{id}", "PATCH"),
-    ("/api/v2/watchlists/{id}", "DELETE"),
-    ("/api/v2/watchlists/{id}/stocks", "POST"),
-    ("/api/v2/watchlists/{id}/duplicate", "POST"),
-])
+@pytest.mark.parametrize(
+    "path,method",
+    [
+        ("/api/v2/watchlists", "POST"),
+        ("/api/v2/watchlists/{id}", "PATCH"),
+        ("/api/v2/watchlists/{id}", "DELETE"),
+        ("/api/v2/watchlists/{id}/stocks", "POST"),
+        ("/api/v2/watchlists/{id}/duplicate", "POST"),
+    ],
+)
 def test_watchlist_writes_declare_the_demo_guard(path, method):
     route = next(
-        r for r in main.app.routes
+        r
+        for r in main.app.routes
         if getattr(r, "path", None) == path and method in getattr(r, "methods", set())
     )
     names = [d.call.__qualname__ for d in route.dependant.dependencies]
@@ -212,14 +230,17 @@ def test_watchlist_writes_declare_the_demo_guard(path, method):
 def test_watchlist_reads_are_not_demo_guarded():
     """Demo visitors should still be able to look around."""
     route = next(
-        r for r in main.app.routes
-        if getattr(r, "path", None) == "/api/v2/watchlists" and "GET" in getattr(r, "methods", set())
+        r
+        for r in main.app.routes
+        if getattr(r, "path", None) == "/api/v2/watchlists"
+        and "GET" in getattr(r, "methods", set())
     )
     names = [d.call.__qualname__ for d in route.dependant.dependencies]
     assert not any("_guard" in n for n in names)
 
 
 # ── Rate limiting ────────────────────────────────────────────────────────────
+
 
 def test_demo_hits_the_rate_limit_first():
     """Per-user, not per-IP: the demo credential is shared by strangers on
@@ -251,10 +272,75 @@ def test_rate_limit_is_scoped_per_user():
     check_rate_limit("copilot_chat", "demo-b", "demo")
 
 
+# ── M-5 · security headers ───────────────────────────────────────────────────
+# Added by the timing middleware so the stack order (AuthGuard inside CORS) is
+# untouched. They must appear on rejections too — a 401 body is still a response
+# a browser will interpret.
+
+
+@pytest.mark.parametrize(
+    "header,value",
+    [
+        ("X-Content-Type-Options", "nosniff"),
+        ("X-Frame-Options", "DENY"),
+        ("Referrer-Policy", "no-referrer"),
+        ("X-Permitted-Cross-Domain-Policies", "none"),
+    ],
+)
+def test_security_headers_on_success(header, value):
+    assert client.get("/health").headers.get(header) == value
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "X-Content-Type-Options",
+        "X-Frame-Options",
+        "Referrer-Policy",
+    ],
+)
+def test_security_headers_on_401(header):
+    """A rejected request still returns a body to a browser."""
+    res = client.get("/api/scanner/launchpad")
+    assert res.status_code == 401
+    assert res.headers.get(header) is not None
+
+
+def test_hsts_is_production_only():
+    """Sending HSTS from a plain-HTTP dev server would pin localhost to https
+    for a year, which is a genuinely painful thing to undo in a browser."""
+    settings = get_settings()
+    res = client.get("/health")
+    if settings.is_production:
+        assert "max-age=" in res.headers.get("Strict-Transport-Security", "")
+    else:
+        assert res.headers.get("Strict-Transport-Security") is None
+
+
+def test_security_headers_do_not_disturb_cors():
+    """CORS is owned by CORSMiddleware; the header middleware must not shadow it."""
+    res = client.get(
+        "/api/scanner/launchpad", headers={"Origin": "http://localhost:9002"}
+    )
+    assert res.headers.get("access-control-allow-origin") == "http://localhost:9002"
+    pre = client.options(
+        "/api/scanner/launchpad",
+        headers={
+            "Origin": "http://localhost:9002",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert pre.status_code < 400
+
+
+def test_timing_header_still_present():
+    """The middleware was extended, not replaced."""
+    assert client.get("/health").headers.get("X-Process-Time", "").endswith("s")
+
+
 def test_copilot_chat_is_rate_limited():
     route = next(
-        r for r in main.app.routes
-        if getattr(r, "path", None) == "/api/v2/copilot/chat"
+        r for r in main.app.routes if getattr(r, "path", None) == "/api/v2/copilot/chat"
     )
     names = [d.call.__qualname__ for d in route.dependant.dependencies]
     assert any("get_current_role" in n for n in names), (

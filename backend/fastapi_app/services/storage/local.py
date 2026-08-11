@@ -36,11 +36,13 @@ class LocalDiskStorage(StorageProvider):
             p = self._path(key)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_bytes(data)
+
         await asyncio.to_thread(_write)
 
     async def open(self, key: str) -> bytes:
         def _read() -> bytes:
             return self._path(key).read_bytes()
+
         return await asyncio.to_thread(_read)
 
     async def delete(self, key: str) -> None:
@@ -48,4 +50,5 @@ class LocalDiskStorage(StorageProvider):
             p = self._path(key)
             if p.exists():
                 p.unlink()
+
         await asyncio.to_thread(_rm)

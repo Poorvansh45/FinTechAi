@@ -19,18 +19,16 @@ Every returned number is derived from actual price structure — no placeholders
 
 from __future__ import annotations
 
-from typing import Optional
-
-from engines.patterns import nearest_launchpad_fvg, fvg_backtest
+from engines.patterns import fvg_backtest, nearest_launchpad_fvg
 from engines.patterns.fvg import LAUNCHPAD_MIN_GAP_PCT, LAUNCHPAD_OVERSHOOT_PCT
 from engines.ranking import score_launchpad, strength_label
 
-from .base import Strategy, SymbolContext, StrategyResult, TradePlan
+from .base import Strategy, StrategyResult, SymbolContext, TradePlan
 
-MIN_PRICE = 100.0           # reject anything trading below ₹100 (first filter)
+MIN_PRICE = 100.0  # reject anything trading below ₹100 (first filter)
 EMA_DIST_MIN = -10.0
 EMA_DIST_MAX = 20.0
-MIN_GAP_PCT = 0.5            # LaunchPad spec (relative to the gap floor / C1.High)
+MIN_GAP_PCT = 0.5  # LaunchPad spec (relative to the gap floor / C1.High)
 OVERSHOOT_PCT = LAUNCHPAD_OVERSHOOT_PCT  # price may sit up to this % above the gap top
 REWARD_MULTIPLE = 2.0
 
@@ -40,14 +38,14 @@ def build_launchpad_result(
     symbol: str,
     company_name: str,
     price: float,
-    ema_200: Optional[float],
-    ema_200_dist_pct: Optional[float],
+    ema_200: float | None,
+    ema_200_dist_pct: float | None,
     fvg_low: float,
     fvg_high: float,
     age_days: int,
-    atr: Optional[float],
+    atr: float | None,
     fvg_date: str = "",
-) -> Optional[StrategyResult]:
+) -> StrategyResult | None:
     """
     Shared derivation used by BOTH the scan-time path (df available) and the
     cache path (fields read from precomputed caches). Applies the LaunchPad
@@ -64,7 +62,9 @@ def build_launchpad_result(
         return None
 
     # 2. EMA200 trend band.
-    if ema_200_dist_pct is None or not (EMA_DIST_MIN <= ema_200_dist_pct <= EMA_DIST_MAX):
+    if ema_200_dist_pct is None or not (
+        EMA_DIST_MIN <= ema_200_dist_pct <= EMA_DIST_MAX
+    ):
         return None
 
     # 3. Gap size.
@@ -123,7 +123,7 @@ class LaunchPadStrategy(Strategy):
     name = "launchpad"
     holding_period = "5-7 days"
 
-    def evaluate(self, ctx: SymbolContext) -> Optional[StrategyResult]:
+    def evaluate(self, ctx: SymbolContext) -> StrategyResult | None:
         """Scan-time path: find the still-valid LaunchPad FVG from the df via the
         Pattern Engine, then run the shared derivation. Cheap when the caller
         already has the df loaded (e.g. the daily scan)."""
@@ -131,13 +131,18 @@ class LaunchPadStrategy(Strategy):
         price = ind.price
         if price is None or price < MIN_PRICE:
             return None
-        if ind.ema_200_dist_pct is None or not (EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX):
+        if ind.ema_200_dist_pct is None or not (
+            EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX
+        ):
             return None
 
         # Still-valid gap (no candle closed below its floor) that price is inside
         # or up to OVERSHOOT_PCT% above.
         fvg = nearest_launchpad_fvg(
-            ctx.df, price, min_gap_pct=LAUNCHPAD_MIN_GAP_PCT, overshoot_pct=OVERSHOOT_PCT
+            ctx.df,
+            price,
+            min_gap_pct=LAUNCHPAD_MIN_GAP_PCT,
+            overshoot_pct=OVERSHOOT_PCT,
         )
         if fvg is None:
             return None

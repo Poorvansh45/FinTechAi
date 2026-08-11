@@ -81,7 +81,10 @@ async def compare_stocks(symbols: list[str]) -> str:
         return "Provide at least two symbols to compare."
     try:
         quotes = await _svc().get_bulk_quotes(symbols)
-        lines = [_fmt_quote(quotes.get(s)) if quotes.get(s) else f"{s}: unavailable" for s in symbols]
+        lines = [
+            _fmt_quote(quotes.get(s)) if quotes.get(s) else f"{s}: unavailable"
+            for s in symbols
+        ]
         return "Comparison:\n" + "\n".join(lines)
     except Exception as e:
         log.warning(f"[tool] compare_stocks failed: {e}")

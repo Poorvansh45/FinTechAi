@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 
@@ -20,7 +18,7 @@ def ema(values, period: int) -> pd.Series:
     return s.ewm(span=period, adjust=False).mean()
 
 
-def ema_distance_pct(price: float, ema_value: Optional[float]) -> Optional[float]:
+def ema_distance_pct(price: float, ema_value: float | None) -> float | None:
     """
     Percentage distance of price from an EMA:  (price - ema) / ema * 100.
 

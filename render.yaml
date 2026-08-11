@@ -1,36 +1,15 @@
 services:
-  # ── Express / Node backend (auth, JWT, portfolio proxy) ──────────
-  - type: web
-    name: finai-edge-backend
-    env: node
-    plan: free
-    region: ohio # Change based on your preference
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 8080
-      - key: FRONTEND_URL
-        sync: false # Set this in Render Dashboard (e.g., https://finai-edge.vercel.app)
-      # -- Required secrets (set in Render Dashboard; sync:false keeps existing values) --
-      - key: MONGODB_URI
-        sync: false # MongoDB Atlas connection string (code also accepts MONGO_URI alias)
-      - key: JWT_SECRET
-        sync: false # Strong random secret, min 32 chars — required in production
-
-  # ── FastAPI backend (AI / analytics / scanners engine) ───────────
+  # ── FastAPI backend (auth, portfolio, AI, market data, scanners) ──
+  # Express (backend/) is dormant — auth was migrated into FastAPI
+  # (backend/fastapi_app/api/auth.py). It is no longer deployed here.
   - type: web
     name: finai-edge-fastapi
     env: python
     plan: free
-    region: ohio # Keep same region as the Node service for low latency
+    region: ohio # Change based on your preference
     rootDir: backend/fastapi_app
     buildCommand: pip install -r requirements.txt
-    # Render injects $PORT; uvicorn must bind to it (do NOT hardcode 8000 in prod)
+    # Render injects $PORT; uvicorn must bind to it (do NOT hardcode 8000)
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
@@ -41,24 +20,25 @@ services:
       - key: LOG_LEVEL
         value: INFO
       # OHLCV source. MUST be "mongo" here: backend/data/Stock_Data.csv is
-      # gitignored and 196 MB, so it does not exist on Render. Left at the
+      # gitignored and ~124 MB, so it does not exist on Render. Left at the
       # "csv" default the scanners would find an empty universe, and a scan
       # that evaluates zero symbols publishes zero results — wiping every live
       # scanner cache. Run scripts/migrate_ohlcv_to_mongo.py BEFORE first boot.
       - key: OHLCV_BACKEND
         value: mongo
       - key: FRONTEND_URL
-        sync: false # Frontend origin — added to FastAPI CORS allow-list
+        sync: false # Your Vercel origin — added to FastAPI's CORS allow-list
       - key: MONGODB_URI
-        sync: false # Same MongoDB Atlas connection string as the Node service
+        sync: false # MongoDB Atlas connection string
       - key: JWT_SECRET
-        sync: false # Same secret as the Node service — verifies Express-issued JWTs
+        sync: false # 32+ random chars — FastAPI now both signs and verifies with this
       # -- Market data / AI providers (all optional — graceful fallback) --
       - key: GEMINI_API_KEY
         sync: false
-      - key: GROWW_API_KEY
-        sync: false
-      - key: GROWW_TOTP_SECRET
+      - key: GROQ_API_KEY
         sync: false
       - key: FINNHUB_API_KEY
         sync: false
+      # GROWW_API_KEY / GROWW_TOTP_SECRET intentionally omitted — Groww is a
+      # paid subscription (India only); the app falls back to yfinance without
+      # it. Add them yourself only if you already pay for Groww access.

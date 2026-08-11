@@ -13,11 +13,12 @@ import os
 from functools import lru_cache
 
 from config import get_settings
+
 from .base import StorageProvider
 from .local import LocalDiskStorage
 
 
-@lru_cache()
+@lru_cache
 def get_storage() -> StorageProvider:
     settings = get_settings()
     backend = (settings.storage_backend or "local").lower()
@@ -25,7 +26,9 @@ def get_storage() -> StorageProvider:
     if backend == "local":
         # Resolve uploads dir relative to the FastAPI app root (this file is
         # services/storage/__init__.py → parents[2] == app root).
-        app_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        app_root = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
         uploads = settings.workspace_uploads_dir
         root = uploads if os.path.isabs(uploads) else os.path.join(app_root, uploads)
         return LocalDiskStorage(root)

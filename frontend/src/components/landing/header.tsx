@@ -27,7 +27,7 @@ export function Header() {
     <header className="px-4 lg:px-6 h-16 flex items-center bg-background/80 backdrop-blur-sm sticky top-0 z-40 border-b">
       <Link href="#" className="flex items-center justify-center gap-2" prefetch={false}>
         <BrainCircuit className="h-6 w-6 text-primary" />
-        <span className="text-xl font-bold font-headline">FinTechAI</span>
+        <span className="text-xl font-bold font-headline">Nivro</span>
       </Link>
       <nav className="ml-auto hidden lg:flex gap-6 items-center">
         {navLinks.map((link) => (
@@ -60,7 +60,7 @@ export function Header() {
                 </VisuallyHidden>
                 <Link href="#" className="flex items-center gap-2 text-lg font-semibold mb-8">
                     <BrainCircuit className="h-6 w-6 text-primary" />
-                    <span className="font-bold">FinTechAI</span>
+                    <span className="font-bold">Nivro</span>
                 </Link>
                 <nav className="grid gap-4 text-base font-medium">
                 {navLinks.map((link) => (

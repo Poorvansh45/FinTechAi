@@ -17,13 +17,13 @@ import pytest
 
 from services import ohlcv_store as store
 
-
 # ── In-memory stand-in for the collection ────────────────────────────────────
+
 
 class FakeCollection:
     def __init__(self):
         self.docs: dict[str, dict] = {}
-        self.find_calls = 0          # round-trips, for the batching assertions
+        self.find_calls = 0  # round-trips, for the batching assertions
 
     def find(self, query=None, projection=None):
         self.find_calls += 1
@@ -77,16 +77,18 @@ def make_frame(symbol="TEST", n=300, seed=0):
     rng = np.random.default_rng(seed)
     close = 100 + np.cumsum(rng.normal(0, 2, n))
     close = np.abs(close) + 1.0
-    return pd.DataFrame({
-        "Symbol": symbol,
-        "Date": pd.date_range("2021-01-01", periods=n, freq="D"),
-        "Open": close * 1.001,
-        "High": close * 1.02,
-        "Low": close * 0.98,
-        "Close": close,
-        # spans the range where float32 would silently corrupt (>16.7M)
-        "Volume": rng.integers(1_000, 1_800_000_000, n).astype(np.int64),
-    })
+    return pd.DataFrame(
+        {
+            "Symbol": symbol,
+            "Date": pd.date_range("2021-01-01", periods=n, freq="D"),
+            "Open": close * 1.001,
+            "High": close * 1.02,
+            "Low": close * 0.98,
+            "Close": close,
+            # spans the range where float32 would silently corrupt (>16.7M)
+            "Volume": rng.integers(1_000, 1_800_000_000, n).astype(np.int64),
+        }
+    )
 
 
 @pytest.fixture
@@ -100,36 +102,61 @@ def coll(monkeypatch):
 
 # ── Encoding fidelity ────────────────────────────────────────────────────────
 
+
 def test_round_trip_is_bit_exact():
     """float64 storage must be lossless — exact equality, not a tolerance."""
     df = make_frame(n=500)
     got = store.decode(store.encode("TEST", df))
 
     for col in ("Open", "High", "Low", "Close"):
-        assert np.array_equal(df[col].to_numpy(np.float64),
-                              got[col].to_numpy(np.float64)), f"{col} not bit-exact"
-    assert np.array_equal(df["Volume"].to_numpy(np.int64),
-                          got["Volume"].to_numpy(np.int64))
-    assert (df["Date"].to_numpy("datetime64[D]")
-            == got["Date"].to_numpy("datetime64[D]")).all()
+        assert np.array_equal(
+            df[col].to_numpy(np.float64), got[col].to_numpy(np.float64)
+        ), f"{col} not bit-exact"
+    assert np.array_equal(
+        df["Volume"].to_numpy(np.int64), got["Volume"].to_numpy(np.int64)
+    )
+    assert (
+        df["Date"].to_numpy("datetime64[D]") == got["Date"].to_numpy("datetime64[D]")
+    ).all()
 
 
 def test_large_volumes_survive():
     """The full CSV's max is 1,807,991,128. float32 would corrupt anything above
     16.7M, which is most liquid stocks."""
     df = make_frame(n=10)
-    df["Volume"] = np.array([1_807_991_128, 2_000_000_000, 16_777_217, 0,
-                             1, 999_999_999, 123, 4_000_000_000,
-                             1_500_000_000, 42], dtype=np.int64)
+    df["Volume"] = np.array(
+        [
+            1_807_991_128,
+            2_000_000_000,
+            16_777_217,
+            0,
+            1,
+            999_999_999,
+            123,
+            4_000_000_000,
+            1_500_000_000,
+            42,
+        ],
+        dtype=np.int64,
+    )
     got = store.decode(store.encode("BIGVOL", df))
-    assert np.array_equal(df["Volume"].to_numpy(np.int64),
-                          got["Volume"].to_numpy(np.int64))
+    assert np.array_equal(
+        df["Volume"].to_numpy(np.int64), got["Volume"].to_numpy(np.int64)
+    )
 
 
 def test_decoded_columns_match_csv_loader_contract():
     """Callers were written against load_stock_dataframe()'s capitalised columns."""
     got = store.decode(store.encode("TEST", make_frame()))
-    assert list(got.columns) == ["Symbol", "Date", "Open", "High", "Low", "Close", "Volume"]
+    assert list(got.columns) == [
+        "Symbol",
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume",
+    ]
     assert (got["Symbol"] == "TEST").all()
 
 
@@ -142,7 +169,7 @@ def test_encode_accepts_lowercase_columns():
 
 
 def test_encode_sorts_by_date():
-    df = make_frame(n=50).sample(frac=1, random_state=3)   # shuffled
+    df = make_frame(n=50).sample(frac=1, random_state=3)  # shuffled
     got = store.decode(store.encode("TEST", df))
     assert got["Date"].is_monotonic_increasing
 
@@ -156,6 +183,7 @@ def test_metadata_fields():
 
 
 # ── Reads ────────────────────────────────────────────────────────────────────
+
 
 def test_get_symbol_returns_empty_when_absent(coll):
     assert store.get_symbol("NOPE").empty
@@ -231,6 +259,7 @@ def test_list_symbols_is_sorted(coll):
 
 # ── Invalidation ─────────────────────────────────────────────────────────────
 
+
 def test_invalidate_evicts_only_the_named_symbol(coll):
     for s in ("AAA", "BBB"):
         coll.docs[s] = store.encode(s, make_frame(s, n=40))
@@ -273,14 +302,26 @@ def test_daily_refresh_pattern_does_not_rescan_per_symbol(coll):
     before = coll.find_calls
     for s in syms:
         df = store.get_symbol(s)
-        store.upsert_frame(df.rename(columns={
-            "Symbol": "symbol", "Date": "date", "Open": "open", "High": "high",
-            "Low": "low", "Close": "close", "Volume": "volume"}))
+        store.upsert_frame(
+            df.rename(
+                columns={
+                    "Symbol": "symbol",
+                    "Date": "date",
+                    "Open": "open",
+                    "High": "high",
+                    "Low": "low",
+                    "Close": "close",
+                    "Volume": "volume",
+                }
+            )
+        )
     assert coll.find_calls - before <= 8, (
-        f"{coll.find_calls - before} reads for 60 symbols — cache is thrashing")
+        f"{coll.find_calls - before} reads for 60 symbols — cache is thrashing"
+    )
 
 
 # ── Connection handling ──────────────────────────────────────────────────────
+
 
 def test_client_init_is_thread_safe(monkeypatch):
     """Two threads racing the lazy init used to build two MongoClients, leaking
@@ -301,6 +342,7 @@ def test_client_init_is_thread_safe(monkeypatch):
             pass
 
     import pymongo
+
     monkeypatch.setattr(pymongo, "MongoClient", FakeClient)
 
     barrier = threading.Barrier(8)
@@ -321,4 +363,4 @@ def test_client_init_is_thread_safe(monkeypatch):
 
 def test_close_is_idempotent():
     store.close()
-    store.close()          # must not raise on an already-closed client
+    store.close()  # must not raise on an already-closed client

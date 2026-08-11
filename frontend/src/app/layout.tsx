@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_APP_URL ||
     'http://localhost:9002'
   ),
-  title: 'FinTechAI — TRADING INTELLIGENCE',
+  title: 'Nivro — See More. Know Better.',
   description:
     'AI-powered trading intelligence platform for market research, screening, portfolio optimization, quantitative analysis, and AI-assisted decision making.',
   icons: {
@@ -29,14 +29,14 @@ export const metadata: Metadata = {
     apple: '/apple-touch-icon.png',
   },
   openGraph: {
-    title: 'FinTechAI — TRADING INTELLIGENCE',
+    title: 'Nivro — See More. Know Better.',
     description:
       'AI-powered trading intelligence platform for market research, screening, portfolio optimization, quantitative analysis, and AI-assisted decision making.',
     images: ['/logo.png'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FinTechAI — TRADING INTELLIGENCE',
+    title: 'Nivro — See More. Know Better.',
     description:
       'AI-powered trading intelligence platform for market research, screening, portfolio optimization, quantitative analysis, and AI-assisted decision making.',
     images: ['/logo.png'],

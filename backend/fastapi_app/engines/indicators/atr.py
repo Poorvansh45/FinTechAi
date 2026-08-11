@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 
@@ -27,7 +25,7 @@ def atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     return true_range.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
 
 
-def atr_pct(atr_value: Optional[float], price: Optional[float]) -> Optional[float]:
+def atr_pct(atr_value: float | None, price: float | None) -> float | None:
     """ATR as a percentage of price (a clean volatility measure)."""
     if not atr_value or not price or price == 0 or np.isnan(atr_value):
         return None

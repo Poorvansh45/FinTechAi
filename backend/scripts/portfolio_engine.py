@@ -21,11 +21,12 @@ Future ML hooks:
   - optimize_portfolio() is extensible for AI constraint optimization
 """
 
-import sys
 import json
 import logging
-import warnings
+import sys
 import traceback
+import warnings
+
 import numpy as np
 import pandas as pd
 import yfinance as yf
@@ -46,16 +47,17 @@ log = logging.getLogger(__name__)
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────────────────────
-RISK_FREE_RATE  = 0.065   # ~6.5% Indian 10Y treasury yield
-TRADING_DAYS    = 252
-MONTE_CARLO_N   = 3000    # portfolio simulations for frontier
-MIN_ROWS        = 60      # minimum trading days needed for reliable stats
-MIN_ASSETS      = 2       # minimum valid assets for optimization
+RISK_FREE_RATE = 0.065  # ~6.5% Indian 10Y treasury yield
+TRADING_DAYS = 252
+MONTE_CARLO_N = 3000  # portfolio simulations for frontier
+MIN_ROWS = 60  # minimum trading days needed for reliable stats
+MIN_ASSETS = 2  # minimum valid assets for optimization
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Ticker Validation & Data Fetching
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def validate_ticker_format(ticker: str) -> bool:
     """
@@ -67,7 +69,8 @@ def validate_ticker_format(ticker: str) -> bool:
         return False
     # Must be alphanumeric with optional dots and hyphens
     import re
-    return bool(re.match(r'^[A-Za-z0-9][\w\.\-]{0,18}$', ticker))
+
+    return bool(re.match(r"^[A-Za-z0-9][\w\.\-]{0,18}$", ticker))
 
 
 def fetch_price_data(tickers: list, period: str = "2y") -> tuple:
@@ -79,8 +82,8 @@ def fetch_price_data(tickers: list, period: str = "2y") -> tuple:
         failed (list): tickers that could not be fetched or had no data
         warnings (list): human-readable messages for the frontend
     """
-    failed   = []
-    warns    = []
+    failed = []
+    warns = []
     valid_tickers = []
 
     # Step 1: format validation — don't even call yfinance for garbage input
@@ -98,14 +101,20 @@ def fetch_price_data(tickers: list, period: str = "2y") -> tuple:
     # Step 2: bulk download
     log.info(f"Fetching data for: {valid_tickers}")
     try:
-        raw = yf.download(valid_tickers, period=period, auto_adjust=True, progress=False, threads=True)
+        raw = yf.download(
+            valid_tickers, period=period, auto_adjust=True, progress=False, threads=True
+        )
     except Exception as e:
         log.error(f"yfinance download failed: {e}")
-        return pd.DataFrame(), tickers, [f"Market data fetch failed: {str(e)}"]
+        return pd.DataFrame(), tickers, [f"Market data fetch failed: {e!s}"]
 
     # Step 3: extract Close prices
     if raw.empty:
-        return pd.DataFrame(), valid_tickers, ["No market data returned. Check internet connection or ticker validity."]
+        return (
+            pd.DataFrame(),
+            valid_tickers,
+            ["No market data returned. Check internet connection or ticker validity."],
+        )
 
     if isinstance(raw.columns, pd.MultiIndex):
         prices = raw["Close"]
@@ -123,7 +132,9 @@ def fetch_price_data(tickers: list, period: str = "2y") -> tuple:
         if t not in prices.columns:
             dropped.append(t)
             failed.append(t)
-            warns.append(f"'{t}' returned no data from the exchange. It may be delisted or the symbol may be wrong.")
+            warns.append(
+                f"'{t}' returned no data from the exchange. It may be delisted or the symbol may be wrong."
+            )
             log.warning(f"No data for ticker: {t}")
             continue
 
@@ -137,11 +148,17 @@ def fetch_price_data(tickers: list, period: str = "2y") -> tuple:
             )
             log.warning(f"Insufficient data for {t}: {len(col)} rows")
 
-    prices = prices.drop(columns=[c for c in dropped if c in prices.columns], errors="ignore")
+    prices = prices.drop(
+        columns=[c for c in dropped if c in prices.columns], errors="ignore"
+    )
     prices = prices.dropna(how="all").ffill().bfill()
 
     if prices.empty or len(prices.columns) == 0:
-        return pd.DataFrame(), failed, warns + ["No tickers had sufficient historical data."]
+        return (
+            pd.DataFrame(),
+            failed,
+            warns + ["No tickers had sufficient historical data."],
+        )
 
     return prices, failed, warns
 
@@ -162,6 +179,7 @@ def get_returns_matrix(prices: pd.DataFrame) -> pd.DataFrame:
 # Safe Math Utilities
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def safe_cov_matrix(returns: pd.DataFrame) -> np.ndarray:
     """
     Compute annualized covariance matrix.
@@ -169,7 +187,7 @@ def safe_cov_matrix(returns: pd.DataFrame) -> np.ndarray:
     singular matrices when assets are highly correlated or data is sparse.
     """
     cov = returns.cov().values * TRADING_DAYS
-    n   = cov.shape[0]
+    n = cov.shape[0]
     # Add tiny ridge to diagonal to ensure positive semi-definiteness
     cov += np.eye(n) * 1e-8
     return cov
@@ -192,7 +210,10 @@ def safe_sqrt(val: float) -> float:
 # Core Portfolio Metrics
 # ─────────────────────────────────────────────────────────────────────────────
 
-def calculate_portfolio_metrics(returns: pd.DataFrame, weights: np.ndarray, cov: np.ndarray):
+
+def calculate_portfolio_metrics(
+    returns: pd.DataFrame, weights: np.ndarray, cov: np.ndarray
+):
     """
     Compute core portfolio statistics using Modern Portfolio Theory.
     Fully guarded against invalid/empty inputs.
@@ -201,10 +222,10 @@ def calculate_portfolio_metrics(returns: pd.DataFrame, weights: np.ndarray, cov:
         return 0.0, 0.0, 0.0
 
     annual_returns = returns.mean().values * TRADING_DAYS
-    port_return    = float(np.dot(weights, annual_returns))
-    port_var       = float(np.dot(weights, np.dot(cov, weights)))
-    port_vol       = safe_sqrt(port_var)
-    sharpe         = safe_sharpe(port_return, port_vol)
+    port_return = float(np.dot(weights, annual_returns))
+    port_var = float(np.dot(weights, np.dot(cov, weights)))
+    port_vol = safe_sqrt(port_var)
+    sharpe = safe_sharpe(port_return, port_vol)
 
     return port_return, port_vol, sharpe
 
@@ -222,7 +243,7 @@ def compute_individual_metrics(returns: pd.DataFrame) -> dict:
         ann_vol = float(col.std() * np.sqrt(TRADING_DAYS))
         result[ticker] = {
             "annualReturn": round(ann_ret, 4),
-            "volatility":   round(ann_vol, 4),
+            "volatility": round(ann_vol, 4),
         }
     return result
 
@@ -241,7 +262,9 @@ def compute_correlation_matrix(returns: pd.DataFrame) -> dict:
     return result
 
 
-def diversification_score(returns: pd.DataFrame, weights: np.ndarray, cov: np.ndarray) -> float:
+def diversification_score(
+    returns: pd.DataFrame, weights: np.ndarray, cov: np.ndarray
+) -> float:
     """
     Diversification ratio: weighted avg volatility / portfolio volatility.
     Higher score = more diversified (lower inter-asset correlations).
@@ -250,9 +273,9 @@ def diversification_score(returns: pd.DataFrame, weights: np.ndarray, cov: np.nd
     if returns.empty or len(weights) == 0:
         return 0.0
     try:
-        individual_vols  = np.sqrt(np.maximum(np.diag(cov), 0))
+        individual_vols = np.sqrt(np.maximum(np.diag(cov), 0))
         weighted_avg_vol = float(np.dot(weights, individual_vols))
-        port_vol         = safe_sqrt(float(np.dot(weights, np.dot(cov, weights))))
+        port_vol = safe_sqrt(float(np.dot(weights, np.dot(cov, weights))))
         if port_vol <= 0:
             return 0.0
         ratio = weighted_avg_vol / port_vol
@@ -266,6 +289,7 @@ def diversification_score(returns: pd.DataFrame, weights: np.ndarray, cov: np.nd
 # Risk Analytics — VaR & Drawdown (Guarded)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def compute_var_stats(returns: pd.DataFrame, weights: np.ndarray) -> dict:
     """
     Historical simulation VaR and Maximum Drawdown.
@@ -277,7 +301,7 @@ def compute_var_stats(returns: pd.DataFrame, weights: np.ndarray) -> dict:
         return default
 
     try:
-        port_returns = (returns.values @ weights)
+        port_returns = returns.values @ weights
         port_returns = port_returns[np.isfinite(port_returns)]
 
         if len(port_returns) < 20:
@@ -288,14 +312,14 @@ def compute_var_stats(returns: pd.DataFrame, weights: np.ndarray) -> dict:
         var_99 = float(np.percentile(port_returns, 1))
 
         # Max drawdown on cumulative portfolio returns
-        cum   = np.cumprod(1 + port_returns)
-        peak  = np.maximum.accumulate(cum)
-        dd    = (cum - peak) / np.where(peak > 0, peak, 1)
+        cum = np.cumprod(1 + port_returns)
+        peak = np.maximum.accumulate(cum)
+        dd = (cum - peak) / np.where(peak > 0, peak, 1)
         max_dd = float(np.min(dd))
 
         return {
-            "var95":       round(var_95, 5) if np.isfinite(var_95) else 0.0,
-            "var99":       round(var_99, 5) if np.isfinite(var_99) else 0.0,
+            "var95": round(var_95, 5) if np.isfinite(var_95) else 0.0,
+            "var99": round(var_99, 5) if np.isfinite(var_99) else 0.0,
             "maxDrawdown": round(max_dd, 5) if np.isfinite(max_dd) else 0.0,
         }
     except Exception as e:
@@ -307,9 +331,10 @@ def compute_var_stats(returns: pd.DataFrame, weights: np.ndarray) -> dict:
 # Optimization Engine (MPT) — Guarded
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _neg_sharpe(weights, annual_returns, cov):
-    pr  = float(np.dot(weights, annual_returns))
-    pv  = safe_sqrt(float(np.dot(weights, np.dot(cov, weights))))
+    pr = float(np.dot(weights, annual_returns))
+    pv = safe_sqrt(float(np.dot(weights, np.dot(cov, weights))))
     return -(pr - RISK_FREE_RATE) / pv if pv > 0 else 0.0
 
 
@@ -321,9 +346,12 @@ def _run_minimize(objective, init, args, bounds, constraints) -> np.ndarray:
     """Wrapper around scipy.minimize with fallback to equal weights."""
     try:
         result = minimize(
-            objective, init,
-            args=args, method="SLSQP",
-            bounds=bounds, constraints=constraints,
+            objective,
+            init,
+            args=args,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
             options={"maxiter": 1000, "ftol": 1e-9},
         )
         if result.success and np.all(np.isfinite(result.x)):
@@ -334,23 +362,27 @@ def _run_minimize(objective, init, args, bounds, constraints) -> np.ndarray:
     return init  # fallback to equal weights
 
 
-def optimize_max_sharpe(annual_returns: np.ndarray, cov: np.ndarray, n: int) -> np.ndarray:
+def optimize_max_sharpe(
+    annual_returns: np.ndarray, cov: np.ndarray, n: int
+) -> np.ndarray:
     """Maximum Sharpe ratio portfolio via SciPy SLSQP."""
-    init        = np.array([1 / n] * n)
-    bounds      = tuple((0.05, 0.75) for _ in range(n))
+    init = np.array([1 / n] * n)
+    bounds = tuple((0.05, 0.75) for _ in range(n))
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
     return _run_minimize(_neg_sharpe, init, (annual_returns, cov), bounds, constraints)
 
 
 def optimize_min_volatility(cov: np.ndarray, n: int) -> np.ndarray:
     """Minimum variance portfolio via SciPy SLSQP."""
-    init        = np.array([1 / n] * n)
-    bounds      = tuple((0.05, 0.75) for _ in range(n))
+    init = np.array([1 / n] * n)
+    bounds = tuple((0.05, 0.75) for _ in range(n))
     constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1}]
     return _run_minimize(_portfolio_vol, init, (cov,), bounds, constraints)
 
 
-def generate_efficient_frontier(annual_returns: np.ndarray, cov: np.ndarray, n: int) -> list:
+def generate_efficient_frontier(
+    annual_returns: np.ndarray, cov: np.ndarray, n: int
+) -> list:
     """
     Monte Carlo frontier sampling.
     Guarded: skips any portfolio with non-finite risk/return.
@@ -377,15 +409,16 @@ def generate_efficient_frontier(annual_returns: np.ndarray, cov: np.ndarray, n: 
 # Main Entry Point
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def main():
     # ── Parse input ──────────────────────────────────────────────────────────
     try:
-        payload     = json.loads(sys.argv[1])
-        tickers     = payload["tickers"]
+        payload = json.loads(sys.argv[1])
+        tickers = payload["tickers"]
         raw_weights = payload["weights"]
         risk_profile = payload.get("riskProfile", "balanced")
     except (IndexError, KeyError, json.JSONDecodeError) as e:
-        print(json.dumps({"error": f"Invalid input payload: {str(e)}"}))
+        print(json.dumps({"error": f"Invalid input payload: {e!s}"}))
         sys.exit(1)
 
     all_warnings = []
@@ -395,7 +428,9 @@ def main():
     all_warnings.extend(fetch_warnings)
 
     # Determine valid tickers (those that made it into the prices DataFrame)
-    valid_tickers = [t for t in tickers if t in (prices.columns if not prices.empty else [])]
+    valid_tickers = [
+        t for t in tickers if t in (prices.columns if not prices.empty else [])
+    ]
 
     if len(valid_tickers) < MIN_ASSETS:
         # Not enough valid data to optimize — return a structured error
@@ -405,7 +440,15 @@ def main():
         )
         if failed_tickers:
             msg += f" Failed: {', '.join(failed_tickers)}."
-        print(json.dumps({"error": msg, "warnings": all_warnings, "failedTickers": failed_tickers}))
+        print(
+            json.dumps(
+                {
+                    "error": msg,
+                    "warnings": all_warnings,
+                    "failedTickers": failed_tickers,
+                }
+            )
+        )
         sys.exit(1)
 
     if len(valid_tickers) < len(tickers):
@@ -416,30 +459,34 @@ def main():
 
     # ── Recalculate weights for the valid subset ──────────────────────────────
     valid_raw_w = {t: raw_weights.get(t, 1 / len(valid_tickers)) for t in valid_tickers}
-    total_w     = sum(valid_raw_w.values())
-    weights     = np.array([valid_raw_w[t] / total_w for t in valid_tickers], dtype=float)
+    total_w = sum(valid_raw_w.values())
+    weights = np.array([valid_raw_w[t] / total_w for t in valid_tickers], dtype=float)
 
     # ── Compute returns ───────────────────────────────────────────────────────
     returns = get_returns_matrix(prices[valid_tickers])
 
     if returns.empty or len(returns) < MIN_ROWS:
-        print(json.dumps({
-            "error": "Insufficient return history after data cleaning. Try different tickers or a longer period.",
-            "warnings": all_warnings,
-            "failedTickers": failed_tickers,
-        }))
+        print(
+            json.dumps(
+                {
+                    "error": "Insufficient return history after data cleaning. Try different tickers or a longer period.",
+                    "warnings": all_warnings,
+                    "failedTickers": failed_tickers,
+                }
+            )
+        )
         sys.exit(1)
 
-    n              = len(valid_tickers)
+    n = len(valid_tickers)
     annual_returns = returns.mean().values * TRADING_DAYS
-    cov            = safe_cov_matrix(returns)
+    cov = safe_cov_matrix(returns)
 
     # ── Core portfolio metrics ────────────────────────────────────────────────
     port_return, port_vol, sharpe = calculate_portfolio_metrics(returns, weights, cov)
 
     # ── Optimization ─────────────────────────────────────────────────────────
     max_sharpe_w = optimize_max_sharpe(annual_returns, cov, n)
-    min_vol_w    = optimize_min_volatility(cov, n)
+    min_vol_w = optimize_min_volatility(cov, n)
 
     ms_ret = float(np.dot(max_sharpe_w, annual_returns))
     ms_vol = safe_sqrt(float(np.dot(max_sharpe_w, np.dot(cov, max_sharpe_w))))
@@ -450,37 +497,40 @@ def main():
     # ── Efficient frontier ────────────────────────────────────────────────────
     frontier = generate_efficient_frontier(annual_returns, cov, n)
     if not frontier:
-        all_warnings.append("Efficient frontier generation produced no valid points. Monte Carlo may need more data.")
+        all_warnings.append(
+            "Efficient frontier generation produced no valid points. Monte Carlo may need more data."
+        )
 
     # ── Build output ──────────────────────────────────────────────────────────
     output = {
-        "success":            True,
-        "validTickers":       valid_tickers,
-        "failedTickers":      failed_tickers,
-        "warnings":           all_warnings,
-
-        "expectedReturn":      round(port_return, 5),
-        "volatility":          round(port_vol, 5),
-        "sharpeRatio":         sharpe,
+        "success": True,
+        "validTickers": valid_tickers,
+        "failedTickers": failed_tickers,
+        "warnings": all_warnings,
+        "expectedReturn": round(port_return, 5),
+        "volatility": round(port_vol, 5),
+        "sharpeRatio": sharpe,
         "diversificationScore": diversification_score(returns, weights, cov),
-
-        "correlationMatrix":   compute_correlation_matrix(returns),
-        "individualMetrics":   compute_individual_metrics(returns),
-        "efficientFrontier":   frontier,
-
+        "correlationMatrix": compute_correlation_matrix(returns),
+        "individualMetrics": compute_individual_metrics(returns),
+        "efficientFrontier": frontier,
         "optimalPortfolio": {
-            "return":  round(ms_ret, 5),
-            "risk":    round(ms_vol, 5),
-            "weights": {valid_tickers[i]: round(float(max_sharpe_w[i]), 4) for i in range(n)},
+            "return": round(ms_ret, 5),
+            "risk": round(ms_vol, 5),
+            "weights": {
+                valid_tickers[i]: round(float(max_sharpe_w[i]), 4) for i in range(n)
+            },
         },
         "minVolPortfolio": {
-            "return":  round(mv_ret, 5),
-            "risk":    round(mv_vol, 5),
-            "weights": {valid_tickers[i]: round(float(min_vol_w[i]), 4) for i in range(n)},
+            "return": round(mv_ret, 5),
+            "risk": round(mv_vol, 5),
+            "weights": {
+                valid_tickers[i]: round(float(min_vol_w[i]), 4) for i in range(n)
+            },
         },
         "currentPortfolio": {
             "return": round(port_return, 5),
-            "risk":   round(port_vol, 5),
+            "risk": round(port_vol, 5),
         },
         "varStats": compute_var_stats(returns, weights),
     }
@@ -494,5 +544,5 @@ if __name__ == "__main__":
     except Exception as e:
         # Final safety net — never let the process die silently
         log.critical(f"Unhandled exception: {traceback.format_exc()}")
-        print(json.dumps({"error": f"Internal engine error: {str(e)}", "warnings": []}))
+        print(json.dumps({"error": f"Internal engine error: {e!s}", "warnings": []}))
         sys.exit(1)

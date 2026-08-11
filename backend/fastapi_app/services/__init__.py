@@ -5,7 +5,7 @@ from .portfolio_service import PortfolioService, get_portfolio_service
 
 __all__ = [
     "MarketDataService",
-    "get_market_service",
     "PortfolioService",
+    "get_market_service",
     "get_portfolio_service",
 ]

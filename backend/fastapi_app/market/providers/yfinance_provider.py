@@ -10,16 +10,20 @@ are wrapped in asyncio.to_thread() to prevent event loop blocking.
 import asyncio
 import logging
 import time
-import yfinance as yf
+
 import pandas as pd
-from typing import Optional
-from .base import MarketDataProvider, StockQuote, Instrument, Candle
-from utils.helpers import search_stocks as search_nse_stocks, validate_ticker_format
+import yfinance as yf
+
+from utils.helpers import search_stocks as search_nse_stocks
+from utils.helpers import validate_ticker_format
+
+from .base import Candle, Instrument, MarketDataProvider, StockQuote
 
 log = logging.getLogger("finai_edge.yfinance")
 
 
 # ── Synchronous helpers (run in thread pool) ────────────────────────
+
 
 def _format_symbol_for_yf(symbol: str) -> str:
     """Ensure symbol has .NS suffix for NSE stocks, unless it is an index."""
@@ -28,6 +32,7 @@ def _format_symbol_for_yf(symbol: str) -> str:
     if "." not in symbol:
         return f"{symbol}.NS"
     return symbol
+
 
 def _sync_get_quote(symbol: str) -> dict:
     """Synchronous quote fetch — runs in thread pool via asyncio.to_thread()."""
@@ -68,14 +73,16 @@ def _sync_get_candles(symbol: str, interval: str, period: str) -> list[dict]:
 
     candles = []
     for idx, row in hist.iterrows():
-        candles.append({
-            "timestamp": idx.isoformat(),
-            "open": round(float(row["Open"]), 2),
-            "high": round(float(row["High"]), 2),
-            "low": round(float(row["Low"]), 2),
-            "close": round(float(row["Close"]), 2),
-            "volume": int(row.get("Volume", 0)),
-        })
+        candles.append(
+            {
+                "timestamp": idx.isoformat(),
+                "open": round(float(row["Open"]), 2),
+                "high": round(float(row["High"]), 2),
+                "low": round(float(row["Low"]), 2),
+                "close": round(float(row["Close"]), 2),
+                "volume": int(row.get("Volume", 0)),
+            }
+        )
     return candles
 
 
@@ -108,6 +115,7 @@ def _sync_bulk_download(tickers: list[str], period: str) -> pd.DataFrame:
 
 
 # ── Async Provider ──────────────────────────────────────────────────
+
 
 class YFinanceProvider(MarketDataProvider):
     """
@@ -187,14 +195,18 @@ class YFinanceProvider(MarketDataProvider):
                 log.debug(f"yfinance candles empty for {symbol} ({elapsed:.2f}s)")
                 return []
 
-            log.debug(f"yfinance candles {symbol}: {len(raw_candles)} points ({elapsed:.2f}s)")
+            log.debug(
+                f"yfinance candles {symbol}: {len(raw_candles)} points ({elapsed:.2f}s)"
+            )
             return [Candle(**c) for c in raw_candles]
         except Exception as e:
             elapsed = time.time() - start
             log.warning(f"yfinance candles failed for {symbol} ({elapsed:.2f}s): {e}")
             return []
 
-    async def get_bulk_prices(self, tickers: list[str], period: str = "2y") -> pd.DataFrame:
+    async def get_bulk_prices(
+        self, tickers: list[str], period: str = "2y"
+    ) -> pd.DataFrame:
         """
         Bulk download adjusted close prices for portfolio analysis (non-blocking).
         Returns a DataFrame with ticker columns and date index.
@@ -209,9 +221,7 @@ class YFinanceProvider(MarketDataProvider):
 
         start = time.time()
         try:
-            prices = await asyncio.to_thread(
-                _sync_bulk_download, valid_tickers, period
-            )
+            prices = await asyncio.to_thread(_sync_bulk_download, valid_tickers, period)
             elapsed = time.time() - start
 
             if prices.empty:

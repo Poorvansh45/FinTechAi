@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import pandas as pd
 
 
@@ -13,7 +11,7 @@ def avg_volume(values, window: int = 20, min_periods: int = 5) -> pd.Series:
     return s.rolling(window, min_periods=min_periods).mean()
 
 
-def volume_ratio(current_volume: Optional[float], avg: Optional[float]) -> Optional[float]:
+def volume_ratio(current_volume: float | None, avg: float | None) -> float | None:
     """Current volume relative to its rolling average (surge factor)."""
     if not avg or avg <= 0 or current_volume is None:
         return None

@@ -82,12 +82,12 @@ export const NAV_MODULES: NavModule[] = [
   },
   {
     id: 'ai-copilot',
-    label: 'FinTechAI Copilot',
+    label: 'Nivro Copilot',
     href: '/ai-copilot',
     color: 'text-pink-400',
     glowColor: 'rgba(236,72,153,0.15)',
     items: [
-      { href: '/ai-copilot', label: 'FinTechAI Copilot', icon: Brain, desc: 'Your all-in-one AI financial analyst', badge: 'AI' }
+      { href: '/ai-copilot', label: 'Nivro Copilot', icon: Brain, desc: 'Your all-in-one AI financial analyst', badge: 'AI' }
     ],
   },
 ];

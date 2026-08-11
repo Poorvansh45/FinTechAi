@@ -13,14 +13,15 @@ Endpoints:
   GET/POST /api/v2/scanner/ipo-vintage/listings — manage the tracked IPO universe
 """
 
-import asyncio
 import logging
 import math
 import time
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Request, Query, BackgroundTasks, HTTPException, Depends
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
+
 from services.scanner_service import get_scanner_service
 from utils.auth import get_current_user, require_not_demo
 
@@ -33,6 +34,7 @@ log = logging.getLogger("finai_edge.api.screener")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _san(val):
     if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
@@ -49,8 +51,10 @@ def _san_item(item: dict) -> dict:
             clean[k] = _san_item(v)
         elif isinstance(v, list):
             clean[k] = [
-                _san_item(i) if isinstance(i, dict)
-                else _san(i) if isinstance(i, float)
+                _san_item(i)
+                if isinstance(i, dict)
+                else _san(i)
+                if isinstance(i, float)
                 else i
                 for i in v
             ]
@@ -74,39 +78,47 @@ def _db(request: Request):
 
 # ── Technical ─────────────────────────────────────────────────────────────────
 
+
 @router.get("/technical")
 async def technical(
     request: Request,
-    rsi_min:         float = Query(None),
-    rsi_max:         float = Query(None),
-    ema50_dist_min:  float = Query(None, description="+5 = 5% above EMA50"),
-    ema50_dist_max:  float = Query(None),
+    rsi_min: float = Query(None),
+    rsi_max: float = Query(None),
+    ema50_dist_min: float = Query(None, description="+5 = 5% above EMA50"),
+    ema50_dist_max: float = Query(None),
     ema200_dist_min: float = Query(None, description="+10 = 10% above EMA200"),
     ema200_dist_max: float = Query(None),
-    macd_min:        float = Query(None),
-    macd_max:        float = Query(None),
-    volume_min:      int   = Query(None),
-    volume_max:      int   = Query(None),
-    sort_by:         str   = Query("volume"),
-    sort_dir:        str   = Query("desc"),
-    limit:           int   = Query(2500),
+    macd_min: float = Query(None),
+    macd_max: float = Query(None),
+    volume_min: int = Query(None),
+    volume_max: int = Query(None),
+    sort_by: str = Query("volume"),
+    sort_dir: str = Query("desc"),
+    limit: int = Query(2500),
 ):
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
     filters = {
-        "rsi_min": rsi_min, "rsi_max": rsi_max,
-        "ema50_dist_min": ema50_dist_min, "ema50_dist_max": ema50_dist_max,
-        "ema200_dist_min": ema200_dist_min, "ema200_dist_max": ema200_dist_max,
-        "macd_min": macd_min, "macd_max": macd_max,
-        "volume_min": volume_min, "volume_max": volume_max,
-        "sort_by": sort_by, "sort_dir": sort_dir,
+        "rsi_min": rsi_min,
+        "rsi_max": rsi_max,
+        "ema50_dist_min": ema50_dist_min,
+        "ema50_dist_max": ema50_dist_max,
+        "ema200_dist_min": ema200_dist_min,
+        "ema200_dist_max": ema200_dist_max,
+        "macd_min": macd_min,
+        "macd_max": macd_max,
+        "volume_min": volume_min,
+        "volume_max": volume_max,
+        "sort_by": sort_by,
+        "sort_dir": sort_dir,
     }
     data = await get_scanner_service(db).get_technical_screener(filters, limit)
     return {"success": True, "count": len(data), "data": data}
 
 
 # ── Volume (simple) ───────────────────────────────────────────────────────────
+
 
 @router.get("/volume")
 async def volume(request: Request, limit: int = Query(50)):
@@ -119,23 +131,24 @@ async def volume(request: Request, limit: int = Query(50)):
 
 # ── Volume Surge ──────────────────────────────────────────────────────────────
 
+
 @router.get("/volume-surge")
 async def volume_surge(
     request: Request,
-    volume_ratio_min:         float = Query(None),
-    price_min:                float = Query(None),
-    price_max:                float = Query(None),
-    avg_1d_min:               float = Query(None),
-    win_rate_min:             float = Query(None),
-    surges_min:               int   = Query(None),
-    surges_3yr_min:           int   = Query(None),
-    max_gain_min:             float = Query(None),
-    day_return_min:           float = Query(None),
-    day_return_max:           float = Query(None),
-    positive_surge_pct_min:  float = Query(None),
-    current_surge_only:       bool  = Query(False),
-    include_history:          bool  = Query(True),
-    limit:                    int   = Query(2500),
+    volume_ratio_min: float = Query(None),
+    price_min: float = Query(None),
+    price_max: float = Query(None),
+    avg_1d_min: float = Query(None),
+    win_rate_min: float = Query(None),
+    surges_min: int = Query(None),
+    surges_3yr_min: int = Query(None),
+    max_gain_min: float = Query(None),
+    day_return_min: float = Query(None),
+    day_return_max: float = Query(None),
+    positive_surge_pct_min: float = Query(None),
+    current_surge_only: bool = Query(False),
+    include_history: bool = Query(True),
+    limit: int = Query(2500),
 ):
     db = _db(request)
     if db is None:
@@ -143,10 +156,15 @@ async def volume_surge(
     # Merge surges_3yr_min into surges_min (frontend compat)
     effective_surges_min = surges_min or surges_3yr_min
     filters = {
-        "volume_ratio_min": volume_ratio_min, "price_min": price_min, "price_max": price_max,
-        "avg_1d_min": avg_1d_min, "win_rate_min": win_rate_min,
-        "surges_min": effective_surges_min, "max_gain_min": max_gain_min,
-        "day_return_min": day_return_min, "day_return_max": day_return_max,
+        "volume_ratio_min": volume_ratio_min,
+        "price_min": price_min,
+        "price_max": price_max,
+        "avg_1d_min": avg_1d_min,
+        "win_rate_min": win_rate_min,
+        "surges_min": effective_surges_min,
+        "max_gain_min": max_gain_min,
+        "day_return_min": day_return_min,
+        "day_return_max": day_return_max,
         "positive_surge_pct_min": positive_surge_pct_min,
         "current_surge_only": current_surge_only,
         "include_history": include_history,
@@ -158,16 +176,16 @@ async def volume_surge(
 @router.get("/volume-surge-summary")
 async def volume_surge_summary(
     request: Request,
-    volume_ratio_min:         float = Query(None),
-    price_min:                float = Query(None),
-    price_max:                float = Query(None),
-    surges_min:               int   = Query(None),
-    surges_3yr_min:           int   = Query(None),
-    day_return_min:           float = Query(None),
-    day_return_max:           float = Query(None),
-    positive_surge_pct_min:  float = Query(None),
-    current_surge_only:       bool  = Query(False),
-    limit:                    int   = Query(2500),
+    volume_ratio_min: float = Query(None),
+    price_min: float = Query(None),
+    price_max: float = Query(None),
+    surges_min: int = Query(None),
+    surges_3yr_min: int = Query(None),
+    day_return_min: float = Query(None),
+    day_return_max: float = Query(None),
+    positive_surge_pct_min: float = Query(None),
+    current_surge_only: bool = Query(False),
+    limit: int = Query(2500),
 ):
     """Lightweight endpoint that excludes surge_history for fast page load."""
     db = _db(request)
@@ -175,9 +193,12 @@ async def volume_surge_summary(
         return {"success": False, "error": "Database not connected"}
     effective_surges_min = surges_min or surges_3yr_min
     filters = {
-        "volume_ratio_min": volume_ratio_min, "price_min": price_min, "price_max": price_max,
+        "volume_ratio_min": volume_ratio_min,
+        "price_min": price_min,
+        "price_max": price_max,
         "surges_min": effective_surges_min,
-        "day_return_min": day_return_min, "day_return_max": day_return_max,
+        "day_return_min": day_return_min,
+        "day_return_max": day_return_max,
         "positive_surge_pct_min": positive_surge_pct_min,
         "current_surge_only": current_surge_only,
         "include_history": False,  # key difference: no surge_history
@@ -188,22 +209,23 @@ async def volume_surge_summary(
 
 # ── FVG Scanner ───────────────────────────────────────────────────────────────
 
+
 @router.get("/fvg")
 async def fvg(
     request: Request,
-    distance_fvg_min:  float = Query(None),
-    distance_fvg_max:  float = Query(None),
-    price_min:         float = Query(None),
-    price_max:         float = Query(None),
+    distance_fvg_min: float = Query(None),
+    distance_fvg_max: float = Query(None),
+    price_min: float = Query(None),
+    price_max: float = Query(None),
     distance_high_min: float = Query(None),
     distance_high_max: float = Query(None),
-    distance_low_min:  float = Query(None),
-    distance_low_max:  float = Query(None),
-    near_52w_high:     bool  = Query(None),
-    near_52w_low:      bool  = Query(None),
-    symbol:            str   = Query(None),
-    has_fvg_only:      bool  = Query(True),
-    limit:             int   = Query(2500),
+    distance_low_min: float = Query(None),
+    distance_low_max: float = Query(None),
+    near_52w_high: bool = Query(None),
+    near_52w_low: bool = Query(None),
+    symbol: str = Query(None),
+    has_fvg_only: bool = Query(True),
+    limit: int = Query(2500),
 ):
     db = _db(request)
     if db is None:
@@ -228,34 +250,42 @@ async def fvg(
 
 # ── Momentum Scanner ──────────────────────────────────────────────────────────
 
+
 @router.get("/momentum")
 async def momentum(
     request: Request,
-    score_min:        int   = Query(None),
-    score_max:        int   = Query(None),
-    rsi_min:          float = Query(None),
-    rsi_max:          float = Query(None),
-    ema50_dist_min:   float = Query(None),
-    ema200_dist_min:  float = Query(None),
-    price_min:        float = Query(None),
-    price_max:        float = Query(None),
+    score_min: int = Query(None),
+    score_max: int = Query(None),
+    rsi_min: float = Query(None),
+    rsi_max: float = Query(None),
+    ema50_dist_min: float = Query(None),
+    ema200_dist_min: float = Query(None),
+    price_min: float = Query(None),
+    price_max: float = Query(None),
     volume_ratio_min: float = Query(None),
-    week52_dist_max:  float = Query(None),
-    category:         str   = Query(None),
-    above_ema50:      bool  = Query(None),
-    above_ema200:     bool  = Query(None),
-    limit:            int   = Query(200),
+    week52_dist_max: float = Query(None),
+    category: str = Query(None),
+    above_ema50: bool = Query(None),
+    above_ema200: bool = Query(None),
+    limit: int = Query(200),
 ):
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
     filters = {
-        "score_min": score_min, "score_max": score_max,
-        "rsi_min": rsi_min, "rsi_max": rsi_max,
-        "ema50_dist_min": ema50_dist_min, "ema200_dist_min": ema200_dist_min,
-        "price_min": price_min, "price_max": price_max,
-        "volume_ratio_min": volume_ratio_min, "week52_dist_max": week52_dist_max,
-        "category": category, "above_ema50": above_ema50, "above_ema200": above_ema200,
+        "score_min": score_min,
+        "score_max": score_max,
+        "rsi_min": rsi_min,
+        "rsi_max": rsi_max,
+        "ema50_dist_min": ema50_dist_min,
+        "ema200_dist_min": ema200_dist_min,
+        "price_min": price_min,
+        "price_max": price_max,
+        "volume_ratio_min": volume_ratio_min,
+        "week52_dist_max": week52_dist_max,
+        "category": category,
+        "above_ema50": above_ema50,
+        "above_ema200": above_ema200,
     }
     data = await get_scanner_service(db).get_momentum_stocks(filters, limit)
     return {"success": True, "count": len(data), "data": data}
@@ -264,27 +294,114 @@ async def momentum(
 # ── Nifty Index Universes for Branded Strategies ──────────────────────────────
 
 NIFTY_50 = {
-    "ADANIENT", "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT", "AXISBANK", "BAJAJ-AUTO",
-    "BAJFINANCE", "BAJAJFINSV", "BEL", "BHARTIARTL", "BPCL", "BRITANNIA", "CIPLA",
-    "COALINDIA", "DIVISLAB", "DRREDDY", "EICHERMOT", "GRASIM", "HCLTECH", "HDFCBANK",
-    "HDFCLIFE", "HEROMOTOCO", "HINDALCO", "HINDUNILVR", "ICICIBANK", "INDUSINDBK",
-    "INFY", "ITC", "JSWSTEEL", "KOTAKBANK", "LT", "LTIM", "M&M", "MARUTI", "NESTLEIND",
-    "NTPC", "ONGC", "POWERGRID", "RELIANCE", "SBILIFE", "SBIN", "SUNPHARMA", "TATACONSUM",
-    "TATAMOTORS", "TATASTEEL", "TCS", "TECHM", "TITAN", "ULTRACEMCO", "WIPRO"
+    "ADANIENT",
+    "ADANIPORTS",
+    "APOLLOHOSP",
+    "ASIANPAINT",
+    "AXISBANK",
+    "BAJAJ-AUTO",
+    "BAJFINANCE",
+    "BAJAJFINSV",
+    "BEL",
+    "BHARTIARTL",
+    "BPCL",
+    "BRITANNIA",
+    "CIPLA",
+    "COALINDIA",
+    "DIVISLAB",
+    "DRREDDY",
+    "EICHERMOT",
+    "GRASIM",
+    "HCLTECH",
+    "HDFCBANK",
+    "HDFCLIFE",
+    "HEROMOTOCO",
+    "HINDALCO",
+    "HINDUNILVR",
+    "ICICIBANK",
+    "INDUSINDBK",
+    "INFY",
+    "ITC",
+    "JSWSTEEL",
+    "KOTAKBANK",
+    "LT",
+    "LTIM",
+    "M&M",
+    "MARUTI",
+    "NESTLEIND",
+    "NTPC",
+    "ONGC",
+    "POWERGRID",
+    "RELIANCE",
+    "SBILIFE",
+    "SBIN",
+    "SUNPHARMA",
+    "TATACONSUM",
+    "TATAMOTORS",
+    "TATASTEEL",
+    "TCS",
+    "TECHM",
+    "TITAN",
+    "ULTRACEMCO",
+    "WIPRO",
 }
 
 NIFTY_NEXT_50 = {
-    "ABB", "ACC", "ADANIENSOL", "ADANIGREEN", "ADANIPOWER", "AMBUJACEM", "COLPAL",
-    "DLF", "DMART", "GAIL", "HAL", "HAVELLS", "INDIGO", "IOC", "IRCTC", "JIOFIN",
-    "LICI", "MARICO", "MUTHOOTFIN", "NAUKRI", "PFC", "PIDILITIND", "PNB", "RECLTD",
-    "SHREECEM", "SRF", "TATACOMM", "TATAPOWER", "TRENT", "TVSMOTOR", "UNITDSPR",
-    "VBL", "SIEMENS", "BOSCHLTD", "ZOMATO", "BANKBARODA", "CANBK", "CHOLAFIN",
-    "ICICIPRULI", "ICICIGI", "JINDALSTEL", "MAXHEALTH", "NHPC", "OBEROIRLTY",
-    "POLYCAB", "SBICARD", "SHAFTLER", "SOLARINDS", "SJVN", "YESBANK"
+    "ABB",
+    "ACC",
+    "ADANIENSOL",
+    "ADANIGREEN",
+    "ADANIPOWER",
+    "AMBUJACEM",
+    "COLPAL",
+    "DLF",
+    "DMART",
+    "GAIL",
+    "HAL",
+    "HAVELLS",
+    "INDIGO",
+    "IOC",
+    "IRCTC",
+    "JIOFIN",
+    "LICI",
+    "MARICO",
+    "MUTHOOTFIN",
+    "NAUKRI",
+    "PFC",
+    "PIDILITIND",
+    "PNB",
+    "RECLTD",
+    "SHREECEM",
+    "SRF",
+    "TATACOMM",
+    "TATAPOWER",
+    "TRENT",
+    "TVSMOTOR",
+    "UNITDSPR",
+    "VBL",
+    "SIEMENS",
+    "BOSCHLTD",
+    "ZOMATO",
+    "BANKBARODA",
+    "CANBK",
+    "CHOLAFIN",
+    "ICICIPRULI",
+    "ICICIGI",
+    "JINDALSTEL",
+    "MAXHEALTH",
+    "NHPC",
+    "OBEROIRLTY",
+    "POLYCAB",
+    "SBICARD",
+    "SHAFTLER",
+    "SOLARINDS",
+    "SJVN",
+    "YESBANK",
 }
 
 
 # ── Proprietary: LaunchPad Strategy ───────────────────────────────────────────
+
 
 def _risk_label(risk_pct) -> str:
     rp = risk_pct or 0.0
@@ -306,7 +423,7 @@ def _launchpad_response(d: dict) -> dict:
         **d,
         "risk": _risk_label(d.get("risk_pct")),
         "expected_return": expected_return,
-        "holding_period": "5-7",                       # renders as "5-7 Days"
+        "holding_period": "5-7",  # renders as "5-7 Days"
         "risk_reward": f"1:{d.get('risk_reward', 2.0)}",
         "rsi": d.get("rsi_14"),
         "ema_200_dist": d.get("ema_200_dist_pct"),
@@ -317,18 +434,18 @@ def _launchpad_response(d: dict) -> dict:
 @router.get("/launchpad")
 async def get_launchpad(
     request: Request,
-    market:          str   = Query("all"),
-    price_min:       float = Query(None),
-    price_max:       float = Query(None),
-    min_return:      float = Query(None),   # expected-return band — lower
-    max_return:      float = Query(None),   # expected-return band — upper
-    min_confidence:  float = Query(None),   # confidence band — lower
-    max_confidence:  float = Query(None),   # confidence band — upper
-    min_avg_volume:  float = Query(None),   # 20-day avg volume band — lower (liquidity)
-    max_avg_volume:  float = Query(None),   # 20-day avg volume band — upper
-    gap_min:         float = Query(None),   # FVG zone size band (gap %) — lower
-    gap_max:         float = Query(None),   # FVG zone size band (gap %) — upper
-    limit:           int   = Query(5000),   # effectively "all" — the cache is a few hundred
+    market: str = Query("all"),
+    price_min: float = Query(None),
+    price_max: float = Query(None),
+    min_return: float = Query(None),  # expected-return band — lower
+    max_return: float = Query(None),  # expected-return band — upper
+    min_confidence: float = Query(None),  # confidence band — lower
+    max_confidence: float = Query(None),  # confidence band — upper
+    min_avg_volume: float = Query(None),  # 20-day avg volume band — lower (liquidity)
+    max_avg_volume: float = Query(None),  # 20-day avg volume band — upper
+    gap_min: float = Query(None),  # FVG zone size band (gap %) — lower
+    gap_max: float = Query(None),  # FVG zone size band (gap %) — upper
+    limit: int = Query(5000),  # effectively "all" — the cache is a few hundred
 ):
     """
     LaunchPad — momentum-swing continuation (5-7 day hold). Reads the
@@ -386,7 +503,9 @@ async def get_launchpad(
     if gap_q:
         query["gap_pct"] = gap_q
 
-    docs = await col.find(query, {"_id": 0}).sort("confidence", -1).to_list(length=limit)
+    docs = (
+        await col.find(query, {"_id": 0}).sort("confidence", -1).to_list(length=limit)
+    )
 
     out = []
     for d in docs:
@@ -395,7 +514,11 @@ async def get_launchpad(
             continue
         if market == "nifty_next50" and symbol not in NIFTY_NEXT_50:
             continue
-        if market == "nifty200" and symbol not in NIFTY_50 and symbol not in NIFTY_NEXT_50:
+        if (
+            market == "nifty200"
+            and symbol not in NIFTY_50
+            and symbol not in NIFTY_NEXT_50
+        ):
             continue
         row = _launchpad_response(d)
         # expected_return is derived at read time, so its band is filtered here.
@@ -406,6 +529,7 @@ async def get_launchpad(
         out.append(row)
 
     from engines.strategies.runner import _CACHE_META
+
     cache_meta = _CACHE_META.get("launchpad_cache", {})
     log.info(
         f"[GET /launchpad] scan_id={cache_meta.get('scan_id', 'n/a')} | "
@@ -418,23 +542,28 @@ async def get_launchpad(
         f"response_time={time.time() - t_req0:.3f}s"
     )
 
-    return {"success": True, "count": len(out[:limit]), "data": _fmt(out[:limit])["data"]}
+    return {
+        "success": True,
+        "count": len(out[:limit]),
+        "data": _fmt(out[:limit])["data"],
+    }
 
 
 # ── Proprietary: Alpha Zone Strategy ──────────────────────────────────────────
 
+
 @router.get("/alpha-zone")
 async def get_alpha_zone(
     request: Request,
-    freshness:       str   = Query("all"),
-    distance:        str   = Query("all"),
-    min_return:      float = Query(None),
-    holding_period:  int   = Query(None),
-    price_min:       float = Query(None),   # CMP band — lower
-    price_max:       float = Query(None),   # CMP band — upper
-    min_avg_volume:  float = Query(None),   # 20-day avg volume band — lower (liquidity)
-    max_avg_volume:  float = Query(None),   # 20-day avg volume band — upper
-    limit:           int   = Query(5000),   # effectively "all" — the cache is a few hundred
+    freshness: str = Query("all"),
+    distance: str = Query("all"),
+    min_return: float = Query(None),
+    holding_period: int = Query(None),
+    price_min: float = Query(None),  # CMP band — lower
+    price_max: float = Query(None),  # CMP band — upper
+    min_avg_volume: float = Query(None),  # 20-day avg volume band — lower (liquidity)
+    max_avg_volume: float = Query(None),  # 20-day avg volume band — upper
+    limit: int = Query(5000),  # effectively "all" — the cache is a few hundred
 ):
     """
     Alpha Zone proprietary institutional swing strategy.
@@ -488,7 +617,11 @@ async def get_alpha_zone(
     if vol_q:
         query["avg_volume"] = vol_q
 
-    docs = await col.find(query, {"_id": 0}).sort("institutional_score", -1).to_list(length=limit)
+    docs = (
+        await col.find(query, {"_id": 0})
+        .sort("institutional_score", -1)
+        .to_list(length=limit)
+    )
 
     out = []
     for d in docs:
@@ -503,6 +636,7 @@ async def get_alpha_zone(
         out.append(d)
 
     from engines.strategies.runner import _CACHE_META
+
     cache_meta = _CACHE_META.get("alpha_zone_cache", {})
     log.info(
         f"[GET /alpha-zone] scan_id={cache_meta.get('scan_id', 'n/a')} | "
@@ -514,7 +648,11 @@ async def get_alpha_zone(
         f"response_time={time.time() - t_req0:.3f}s"
     )
 
-    return {"success": True, "count": len(out[:limit]), "data": _fmt(out[:limit])["data"]}
+    return {
+        "success": True,
+        "count": len(out[:limit]),
+        "data": _fmt(out[:limit])["data"],
+    }
 
 
 # ── Proprietary: IPO Vintage Strategy ─────────────────────────────────────────
@@ -529,7 +667,7 @@ _IPO_HORIZONS = (7, 15, 30, 60, 90)
 class IPOListingIn(BaseModel):
     symbol: str
     company_name: str | None = None
-    listing_date: str          # "YYYY-MM-DD"
+    listing_date: str  # "YYYY-MM-DD"
     issue_price: float | None = None
 
 
@@ -544,7 +682,12 @@ async def list_ipo_listings(request: Request):
     db = _db(request)
     if db is None:
         return {"success": False, "error": "Database not connected"}
-    docs = await db.get_collection("ipo_listings").find({}, {"_id": 0}).sort("listing_date", -1).to_list(length=1000)
+    docs = (
+        await db.get_collection("ipo_listings")
+        .find({}, {"_id": 0})
+        .sort("listing_date", -1)
+        .to_list(length=1000)
+    )
     return {"success": True, "count": len(docs), "data": docs}
 
 
@@ -564,9 +707,13 @@ async def add_ipo_listing(request: Request, payload: IPOListingIn):
         "source": "manual",
     }
     await db.get_collection("ipo_listings").update_one(
-        {"symbol": doc["symbol"]}, {"$set": doc}, upsert=True,
+        {"symbol": doc["symbol"]},
+        {"$set": doc},
+        upsert=True,
     )
-    log.info(f"[POST /ipo-vintage/listings] upserted {doc['symbol']} (listed {doc['listing_date']})")
+    log.info(
+        f"[POST /ipo-vintage/listings] upserted {doc['symbol']} (listed {doc['listing_date']})"
+    )
     return {"success": True, "data": doc}
 
 
@@ -591,16 +738,18 @@ async def get_ipo_vintage_study(request: Request):
 @router.get("/ipo-vintage")
 async def get_ipo_vintage(
     request: Request,
-    status:          str   = Query("live"),  # live | stopped | expired | history | all
-    horizon:         int   = Query(15),      # 7|15|30|60|90 — which horizon to expose/filter
-    min_confidence:  float = Query(None),
-    max_confidence:  float = Query(None),
-    min_return:      float = Query(None),    # applies to the selected horizon's return_pct
-    max_return:      float = Query(None),
-    max_risk:        float = Query(None),    # risk_pct ceiling — stops here run WIDE
+    status: str = Query("live"),  # live | stopped | expired | history | all
+    horizon: int = Query(15),  # 7|15|30|60|90 — which horizon to expose/filter
+    min_confidence: float = Query(None),
+    max_confidence: float = Query(None),
+    min_return: float = Query(None),  # applies to the selected horizon's return_pct
+    max_return: float = Query(None),
+    max_risk: float = Query(None),  # risk_pct ceiling — stops here run WIDE
     max_days_since_trigger: int = Query(None),  # freshness ceiling for live setups
-    sort_by:         str   = Query("confidence"),  # confidence | risk_pct | mfe_pct | days_since_trigger
-    limit:           int   = Query(5000),    # effectively "all" — the tracked universe is small
+    sort_by: str = Query(
+        "confidence"
+    ),  # confidence | risk_pct | mfe_pct | days_since_trigger
+    limit: int = Query(5000),  # effectively "all" — the tracked universe is small
 ):
     """
     IPO Vintage — opening-range breakout on recently listed stocks. Reads the
@@ -651,11 +800,16 @@ async def get_ipo_vintage(
 
     # risk + recency ascending (tightest stop / freshest first); rest descending.
     sort_field = (
-        sort_by if sort_by in ("confidence", "risk_pct", "mfe_pct", "days_since_trigger")
+        sort_by
+        if sort_by in ("confidence", "risk_pct", "mfe_pct", "days_since_trigger")
         else "confidence"
     )
     sort_dir = 1 if sort_field in ("risk_pct", "days_since_trigger") else -1
-    docs = await col.find(query, {"_id": 0}).sort(sort_field, sort_dir).to_list(length=limit)
+    docs = (
+        await col.find(query, {"_id": 0})
+        .sort(sort_field, sort_dir)
+        .to_list(length=limit)
+    )
 
     hz_key = f"h{horizon}" if horizon in _IPO_HORIZONS else "h15"
     out = []
@@ -669,15 +823,18 @@ async def get_ipo_vintage(
             continue
         if max_return is not None and (ret is None or ret > max_return):
             continue
-        out.append({
-            **d,
-            "selected_horizon": horizon,
-            "selected_horizon_status": hz.get("status"),
-            "selected_horizon_return_pct": ret,
-            "selected_horizon_exit_date": hz.get("exit_date"),
-        })
+        out.append(
+            {
+                **d,
+                "selected_horizon": horizon,
+                "selected_horizon_status": hz.get("status"),
+                "selected_horizon_return_pct": ret,
+                "selected_horizon_exit_date": hz.get("exit_date"),
+            }
+        )
 
     from engines.strategies.runner import _CACHE_META
+
     cache_meta = _CACHE_META.get("ipo_vintage_cache", {})
     log.info(
         f"[GET /ipo-vintage] scan_id={cache_meta.get('scan_id', 'n/a')} | "
@@ -690,10 +847,15 @@ async def get_ipo_vintage(
         f"response_time={time.time() - t_req0:.3f}s"
     )
 
-    return {"success": True, "count": len(out[:limit]), "data": _fmt(out[:limit])["data"]}
+    return {
+        "success": True,
+        "count": len(out[:limit]),
+        "data": _fmt(out[:limit])["data"],
+    }
 
 
 # ── Scan Status ───────────────────────────────────────────────────────────────
+
 
 @v2_router.get("/scan-status")
 async def scan_status(request: Request):
@@ -712,6 +874,7 @@ async def scan_status(request: Request):
     # frontend's Run Full Scan stepper polls. active_scan_ids is logged (not
     # returned) purely for concurrency visibility.
     from schedulers.daily_refresh import _ACTIVE_SCANS
+
     active = list(_ACTIVE_SCANS.keys())
     log.info(
         f"[GET /scan-status] active_scan_ids={active or 'none'} | "
@@ -762,8 +925,8 @@ async def trigger_scan(
     if db is None:
         raise HTTPException(503, "Database not connected")
 
-    from schedulers.daily_refresh import run_daily_scan
     from engines.orchestration.coordinator import STALE_SCAN_HOURS
+    from schedulers.daily_refresh import run_daily_scan
 
     req_id = f"REQ-{uuid.uuid4().hex[:6]}"
     now = datetime.now(timezone.utc)
@@ -785,12 +948,15 @@ async def trigger_scan(
                 f"[{req_id}] POST /trigger-scan REJECTED (409, already running) | "
                 f"user={user_id} | holder={meta.get('scan_id')} | age={age_h:.2f}h"
             )
-            raise HTTPException(409, {
-                "error": "scan_already_running",
-                "message": "A scan is already running. Watch its progress on the Overview page.",
-                "scan_id": meta.get("scan_id"),
-                "started_at": started_at.isoformat(),
-            })
+            raise HTTPException(
+                409,
+                {
+                    "error": "scan_already_running",
+                    "message": "A scan is already running. Watch its progress on the Overview page.",
+                    "scan_id": meta.get("scan_id"),
+                    "started_at": started_at.isoformat(),
+                },
+            )
 
     # ── Cooldown between manual runs ────────────────────────────────────
     last_manual = _aware(meta.get("last_manual_trigger_at"))
@@ -802,11 +968,14 @@ async def trigger_scan(
                 f"[{req_id}] POST /trigger-scan REJECTED (429, cooldown) | "
                 f"user={user_id} | {mins:.1f}m since last manual run"
             )
-            raise HTTPException(429, {
-                "error": "cooldown_active",
-                "message": f"A manual scan ran {int(mins)} minutes ago. Try again in ~{wait} minutes.",
-                "retry_after_minutes": wait,
-            })
+            raise HTTPException(
+                429,
+                {
+                    "error": "cooldown_active",
+                    "message": f"A manual scan ran {int(mins)} minutes ago. Try again in ~{wait} minutes.",
+                    "retry_after_minutes": wait,
+                },
+            )
 
     # Record the attempt BEFORE queueing so two racing requests can't both pass
     # the cooldown check. The coordinator's atomic claim is still the real lock.
@@ -817,8 +986,10 @@ async def trigger_scan(
     )
 
     log.info(f"[{req_id}] POST /trigger-scan ACCEPTED | user={user_id}")
-    background_tasks.add_task(run_daily_scan, request.app.state, force=True, trigger="manual")
+    background_tasks.add_task(
+        run_daily_scan, request.app.state, force=True, trigger="manual"
+    )
     return {
         "success": True,
-        "message": "Scan triggered in background. Check /api/v2/scanner/scan-status for progress."
+        "message": "Scan triggered in background. Check /api/v2/scanner/scan-status for progress.",
     }

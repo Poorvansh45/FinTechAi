@@ -10,7 +10,7 @@ export function Footer() {
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 mb-2">
               <BrainCircuit className="h-6 w-6 text-primary" />
-              <span className="text-lg font-semibold">FinTechAI</span>
+              <span className="text-lg font-semibold">Nivro</span>
           </div>
           <p className="text-muted-foreground text-sm">Get AI-powered stock insights weekly.</p>
           <div className="flex w-full max-w-sm items-center space-x-2 mt-2">
@@ -33,7 +33,7 @@ export function Footer() {
         </div>
       </div>
       <div className="container mt-8 pt-6 border-t flex flex-col md:flex-row justify-between items-center text-xs text-muted-foreground">
-        <span>Copyright © 2025 FinTechAI. All rights reserved.</span>
+        <span>Copyright © 2025 Nivro. All rights reserved.</span>
         <div className="flex items-center gap-4 mt-4 md:mt-0">
             <Link href="#" aria-label="Twitter" className="text-muted-foreground hover:text-primary transition-colors">
                 <Twitter className="h-5 w-5" />

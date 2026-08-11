@@ -9,8 +9,6 @@ values, which were neither meaningful nor explainable.
 
 from __future__ import annotations
 
-from typing import Optional
-
 
 def _clamp(x: float, lo: float = 0.0, hi: float = 100.0) -> float:
     return max(lo, min(hi, x))
@@ -61,7 +59,7 @@ def _gap_quality_score(gap_pct: float) -> float:
     return _clamp(gap_pct / 2.0 * 100.0)
 
 
-def _trend_score(ema200_dist_pct: Optional[float]) -> float:
+def _trend_score(ema200_dist_pct: float | None) -> float:
     """
     Reward a healthy uptrend without chasing over-extension. Peaks around
     +5-10% above EMA200; lower near/below the EMA and when very extended.
@@ -100,7 +98,7 @@ def score_launchpad(
     fvg_low: float,
     fvg_high: float,
     gap_pct: float,
-    ema200_dist_pct: Optional[float],
+    ema200_dist_pct: float | None,
     age_days: int,
     overshoot_pct: float = 2.0,
 ) -> tuple[float, dict]:
@@ -110,7 +108,9 @@ def score_launchpad(
     (RSI has been removed from the LaunchPad model.)
     """
     subs = {
-        "proximity": round(_proximity_score(price, fvg_low, fvg_high, overshoot_pct), 1),
+        "proximity": round(
+            _proximity_score(price, fvg_low, fvg_high, overshoot_pct), 1
+        ),
         "trend": round(_trend_score(ema200_dist_pct), 1),
         "freshness": round(_freshness_score(age_days), 1),
         "gap_quality": round(_gap_quality_score(gap_pct), 1),

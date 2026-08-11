@@ -34,7 +34,7 @@ export function WelcomeScreen({
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-violet-500" />
         </span>
-        <span>FinTechAI Copilot</span>
+        <span>Nivro Copilot</span>
       </div>
 
       {/* Headline */}
@@ -106,7 +106,7 @@ export function WelcomeScreen({
       {/* Disclaimer */}
       <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-600 select-none pt-2">
         <ShieldAlert className="w-3.5 h-3.5 text-slate-600" />
-        <span>FinTechAI Copilot can make mistakes. Verify important information.</span>
+        <span>Nivro Copilot can make mistakes. Verify important information.</span>
       </div>
     </div>
   );

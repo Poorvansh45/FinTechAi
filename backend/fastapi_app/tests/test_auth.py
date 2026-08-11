@@ -16,7 +16,7 @@ from config import get_settings
 client = TestClient(main.app)
 
 
-def _token(payload: dict, secret: str = None) -> str:
+def _token(payload: dict, secret: str | None = None) -> str:
     settings = get_settings()
     return jwt.encode(payload, secret or settings.jwt_secret, algorithm="HS256")
 

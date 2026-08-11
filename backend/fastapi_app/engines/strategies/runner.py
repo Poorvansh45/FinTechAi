@@ -15,11 +15,13 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any
 
 from engines.indicators import IndicatorEngine
-from .base import Strategy, SymbolContext, MarketContext
+
+from .base import MarketContext, Strategy, SymbolContext
 
 log = logging.getLogger("finai_edge.strategy_runner")
 
@@ -45,8 +47,8 @@ async def run_strategy_scan(
     db,
     strategy: Strategy,
     *,
-    company_map: Optional[dict] = None,
-    market: Optional[MarketContext] = None,
+    company_map: dict | None = None,
+    market: MarketContext | None = None,
 ) -> int:
     """Evaluate `strategy` for every cached symbol; replace its result cache.
     Returns the number of qualifying results."""
@@ -94,8 +96,11 @@ async def run_strategy_scan(
 
 
 async def run_launchpad_scan(
-    db, scan_id: Optional[str] = None, progress_cb: Optional[ProgressCallback] = None,
-    indicator_map: Optional[dict[str, Any]] = None, publish: bool = True,
+    db,
+    scan_id: str | None = None,
+    progress_cb: ProgressCallback | None = None,
+    indicator_map: dict[str, Any] | None = None,
+    publish: bool = True,
 ) -> int:
     """
     LaunchPad scan — reads OHLCV DIRECTLY (independent of `fvg_scan_results` and
@@ -128,14 +133,15 @@ async def run_launchpad_scan(
     `progress_cb(done, total)`, if given, is awaited every 500 symbols scanned
     so a caller (e.g. the Coordinator) can publish live stepper progress.
     """
-    from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
     from engines.indicators import IndicatorEngine
     from engines.strategies.launchpad import (
-        LaunchPadStrategy,
-        EMA_DIST_MIN,
         EMA_DIST_MAX,
+        EMA_DIST_MIN,
         MIN_PRICE,
+        LaunchPadStrategy,
     )
+    from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
+
     from .base import SymbolContext
 
     scan_id = scan_id or _new_scan_id("LP")
@@ -149,7 +155,7 @@ async def run_launchpad_scan(
     results: list[dict] = []
     scanned = fvg_checked = 0
     for i, sym in enumerate(symbols):
-        if sym.startswith("^"):        # skip index benchmark
+        if sym.startswith("^"):  # skip index benchmark
             continue
         df = load_stock_dataframe(sym)
         if df.empty or len(df) < MIN_ROWS:
@@ -158,7 +164,8 @@ async def run_launchpad_scan(
         # Cheap gate 1: price filter (last close ≥ ₹100) — no indicator work yet.
         try:
             price = float(df["Close"].iloc[-1])
-        except Exception:
+        except Exception as e:
+            log.debug(f"[{sym}] price gate: bad last-close: {e}")
             continue
         if price < MIN_PRICE:
             continue
@@ -169,7 +176,9 @@ async def run_launchpad_scan(
         if ind is None:
             ind = IndicatorEngine.compute(df)
         scanned += 1
-        if ind.ema_200_dist_pct is None or not (EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX):
+        if ind.ema_200_dist_pct is None or not (
+            EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX
+        ):
             continue
 
         # Direct FVG detection + validity + location + confidence, inside evaluate.
@@ -186,27 +195,38 @@ async def run_launchpad_scan(
             results.append(res.to_doc())
 
         if (i + 1) % 500 == 0:
-            log.info(f"[{scan_id}] [launchpad] scanned {i + 1}/{len(symbols)} symbols so far")
+            log.info(
+                f"[{scan_id}] [launchpad] scanned {i + 1}/{len(symbols)} symbols so far"
+            )
             if progress_cb:
                 await progress_cb(i + 1, len(symbols))
 
     if publish:
         col = db.get_collection("launchpad_cache")
         before_count = await col.count_documents({})
-        log.info(f"[{scan_id}] [launchpad] Mongo before delete_many: {before_count} docs")
+        log.info(
+            f"[{scan_id}] [launchpad] Mongo before delete_many: {before_count} docs"
+        )
         await col.delete_many({})
         after_delete_count = await col.count_documents({})
-        log.info(f"[{scan_id}] [launchpad] Mongo after delete_many: {after_delete_count} docs")
+        log.info(
+            f"[{scan_id}] [launchpad] Mongo after delete_many: {after_delete_count} docs"
+        )
         if results:
             await col.insert_many(results)
         after_insert_count = await col.count_documents({})
-        log.info(f"[{scan_id}] [launchpad] Mongo after insert_many: {after_insert_count} docs")
+        log.info(
+            f"[{scan_id}] [launchpad] Mongo after insert_many: {after_insert_count} docs"
+        )
     else:
         from engines.orchestration.publish import write_staged
+
         after_insert_count = await write_staged(db, "launchpad_cache", results)
 
     _CACHE_META["launchpad_cache"] = {
-        "scan_id": scan_id, "written_at": datetime.now(timezone.utc), "count": after_insert_count,
+        "scan_id": scan_id,
+        "written_at": datetime.now(timezone.utc),
+        "count": after_insert_count,
     }
     if progress_cb:
         await progress_cb(len(symbols), len(symbols))
@@ -215,7 +235,9 @@ async def run_launchpad_scan(
         f"(EMA-band survivors {fvg_checked}, indicators computed {scanned}) "
         f"in {time.time() - t0:.1f}s"
     )
-    log.info(f"[{scan_id}] [launchpad] scan finished: {len(results)} matches, {time.time() - t0:.1f}s")
+    log.info(
+        f"[{scan_id}] [launchpad] scan finished: {len(results)} matches, {time.time() - t0:.1f}s"
+    )
     return len(results)
 
 
@@ -225,8 +247,11 @@ run_launchpad_from_cache = run_launchpad_scan
 
 
 async def run_alphazone_scan(
-    db, scan_id: Optional[str] = None, progress_cb: Optional[ProgressCallback] = None,
-    indicator_map: Optional[dict[str, Any]] = None, publish: bool = True,
+    db,
+    scan_id: str | None = None,
+    progress_cb: ProgressCallback | None = None,
+    indicator_map: dict[str, Any] | None = None,
+    publish: bool = True,
 ) -> int:
     """
     Alpha Zone scan — reads OHLCV DIRECTLY (independent of `smc_scanner_results`
@@ -250,10 +275,10 @@ async def run_alphazone_scan(
     `progress_cb(done, total)`, if given, is awaited every 500 symbols scanned
     so a caller (e.g. the Coordinator) can publish live stepper progress.
     """
-    from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
     from engines.indicators import IndicatorEngine
-    from engines.strategies.alpha_zone_ob import nearest_reacting_ob
     from engines.strategies.alpha_zone import build_alphazone_result
+    from engines.strategies.alpha_zone_ob import nearest_reacting_ob
+    from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
 
     MIN_PRICE = 200.0
     EMA_DIST_MIN, EMA_DIST_MAX = -35.0, 40.0
@@ -275,9 +300,10 @@ async def run_alphazone_scan(
             continue
         try:
             price = float(df["Close"].iloc[-1])
-        except Exception:
+        except Exception as e:
+            log.debug(f"[{sym}] price gate: bad last-close: {e}")
             continue
-        if price < MIN_PRICE:                       # gate 1: ₹200 floor
+        if price < MIN_PRICE:  # gate 1: ₹200 floor
             continue
 
         # gate 2: EMA200 band. Reuse the precomputed indicator set when available.
@@ -285,7 +311,9 @@ async def run_alphazone_scan(
         if ind is None:
             ind = IndicatorEngine.compute(df)
         scanned += 1
-        if ind.ema_200_dist_pct is None or not (EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX):
+        if ind.ema_200_dist_pct is None or not (
+            EMA_DIST_MIN <= ind.ema_200_dist_pct <= EMA_DIST_MAX
+        ):
             continue
 
         ob_checked += 1
@@ -309,27 +337,38 @@ async def run_alphazone_scan(
             results.append(res)
 
         if (i + 1) % 500 == 0:
-            log.info(f"[{scan_id}] [alpha_zone] scanned {i + 1}/{len(symbols)} symbols so far")
+            log.info(
+                f"[{scan_id}] [alpha_zone] scanned {i + 1}/{len(symbols)} symbols so far"
+            )
             if progress_cb:
                 await progress_cb(i + 1, len(symbols))
 
     if publish:
         col = db.get_collection("alpha_zone_cache")
         before_count = await col.count_documents({})
-        log.info(f"[{scan_id}] [alpha_zone] Mongo before delete_many: {before_count} docs")
+        log.info(
+            f"[{scan_id}] [alpha_zone] Mongo before delete_many: {before_count} docs"
+        )
         await col.delete_many({})
         after_delete_count = await col.count_documents({})
-        log.info(f"[{scan_id}] [alpha_zone] Mongo after delete_many: {after_delete_count} docs")
+        log.info(
+            f"[{scan_id}] [alpha_zone] Mongo after delete_many: {after_delete_count} docs"
+        )
         if results:
             await col.insert_many(results)
         after_insert_count = await col.count_documents({})
-        log.info(f"[{scan_id}] [alpha_zone] Mongo after insert_many: {after_insert_count} docs")
+        log.info(
+            f"[{scan_id}] [alpha_zone] Mongo after insert_many: {after_insert_count} docs"
+        )
     else:
         from engines.orchestration.publish import write_staged
+
         after_insert_count = await write_staged(db, "alpha_zone_cache", results)
 
     _CACHE_META["alpha_zone_cache"] = {
-        "scan_id": scan_id, "written_at": datetime.now(timezone.utc), "count": after_insert_count,
+        "scan_id": scan_id,
+        "written_at": datetime.now(timezone.utc),
+        "count": after_insert_count,
     }
     if progress_cb:
         await progress_cb(len(symbols), len(symbols))
@@ -338,7 +377,9 @@ async def run_alphazone_scan(
         f"(EMA-band survivors {ob_checked}, indicators computed {scanned}) "
         f"in {time.time() - t0:.1f}s"
     )
-    log.info(f"[{scan_id}] [alpha_zone] scan finished: {len(results)} matches, {time.time() - t0:.1f}s")
+    log.info(
+        f"[{scan_id}] [alpha_zone] scan finished: {len(results)} matches, {time.time() - t0:.1f}s"
+    )
     return len(results)
 
 
@@ -368,7 +409,9 @@ async def discover_ipo_listings(db) -> int:
     over the first-day range) are identical either way, so they're kept.
     """
     import pandas as pd
+
     import services.ohlc_downloader as ohlc
+
     from .ipo_vintage import MAX_LISTING_AGE_DAYS
 
     # Read the cache off the MODULE, not a from-import: refresh_in_memory_cache()
@@ -378,7 +421,9 @@ async def discover_ipo_listings(db) -> int:
         ohlc.refresh_in_memory_cache()
     cache = ohlc._IN_MEMORY_STOCK_CACHE
     if not cache:
-        log.warning("[ipo_vintage] discover: OHLCV cache empty — cannot auto-detect listings")
+        log.warning(
+            "[ipo_vintage] discover: OHLCV cache empty — cannot auto-detect listings"
+        )
         return 0
 
     # Window start = the earliest date across the whole cache; anything first
@@ -407,20 +452,27 @@ async def discover_ipo_listings(db) -> int:
     names: dict[str, str] = {}
     try:
         import os
+
         from services.ohlc_downloader import get_downloader_paths
+
         csv_path = get_downloader_paths()["symbols_csv"]
         if os.path.exists(csv_path):
             udf = pd.read_csv(csv_path)
             udf.columns = udf.columns.str.strip()
             for _, r in udf.iterrows():
-                t, n = str(r.get("trading_symbol", "")).strip(), str(r.get("company_name", "")).strip()
+                t, n = (
+                    str(r.get("trading_symbol", "")).strip(),
+                    str(r.get("company_name", "")).strip(),
+                )
                 if t and n:
                     names[t.upper()] = n
     except Exception as e:
         log.warning(f"[ipo_vintage] discover: could not load company names: {e}")
 
     col = db.get_collection("ipo_listings")
-    existing = {d["symbol"]: d async for d in col.find({}, {"_id": 0, "symbol": 1, "source": 1})}
+    existing = {
+        d["symbol"]: d async for d in col.find({}, {"_id": 0, "symbol": 1, "source": 1})
+    }
 
     added = 0
     for sym, first_bar in firsts.items():
@@ -428,16 +480,18 @@ async def discover_ipo_listings(db) -> int:
             continue
         prev = existing.get(sym)
         if prev and prev.get("source") == "manual":
-            continue     # never clobber a human-entered listing date
+            continue  # never clobber a human-entered listing date
         company = names.get(sym.upper(), sym)
         await col.update_one(
             {"symbol": sym},
-            {"$set": {
-                "symbol": sym,
-                "company_name": company or sym,
-                "listing_date": first_bar.strftime("%Y-%m-%d"),
-                "source": "auto",
-            }},
+            {
+                "$set": {
+                    "symbol": sym,
+                    "company_name": company or sym,
+                    "listing_date": first_bar.strftime("%Y-%m-%d"),
+                    "source": "auto",
+                }
+            },
             upsert=True,
         )
         added += 1
@@ -464,7 +518,9 @@ async def run_ipo_vintage_study(db) -> dict:
     seconds — far too slow for a GET.
     """
     import pandas as pd
+
     import services.ohlc_downloader as ohlc
+
     from .ipo_vintage import build_ipo_vintage_result
     from .ipo_vintage_backtest import build_ipo_vintage_study
 
@@ -493,11 +549,14 @@ async def run_ipo_vintage_study(db) -> dict:
         listings += 1
         try:
             r = build_ipo_vintage_result(
-                symbol=sym, company_name=sym,
+                symbol=sym,
+                company_name=sym,
                 df=ohlc.load_stock_dataframe(sym),
-                listing_date=first_bar, max_age_days=None,
+                listing_date=first_bar,
+                max_age_days=None,
             )
-        except Exception:
+        except Exception as e:
+            log.debug(f"[{sym}] ipo_vintage: build_ipo_vintage_result failed: {e}")
             continue
         if r:
             docs.append(r)
@@ -505,12 +564,16 @@ async def run_ipo_vintage_study(db) -> dict:
     study = build_ipo_vintage_study(docs, headline_horizon=15)
     study["listings_evaluated"] = listings
     study["triggered"] = len(docs)
-    study["trigger_rate_pct"] = round(len(docs) / listings * 100.0, 1) if listings else 0.0
+    study["trigger_rate_pct"] = (
+        round(len(docs) / listings * 100.0, 1) if listings else 0.0
+    )
     study["sample_start"] = window_start.strftime("%Y-%m-%d")
     study["generated_at"] = datetime.now(timezone.utc)
 
     await db.get_collection("ipo_vintage_meta").update_one(
-        {"_id": "study"}, {"$set": study}, upsert=True,
+        {"_id": "study"},
+        {"$set": study},
+        upsert=True,
     )
     log.info(
         f"[ipo_vintage] study: {len(docs)} triggered / {listings} listings "
@@ -520,7 +583,9 @@ async def run_ipo_vintage_study(db) -> dict:
 
 
 async def run_ipo_vintage_scan(
-    db, scan_id: Optional[str] = None, progress_cb: Optional[ProgressCallback] = None,
+    db,
+    scan_id: str | None = None,
+    progress_cb: ProgressCallback | None = None,
     publish: bool = True,
 ) -> int:
     """
@@ -544,6 +609,7 @@ async def run_ipo_vintage_scan(
     `run_launchpad_scan` above.
     """
     from services.ohlc_downloader import load_stock_dataframe
+
     from .ipo_vintage import build_ipo_vintage_result
 
     scan_id = scan_id or _new_scan_id("IV")
@@ -557,11 +623,15 @@ async def run_ipo_vintage_scan(
     except Exception as e:
         log.warning(f"[{scan_id}] [ipo_vintage] listing auto-discovery failed: {e}")
 
-    listings = await db.get_collection("ipo_listings").find({}, {"_id": 0}).to_list(length=5000)
+    listings = (
+        await db.get_collection("ipo_listings")
+        .find({}, {"_id": 0})
+        .to_list(length=5000)
+    )
 
     results: list[dict] = []
-    no_price_data: list[str] = []   # symbol absent from the OHLCV cache entirely
-    no_signal = 0                   # has data, just hasn't broken its opening range
+    no_price_data: list[str] = []  # symbol absent from the OHLCV cache entirely
+    no_signal = 0  # has data, just hasn't broken its opening range
     for i, listing in enumerate(listings):
         symbol = listing.get("symbol")
         if not symbol:
@@ -597,10 +667,13 @@ async def run_ipo_vintage_scan(
         after_count = len(results)
     else:
         from engines.orchestration.publish import write_staged
+
         after_count = await write_staged(db, "ipo_vintage_cache", results)
 
     _CACHE_META["ipo_vintage_cache"] = {
-        "scan_id": scan_id, "written_at": datetime.now(timezone.utc), "count": after_count,
+        "scan_id": scan_id,
+        "written_at": datetime.now(timezone.utc),
+        "count": after_count,
     }
     if progress_cb:
         await progress_cb(len(listings), len(listings))
@@ -637,7 +710,9 @@ async def run_ipo_vintage_scan(
 async def build_company_map(db) -> dict:
     """Symbol → company_name, sourced from the existing screener_cache."""
     out: dict = {}
-    async for d in db.get_collection("screener_cache").find({}, {"symbol": 1, "company_name": 1, "_id": 0}):
+    async for d in db.get_collection("screener_cache").find(
+        {}, {"symbol": 1, "company_name": 1, "_id": 0}
+    ):
         if d.get("symbol"):
             out[d["symbol"]] = d.get("company_name") or d["symbol"]
     return out

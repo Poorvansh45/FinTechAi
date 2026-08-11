@@ -10,7 +10,6 @@ MongoDB only ever stores the `storage_key` (+ a resolved `url`), never binaries.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 
 class StorageProvider(ABC):
@@ -33,11 +32,11 @@ class StorageProvider(ABC):
     async def delete(self, key: str) -> None:
         """Remove `key`. Idempotent — absence is not an error."""
 
-    def public_url(self, key: str) -> Optional[str]:
+    def public_url(self, key: str) -> str | None:
         """Stable public URL for `key`, or None when the provider is not public
         (local dev). Callers fall back to the authenticated serve endpoint."""
         return None
 
-    def presigned_put(self, key: str, content_type: str) -> Optional[str]:
+    def presigned_put(self, key: str, content_type: str) -> str | None:
         """Presigned direct-upload URL (cloud only). None when unsupported."""
         return None

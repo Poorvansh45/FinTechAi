@@ -27,18 +27,29 @@ import pandas as pd
 import requests
 
 # Public Upstox NSE instrument master (no authentication required).
-INSTRUMENTS_URL = "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
+INSTRUMENTS_URL = (
+    "https://assets.upstox.com/market-quote/instruments/exchange/NSE.json.gz"
+)
 
 # Columns written to the CSV, in order. `instrument_key` + `company_name` are
 # the load-bearing additions over the legacy Groww list; `trading_symbol`,
 # `isin`, `exchange`, `segment` mirror what downstream loaders already expect.
-OUTPUT_COLUMNS = ["instrument_key", "trading_symbol", "isin", "company_name", "exchange", "segment"]
+OUTPUT_COLUMNS = [
+    "instrument_key",
+    "trading_symbol",
+    "isin",
+    "company_name",
+    "exchange",
+    "segment",
+]
 
 
 def _output_path() -> str:
     """`scripts/upstox_nse_stock_list.csv`, resolved relative to this file so the
     script works regardless of the caller's working directory."""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "upstox_nse_stock_list.csv")
+    return os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "upstox_nse_stock_list.csv"
+    )
 
 
 def fetch_instrument_master() -> pd.DataFrame:
@@ -63,7 +74,12 @@ def build_nse_equity_list(instruments_df: pd.DataFrame) -> pd.DataFrame:
     # Master calls the display name `name`; the rest of the pipeline expects
     # `company_name`. Fall back to the trading symbol if a name is missing.
     nse_eq["company_name"] = (
-        nse_eq["name"].fillna("").astype(str).str.strip().replace("", pd.NA).fillna(nse_eq["trading_symbol"])
+        nse_eq["name"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .fillna(nse_eq["trading_symbol"])
     )
     nse_eq["exchange"] = "NSE"
 
@@ -74,7 +90,7 @@ def main() -> int:
     print(f"Downloading Upstox NSE instrument master…\n  {INSTRUMENTS_URL}")
     try:
         instruments_df = fetch_instrument_master()
-    except Exception as e:  # noqa: BLE001 — CLI script, surface any failure plainly
+    except Exception as e:
         print(f"[FATAL] Could not fetch/parse instrument master: {e}", file=sys.stderr)
         return 1
 

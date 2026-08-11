@@ -17,21 +17,26 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.language_models import BaseChatModel
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, HumanMessage
 
 from services.llm.base import BaseLLMProvider, LLMProviderError, classify_error
-from services.llm.llm_manager import LLMManager, AllProvidersFailedError
 from services.llm.gemini_provider import GeminiProvider
 from services.llm.groq_provider import GroqProvider
+from services.llm.llm_manager import AllProvidersFailedError, LLMManager
 
 
 # ── Fake providers (no network) ─────────────────────────────────────────────────
 class FakeProvider(BaseLLMProvider):
     """A provider that either returns a fixed answer or always raises."""
 
-    def __init__(self, name: str, *, answer: str | None = None, fail_with: Exception | None = None):
+    def __init__(
+        self,
+        name: str,
+        *,
+        answer: str | None = None,
+        fail_with: Exception | None = None,
+    ):
         self.provider_name = name
         self._answer = answer
         self._fail_with = fail_with
@@ -66,7 +71,9 @@ def test_manager_uses_primary_when_it_succeeds():
 
 
 def test_manager_fails_over_to_secondary_on_primary_error():
-    gemini = FakeProvider("gemini", fail_with=RuntimeError("429 RESOURCE_EXHAUSTED quota exceeded"))
+    gemini = FakeProvider(
+        "gemini", fail_with=RuntimeError("429 RESOURCE_EXHAUSTED quota exceeded")
+    )
     groq = FakeProvider("groq", answer="hello from groq")
     mgr = LLMManager([gemini, groq])
 
@@ -118,7 +125,10 @@ def test_manager_provider_names_reflects_priority_order():
 
 # ── Error classification (used for clear log messages) ──────────────────────────
 def test_classify_error_recognises_quota_and_timeout_and_5xx():
-    assert classify_error(RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded")) == "quota exceeded"
+    assert (
+        classify_error(RuntimeError("429 RESOURCE_EXHAUSTED: quota exceeded"))
+        == "quota exceeded"
+    )
     assert classify_error(TimeoutError()) == "timeout"
     assert classify_error(RuntimeError("Connection refused")) == "connection error"
     assert classify_error(RuntimeError("503 Service Unavailable")) == "HTTP 503"
@@ -145,7 +155,9 @@ class _FakeUnderlyingModel(BaseChatModel):
 
 
 def test_gemini_provider_retries_once_then_raises_llm_provider_error(monkeypatch):
-    provider = GeminiProvider(api_key="fake-key", model="gemini-2.5-flash", timeout_s=5, max_retries=1)
+    provider = GeminiProvider(
+        api_key="fake-key", model="gemini-2.5-flash", timeout_s=5, max_retries=1
+    )
     fake_model = _FakeUnderlyingModel()
     monkeypatch.setattr(provider, "_get_model", lambda: fake_model)
 
@@ -177,8 +189,12 @@ def test_gemini_then_groq_end_to_end_with_fake_providers_no_network():
     answers — using real GeminiProvider/GroqProvider instances (not raw
     ChatGoogleGenerativeAI/ChatGroq — those would need network), proving the
     LLMManager wiring around them works end-to-end."""
-    gemini = GeminiProvider(api_key=None, model="gemini-2.5-flash")  # unconfigured -> fails fast
-    groq_fake_answer = AIMessage(content="Groq answered because Gemini was unavailable.")
+    gemini = GeminiProvider(
+        api_key=None, model="gemini-2.5-flash"
+    )  # unconfigured -> fails fast
+    groq_fake_answer = AIMessage(
+        content="Groq answered because Gemini was unavailable."
+    )
 
     class _StubbedGroq(GroqProvider):
         async def ainvoke(self, messages, *, tools=None, config=None):
@@ -187,6 +203,8 @@ def test_gemini_then_groq_end_to_end_with_fake_providers_no_network():
     groq = _StubbedGroq(api_key="fake-key", model="llama-3.3-70b-versatile")
     mgr = LLMManager([gemini, groq])
 
-    msg, provider = asyncio.run(mgr.ainvoke([HumanMessage(content="What is the price of TCS?")]))
+    msg, provider = asyncio.run(
+        mgr.ainvoke([HumanMessage(content="What is the price of TCS?")])
+    )
     assert provider == "groq"
     assert msg.content == "Groq answered because Gemini was unavailable."

@@ -68,7 +68,7 @@ const TESTIMONIALS = [
     avatar: "AD"
   },
   {
-    quote: "FinAI Edge cut down my capital drawdown by 40% in two weeks. The Portfolio Optimizer correlation matrix completely changed how I allocate portfolio weights and sector exposure.",
+    quote: "Nivro cut down my capital drawdown by 40% in two weeks. The Portfolio Optimizer correlation matrix completely changed how I allocate portfolio weights and sector exposure.",
     name: "Dr. Sarah Chen",
     role: "Quantitative Researcher",
     style: "Systematic Futures",
@@ -464,7 +464,7 @@ export default function HomePage() {
             A Complete Trading <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#8B5CF6] to-[#6366F1]">Intelligence Ecosystem</span>
           </h2>
           <p className="text-sm text-[#94A3B8] max-w-xl mx-auto leading-relaxed">
-            FinAI Edge integrates data research, algorithmic filters, mathematical models, 
+            Nivro integrates data research, algorithmic filters, mathematical models, 
             disciplined journaling, and real-time AI guidance into a single OS.
           </p>
         </div>
@@ -761,7 +761,7 @@ export default function HomePage() {
             Engineered for <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#8B5CF6] to-[#6366F1]">Capital Preservation</span>
           </h2>
           <p className="text-sm text-[#94A3B8] max-w-xl mx-auto leading-relaxed">
-            Professional operators require structured pipelines. Here is how FinAI Edge structures your performance cycle.
+            Professional operators require structured pipelines. Here is how Nivro structures your performance cycle.
           </p>
         </div>
 
@@ -1022,7 +1022,7 @@ export default function HomePage() {
             Trusted by <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#8B5CF6] to-[#6366F1]">Serious Traders</span>
           </h2>
           <p className="text-sm text-[#94A3B8] mt-2 leading-relaxed">
-            See how active market participants utilize FinAI Edge to refine executions, optimize risk, and scale capital.
+            See how active market participants utilize Nivro to refine executions, optimize risk, and scale capital.
           </p>
         </div>
 
@@ -1196,7 +1196,7 @@ export default function HomePage() {
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-[#F8FAFC]">Upcoming Features</h2>
           <p className="text-sm text-[#94A3B8] mt-2 max-w-lg mx-auto leading-relaxed">
-            We are actively expanding the FinAI Edge operating system capabilities. Here is what is currently planned.
+            We are actively expanding the Nivro operating system capabilities. Here is what is currently planned.
           </p>
         </div>
 
@@ -1291,7 +1291,7 @@ export default function HomePage() {
               <div className="w-6 h-6 rounded-lg flex items-center justify-center bg-gradient-to-br from-[#8B5CF6] to-[#6366F1]">
                 <BrainCircuit className="w-3.5 h-3.5 text-white" />
               </div>
-              <span className="font-bold text-[#F8FAFC]">FinAI Edge</span>
+              <span className="font-bold text-[#F8FAFC]">Nivro</span>
             </div>
             
             <div className="flex items-center gap-6 font-mono text-[10px] tracking-wider uppercase text-slate-500">
@@ -1306,7 +1306,7 @@ export default function HomePage() {
           <div className="h-px bg-white/[0.05]" />
           
           <div className="flex flex-col md:flex-row justify-between gap-4 text-[10px] text-slate-500">
-            <span>&copy; {new Date().getFullYear()} FinAI Edge. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} Nivro. All rights reserved.</span>
             <div className="flex gap-4">
               <span className="cursor-default">Local storage secure</span>
               <span className="cursor-default">No account tracking data</span>
@@ -1314,7 +1314,7 @@ export default function HomePage() {
           </div>
 
           <div className="text-[9.5px] text-slate-600 leading-normal max-w-4xl text-center md:text-left">
-            Risk Warning: Trading financial instruments involves substantial risk of loss and is not suitable for every investor. FinAI Edge generates statistical audits and behavioral reviews for systematic execution coaching, which should not be construed as investment advice.
+            Risk Warning: Trading financial instruments involves substantial risk of loss and is not suitable for every investor. Nivro generates statistical audits and behavioral reviews for systematic execution coaching, which should not be construed as investment advice.
           </div>
         </div>
       </footer>

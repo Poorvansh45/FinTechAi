@@ -11,7 +11,6 @@ the agent can reason over them cheaply.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -44,8 +43,13 @@ async def _analyze(holdings: list[dict]) -> dict:
 
 
 def _fmt_sectors(sector_exposure: list[dict], top: int = 4) -> str:
-    rows = sorted(sector_exposure, key=lambda s: s.get("weight_pct", 0), reverse=True)[:top]
-    return ", ".join(f"{s.get('sector')} {s.get('weight_pct', 0):.0f}%" for s in rows) or "n/a"
+    rows = sorted(sector_exposure, key=lambda s: s.get("weight_pct", 0), reverse=True)[
+        :top
+    ]
+    return (
+        ", ".join(f"{s.get('sector')} {s.get('weight_pct', 0):.0f}%" for s in rows)
+        or "n/a"
+    )
 
 
 @tool
@@ -85,9 +89,12 @@ async def analyze_portfolio(config: RunnableConfig) -> str:
     health = r.get("health", {})
     risk_level = (risk.get("risk_level") or {}).get("level", "n/a")
     reb = r.get("rebalance_suggestions", []) or []
-    reb_txt = "; ".join(
-        f"{s.get('action')} {s.get('ticker')} ({s.get('reason')})" for s in reb[:4]
-    ) or "none"
+    reb_txt = (
+        "; ".join(
+            f"{s.get('action')} {s.get('ticker')} ({s.get('reason')})" for s in reb[:4]
+        )
+        or "none"
+    )
 
     return (
         f"Portfolio analysis:\n"
@@ -144,4 +151,9 @@ async def rebalance_portfolio(config: RunnableConfig) -> str:
     return "Rebalance suggestions (to consider, not directives):\n" + "\n".join(lines)
 
 
-PORTFOLIO_TOOLS = [get_user_holdings, analyze_portfolio, get_health_score, rebalance_portfolio]
+PORTFOLIO_TOOLS = [
+    get_user_holdings,
+    analyze_portfolio,
+    get_health_score,
+    rebalance_portfolio,
+]

@@ -17,13 +17,11 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from config import get_settings
-from utils.auth import get_current_user, get_current_role
-from utils.rate_limit import check_rate_limit
-
-from ai_copilot.schemas.chat import ChatRequest, ChatResponse
 from ai_copilot.memory.memory_manager import MemoryManager
 from ai_copilot.models.llm_provider import provider_status
+from ai_copilot.schemas.chat import ChatRequest, ChatResponse
+from utils.auth import get_current_role, get_current_user
+from utils.rate_limit import check_rate_limit
 
 log = logging.getLogger("finai_edge.api.copilot")
 router = APIRouter(prefix="/api/v2/copilot", tags=["AI Copilot"])
@@ -79,8 +77,8 @@ async def chat(
             session_id=session_id,
             db=_db(request),
         )
-    except Exception as e:  # keep internal detail server-side only
-        log.error(f"[copilot] chat failed for user={user_id}: {e}", exc_info=True)
+    except Exception:  # keep internal detail server-side only
+        log.exception(f"[copilot] chat failed for user={user_id}")
         raise HTTPException(status_code=500, detail="Copilot request failed.")
 
     latency_ms = (time.time() - t0) * 1000

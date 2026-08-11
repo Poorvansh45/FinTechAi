@@ -5,8 +5,7 @@ Holdings P&L, allocation, and aggregate computations.
 Moves client-side calculations to the server.
 """
 
-from typing import Optional
-from utils.helpers import safe_divide, get_sector_for_ticker, pct_change
+from utils.helpers import get_sector_for_ticker, pct_change, safe_divide
 
 
 def compute_cagr(
@@ -94,8 +93,10 @@ def compute_all_holdings(holdings: list[dict]) -> tuple[list[dict], dict]:
     """
     if not holdings:
         return [], {
-            "total_value": 0, "total_invested": 0,
-            "total_pnl": 0, "total_pnl_pct": 0,
+            "total_value": 0,
+            "total_invested": 0,
+            "total_pnl": 0,
+            "total_pnl_pct": 0,
             "holding_count": 0,
         }
 
@@ -104,13 +105,13 @@ def compute_all_holdings(holdings: list[dict]) -> tuple[list[dict], dict]:
     total_value = sum(h["value"] for h in enriched)
     total_invested = sum(h["invested"] for h in enriched)
     total_pnl = total_value - total_invested
-    total_pnl_pct = pct_change(total_invested, total_value) if total_invested > 0 else 0.0
+    total_pnl_pct = (
+        pct_change(total_invested, total_value) if total_invested > 0 else 0.0
+    )
 
     # Compute allocation %
     for h in enriched:
-        h["allocation"] = round(
-            safe_divide(h["value"], total_value, 0) * 100, 1
-        )
+        h["allocation"] = round(safe_divide(h["value"], total_value, 0) * 100, 1)
 
     # Sort by allocation descending
     enriched.sort(key=lambda h: h["allocation"], reverse=True)
@@ -141,82 +142,102 @@ def generate_insights(
     notes = []
 
     if not holdings_stats:
-        return [{"title": "Empty portfolio", "body": "Add holdings to see insights.", "tone": "info"}]
+        return [
+            {
+                "title": "Empty portfolio",
+                "body": "Add holdings to see insights.",
+                "tone": "info",
+            }
+        ]
 
     # Top holding concentration
     top = holdings_stats[0]
     if top["allocation"] > 35:
-        notes.append({
-            "title": "Single-stock concentration",
-            "body": (
-                f"{top['name']} is {top['allocation']:.1f}% of portfolio value. "
-                f"Institutional risk desks usually flag anything above 30-35%."
-            ),
-            "tone": "warn",
-        })
+        notes.append(
+            {
+                "title": "Single-stock concentration",
+                "body": (
+                    f"{top['name']} is {top['allocation']:.1f}% of portfolio value. "
+                    f"Institutional risk desks usually flag anything above 30-35%."
+                ),
+                "tone": "warn",
+            }
+        )
 
     # Sector diversity
     if len(sector_exposure) < 4:
-        notes.append({
-            "title": "Diversification depth is thin",
-            "body": (
-                f"You have {len(sector_exposure)} active sector{'s' if len(sector_exposure) != 1 else ''}. "
-                f"Add 1-2 defensive or low-correlation sectors to reduce drawdown clustering."
-            ),
-            "tone": "info",
-        })
+        notes.append(
+            {
+                "title": "Diversification depth is thin",
+                "body": (
+                    f"You have {len(sector_exposure)} active sector{'s' if len(sector_exposure) != 1 else ''}. "
+                    f"Add 1-2 defensive or low-correlation sectors to reduce drawdown clustering."
+                ),
+                "tone": "info",
+            }
+        )
 
     # Sector imbalance
     if sector_exposure:
         top_sector = sector_exposure[0]
         if top_sector["weight_pct"] > 48:
-            notes.append({
-                "title": "Sector imbalance",
-                "body": (
-                    f"{top_sector['sector']} contributes {top_sector['weight_pct']:.1f}% of value. "
-                    f"That can amplify earnings-cycle and regulatory shocks."
-                ),
-                "tone": "warn",
-            })
+            notes.append(
+                {
+                    "title": "Sector imbalance",
+                    "body": (
+                        f"{top_sector['sector']} contributes {top_sector['weight_pct']:.1f}% of value. "
+                        f"That can amplify earnings-cycle and regulatory shocks."
+                    ),
+                    "tone": "warn",
+                }
+            )
 
     # P&L insight
     pnl_pct = totals.get("total_pnl_pct", 0)
     if pnl_pct > 15:
-        notes.append({
-            "title": "Strong returns",
-            "body": (
-                f"Portfolio is up {pnl_pct:.1f}% overall. "
-                f"Consider booking partial profits on the highest gainers and rebalancing."
-            ),
-            "tone": "good",
-        })
+        notes.append(
+            {
+                "title": "Strong returns",
+                "body": (
+                    f"Portfolio is up {pnl_pct:.1f}% overall. "
+                    f"Consider booking partial profits on the highest gainers and rebalancing."
+                ),
+                "tone": "good",
+            }
+        )
     elif pnl_pct < -10:
-        notes.append({
-            "title": "Portfolio under pressure",
-            "body": (
-                f"Portfolio is down {abs(pnl_pct):.1f}%. "
-                f"Review position sizing and consider averaging down on fundamentally strong names."
-            ),
-            "tone": "warn",
-        })
+        notes.append(
+            {
+                "title": "Portfolio under pressure",
+                "body": (
+                    f"Portfolio is down {abs(pnl_pct):.1f}%. "
+                    f"Review position sizing and consider averaging down on fundamentally strong names."
+                ),
+                "tone": "warn",
+            }
+        )
 
     # Health-based
     if health.get("score", 100) >= 75 and len(notes) < 3:
-        notes.append({
-            "title": "AI portfolio read",
-            "body": (
-                f"Health score is {health['score']}/100. "
-                f"Position sizing looks workable; rebalance when a holding drifts 5%+ from target allocation."
-            ),
-            "tone": "good",
-        })
+        notes.append(
+            {
+                "title": "AI portfolio read",
+                "body": (
+                    f"Health score is {health['score']}/100. "
+                    f"Position sizing looks workable; rebalance when a holding drifts 5%+ from target allocation."
+                ),
+                "tone": "good",
+            }
+        )
 
     # Ensure at least one note
     if not notes:
-        notes.append({
-            "title": "Portfolio review",
-            "body": "Portfolio looks reasonably balanced. Review allocations periodically.",
-            "tone": "good",
-        })
+        notes.append(
+            {
+                "title": "Portfolio review",
+                "body": "Portfolio looks reasonably balanced. Review allocations periodically.",
+                "tone": "good",
+            }
+        )
 
     return notes[:4]

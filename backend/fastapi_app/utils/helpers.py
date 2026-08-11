@@ -5,8 +5,8 @@ Currency formatting, validators, and shared math utilities.
 """
 
 import re
+
 import numpy as np
-from typing import List, Optional
 
 
 def format_inr(amount: float) -> str:
@@ -47,14 +47,13 @@ def normalize_symbol(symbol: str) -> str:
     t = symbol.strip().upper()
     for suffix in (".NS", ".BO", ".NSE", ".BSE"):
         if t.endswith(suffix):
-            return t[:-len(suffix)]
+            return t[: -len(suffix)]
     return t
 
 
 def normalizeSymbol(symbol: str) -> str:
     """CamelCase alias for normalize_symbol."""
     return normalize_symbol(symbol)
-
 
 
 def validate_ticker_format(ticker: str) -> bool:
@@ -214,13 +213,16 @@ def search_stocks(query: str, limit: int = 12) -> list[dict]:
         return []
     q = query.lower().strip()
     results = [
-        s for s in NSE_STOCK_DATABASE
-        if q in s["ticker"].lower() or q in s["name"].lower() or q in s["sector"].lower()
+        s
+        for s in NSE_STOCK_DATABASE
+        if q in s["ticker"].lower()
+        or q in s["name"].lower()
+        or q in s["sector"].lower()
     ]
     return results[:limit]
 
 
-def get_stock_info(ticker: str) -> Optional[dict]:
+def get_stock_info(ticker: str) -> dict | None:
     """Look up stock info by ticker."""
     t = ticker.upper().strip()
     for s in NSE_STOCK_DATABASE:
@@ -237,4 +239,13 @@ def get_sector_for_ticker(ticker: str) -> str:
 
 # Sector classification for risk analysis
 DEFENSIVE_SECTORS = {"FMCG", "Pharma", "Finance", "Telecom", "Energy"}
-AGGRESSIVE_SECTORS = {"IT", "Auto", "Metals", "Real Estate", "Infrastructure", "Chemicals", "Consumer", "Media"}
+AGGRESSIVE_SECTORS = {
+    "IT",
+    "Auto",
+    "Metals",
+    "Real Estate",
+    "Infrastructure",
+    "Chemicals",
+    "Consumer",
+    "Media",
+}

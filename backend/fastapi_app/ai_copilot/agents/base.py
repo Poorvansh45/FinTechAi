@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any
 
 from langchain_core.messages import (
     AIMessage,
@@ -32,7 +32,9 @@ log = logging.getLogger("finai_edge.copilot.agent")
 MAX_TOOL_ITERS = 5
 
 
-def build_messages(system_prompt: str, history: list[dict], user_message: str) -> list[BaseMessage]:
+def build_messages(
+    system_prompt: str, history: list[dict], user_message: str
+) -> list[BaseMessage]:
     """Assemble the LLM message list: system + prior turns + current message."""
     msgs: list[BaseMessage] = [SystemMessage(content=system_prompt)]
     for h in history or []:
@@ -103,7 +105,7 @@ async def run_agent(
     system_prompt: str,
     history: list[dict],
     user_message: str,
-    config: Optional[RunnableConfig] = None,
+    config: RunnableConfig | None = None,
     extra_context: str = "",
 ) -> dict:
     """
@@ -119,7 +121,7 @@ async def run_agent(
     tool_map = {t.name: t for t in tools}
     tools_called: list[str] = []
     usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
-    provider_used: Optional[str] = None
+    provider_used: str | None = None
     t0 = time.time()
     log.info(f"[copilot] agent='{agent_name}' start tools={list(tool_map)}")
 
@@ -128,7 +130,9 @@ async def run_agent(
         messages = build_messages(prompt, history, user_message)
 
         for iteration in range(MAX_TOOL_ITERS):
-            ai_msg, provider_used = await llm_manager.ainvoke(messages, tools=tools, config=config)
+            ai_msg, provider_used = await llm_manager.ainvoke(
+                messages, tools=tools, config=config
+            )
             _accumulate_tokens(usage, ai_msg)
             messages.append(ai_msg)
 
@@ -163,12 +167,14 @@ async def run_agent(
                 else:
                     try:
                         result = await tool.ainvoke(args, config=config)
-                    except Exception as e:  # tool-level failure shouldn't crash the turn
+                    except (
+                        Exception
+                    ) as e:  # tool-level failure shouldn't crash the turn
                         result = f"Tool '{name}' failed: {e}"
                         log.warning(f"[copilot] tool '{name}' error: {e}")
                 log.info(
                     f"[copilot] agent='{agent_name}' tool='{name}' args={args} "
-                    f"{ (time.time() - ts) * 1000:.0f}ms"
+                    f"{(time.time() - ts) * 1000:.0f}ms"
                 )
                 messages.append(
                     ToolMessage(content=str(result), tool_call_id=call.get("id", name))
@@ -187,7 +193,7 @@ async def run_agent(
         }
 
     except Exception as e:
-        log.error(f"[copilot] agent='{agent_name}' failed: {e}", exc_info=True)
+        log.exception(f"[copilot] agent='{agent_name}' failed")
         return {
             "answer": "",
             "provider_used": provider_used,

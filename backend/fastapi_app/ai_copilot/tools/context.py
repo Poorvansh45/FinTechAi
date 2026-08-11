@@ -9,18 +9,18 @@ db + user id through the same channel).
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from langchain_core.runnables import RunnableConfig
 
 
 class ToolContext:
-    def __init__(self, user_id: Optional[str], db: Any | None):
+    def __init__(self, user_id: str | None, db: Any | None):
         self.user_id = user_id
         self.db = db
 
 
-def get_ctx(config: Optional[RunnableConfig]) -> ToolContext:
+def get_ctx(config: RunnableConfig | None) -> ToolContext:
     configurable = (config or {}).get("configurable", {}) if config else {}
     return ToolContext(
         user_id=configurable.get("user_id"),

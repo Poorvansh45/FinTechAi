@@ -103,7 +103,7 @@ export function ChatInput({
       {/* Footer: counter + disclaimer */}
       <div className="flex items-center justify-between mt-2 px-2">
         <span className="text-[9px] text-slate-600 select-none">
-          FinTechAI Copilot can make mistakes. Verify important information.
+          Nivro Copilot can make mistakes. Verify important information.
         </span>
         <span className={cn("text-[9px] tabular-nums", over ? "text-red-400" : "text-slate-600")}>
           {value.length}/{MAX_CHARS}

@@ -9,7 +9,8 @@ uvicorn[standard]==0.32.1
 pydantic==2.9.2
 pydantic-settings==2.6.1
 python-multipart==0.0.17  # required by api/local_ohlc.py's UploadFile /upload route
-PyJWT==2.9.0               # verifies the JWT issued by the Express backend
+PyJWT==2.9.0               # issues + verifies auth JWTs (api/auth.py)
+bcrypt==4.2.0               # password hashing for api/auth.py — compatible with Express's bcryptjs hashes
 
 # ── Database ───────────────────────────────────────────────────────
 motor==3.6.0

@@ -14,26 +14,25 @@ and the /copilot HTTP endpoints (auth-overridden).
 """
 
 import asyncio
-from typing import List, Optional
 
 import pytest
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 
+from ai_copilot.memory.memory_manager import MemoryManager
 from ai_copilot.models.llm_provider import (
     get_llm_manager,
-    set_model_override,
     provider_status,
+    set_model_override,
 )
-from ai_copilot.memory.memory_manager import MemoryManager
 
 
 # ── Test doubles ────────────────────────────────────────────────────────────────
 class ScriptedChatModel(BaseChatModel):
     """Returns pre-scripted AIMessages in order; tolerates bind_tools()."""
 
-    scripted: List[AIMessage]
+    scripted: list[AIMessage]
 
     def bind_tools(self, tools, **kwargs):
         return self
@@ -65,7 +64,9 @@ class _Cursor:
         # Supports both .sort("field", dir) and .sort([("f1", d1), ("f2", d2)]).
         keys = key if isinstance(key, list) else [(key, direction)]
         for k, d in reversed(keys):  # least-significant first (stable)
-            self._docs = sorted(self._docs, key=lambda doc: doc.get(k), reverse=(d == -1))
+            self._docs = sorted(
+                self._docs, key=lambda doc: doc.get(k), reverse=(d == -1)
+            )
         return self
 
     def limit(self, n):
@@ -154,8 +155,10 @@ def manager_for(model: ScriptedChatModel):
     return get_llm_manager()
 
 
-def tool_call(name: str, args: Optional[dict] = None, call_id: str = "c1") -> AIMessage:
-    return AIMessage(content="", tool_calls=[{"name": name, "args": args or {}, "id": call_id}])
+def tool_call(name: str, args: dict | None = None, call_id: str = "c1") -> AIMessage:
+    return AIMessage(
+        content="", tool_calls=[{"name": name, "args": args or {}, "id": call_id}]
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -177,7 +180,9 @@ def test_extract_answer_text_handles_list_of_text_blocks():
 
     # This is the exact shape Gemini/langchain-google-genai can return instead
     # of a plain string — the bug this fixes.
-    content = [{"type": "text", "text": "## Analysis\n\nYour portfolio is diversified."}]
+    content = [
+        {"type": "text", "text": "## Analysis\n\nYour portfolio is diversified."}
+    ]
     result = extract_answer_text(content)
     assert result == "## Analysis\n\nYour portfolio is diversified."
     # Must never leak the raw block structure.
@@ -209,9 +214,18 @@ def test_run_agent_with_list_content_response_returns_clean_markdown():
     shape must still produce a clean Markdown string in the agent's answer."""
     from ai_copilot.agents.base import run_agent
 
-    mgr = manager_for(scripted(
-        AIMessage(content=[{"type": "text", "text": "**Reliance** trades at ₹2,500.\n\n- Sector: Energy"}]),
-    ))
+    mgr = manager_for(
+        scripted(
+            AIMessage(
+                content=[
+                    {
+                        "type": "text",
+                        "text": "**Reliance** trades at ₹2,500.\n\n- Sector: Energy",
+                    }
+                ]
+            ),
+        )
+    )
     result = asyncio.run(
         run_agent(
             agent_name="market",
@@ -239,7 +253,9 @@ def test_supervisor_routes_each_intent():
     from ai_copilot.agents import supervisor_agent
 
     async def classify(word):
-        return await supervisor_agent.classify(manager_for(scripted(AIMessage(content=word))), "any message")
+        return await supervisor_agent.classify(
+            manager_for(scripted(AIMessage(content=word))), "any message"
+        )
 
     assert asyncio.run(classify("portfolio")) == "portfolio"
     assert asyncio.run(classify("market")) == "market"
@@ -253,7 +269,9 @@ def test_supervisor_heuristic_fallback_on_bad_llm_output():
     # Model returns junk -> falls back to keyword heuristic on the message text.
     mgr = manager_for(scripted(AIMessage(content="???")))
     route = asyncio.run(
-        supervisor_agent.classify(mgr, "How much should I invest monthly for retirement?")
+        supervisor_agent.classify(
+            mgr, "How much should I invest monthly for retirement?"
+        )
     )
     assert route == "planning"
 
@@ -264,17 +282,33 @@ def test_portfolio_agent_executes_tool_end_to_end():
 
     db = FakeDB()
     db["portfolios"].docs.append(
-        {"user_id": "u1", "holdings": [
-            {"ticker": "RELIANCE", "quantity": 10, "avg_buy_price": 2000,
-             "current_price": 2500, "sector": "Energy"}
-        ]}
+        {
+            "user_id": "u1",
+            "holdings": [
+                {
+                    "ticker": "RELIANCE",
+                    "quantity": 10,
+                    "avg_buy_price": 2000,
+                    "current_price": 2500,
+                    "sector": "Energy",
+                }
+            ],
+        }
     )
-    set_model_override(scripted(
-        AIMessage(content="portfolio"),
-        tool_call("get_user_holdings"),
-        AIMessage(content="You hold RELIANCE (Energy). That's concentration risk to watch."),
-    ))
-    out = asyncio.run(run_copilot(message="analyze my portfolio", user_id="u1", session_id="s1", db=db))
+    set_model_override(
+        scripted(
+            AIMessage(content="portfolio"),
+            tool_call("get_user_holdings"),
+            AIMessage(
+                content="You hold RELIANCE (Energy). That's concentration risk to watch."
+            ),
+        )
+    )
+    out = asyncio.run(
+        run_copilot(
+            message="analyze my portfolio", user_id="u1", session_id="s1", db=db
+        )
+    )
     assert out["agent_used"] == "portfolio"
     assert "get_user_holdings" in out["tools_called"]
     assert "RELIANCE" in out["answer"]
@@ -285,12 +319,24 @@ def test_portfolio_agent_executes_tool_end_to_end():
 def test_planning_agent_executes_calculator_tool():
     from ai_copilot.graph.workflow import run_copilot
 
-    set_model_override(scripted(
-        AIMessage(content="planning"),
-        tool_call("sip_calculator", {"monthly_investment": 5000, "annual_return_pct": 12, "years": 15}),
-        AIMessage(content="Here is a projection based on an assumed 12% return."),
-    ))
-    out = asyncio.run(run_copilot(message="I want to invest 5000 monthly", user_id="u1", session_id="s2", db=None))
+    set_model_override(
+        scripted(
+            AIMessage(content="planning"),
+            tool_call(
+                "sip_calculator",
+                {"monthly_investment": 5000, "annual_return_pct": 12, "years": 15},
+            ),
+            AIMessage(content="Here is a projection based on an assumed 12% return."),
+        )
+    )
+    out = asyncio.run(
+        run_copilot(
+            message="I want to invest 5000 monthly",
+            user_id="u1",
+            session_id="s2",
+            db=None,
+        )
+    )
     assert out["agent_used"] == "planning"
     assert "sip_calculator" in out["tools_called"]
 
@@ -298,18 +344,28 @@ def test_planning_agent_executes_calculator_tool():
 def test_market_and_education_agents_route_and_answer():
     from ai_copilot.graph.workflow import run_copilot
 
-    set_model_override(scripted(
-        AIMessage(content="market"),
-        AIMessage(content="Reliance is a diversified energy-to-telecom major."),
-    ))
-    out = asyncio.run(run_copilot(message="analyze Reliance", user_id="u1", session_id="s3", db=None))
+    set_model_override(
+        scripted(
+            AIMessage(content="market"),
+            AIMessage(content="Reliance is a diversified energy-to-telecom major."),
+        )
+    )
+    out = asyncio.run(
+        run_copilot(message="analyze Reliance", user_id="u1", session_id="s3", db=None)
+    )
     assert out["agent_used"] == "market"
 
-    set_model_override(scripted(
-        AIMessage(content="education"),
-        AIMessage(content="The Sharpe ratio measures return per unit of risk."),
-    ))
-    out = asyncio.run(run_copilot(message="what is the sharpe ratio", user_id="u1", session_id="s4", db=None))
+    set_model_override(
+        scripted(
+            AIMessage(content="education"),
+            AIMessage(content="The Sharpe ratio measures return per unit of risk."),
+        )
+    )
+    out = asyncio.run(
+        run_copilot(
+            message="what is the sharpe ratio", user_id="u1", session_id="s4", db=None
+        )
+    )
     assert out["agent_used"] == "education"
     assert "Sharpe" in out["answer"]
 
@@ -353,13 +409,20 @@ def test_heuristic_profile_learning_in_graph():
     from ai_copilot.graph.workflow import run_copilot
 
     db = FakeDB()
-    set_model_override(scripted(
-        AIMessage(content="education"),
-        AIMessage(content="Aggressive investing means a higher equity allocation."),
-    ))
-    asyncio.run(run_copilot(
-        message="I prefer aggressive investing", user_id="u9", session_id="s9", db=db,
-    ))
+    set_model_override(
+        scripted(
+            AIMessage(content="education"),
+            AIMessage(content="Aggressive investing means a higher equity allocation."),
+        )
+    )
+    asyncio.run(
+        run_copilot(
+            message="I prefer aggressive investing",
+            user_id="u9",
+            session_id="s9",
+            db=db,
+        )
+    )
     profile = asyncio.run(MemoryManager(db).get_profile("u9"))
     assert profile.get("risk_appetite") == "aggressive"
 
@@ -383,7 +446,11 @@ def test_llm_manager_override_wraps_raw_model():
 def test_provider_status_shape():
     status = provider_status()
     assert "priority" in status and status["priority"] == ["gemini", "groq"]
-    assert "providers" in status and "gemini" in status["providers"] and "groq" in status["providers"]
+    assert (
+        "providers" in status
+        and "gemini" in status["providers"]
+        and "groq" in status["providers"]
+    )
     assert "configured" in status
 
 
@@ -398,16 +465,19 @@ def _client_with_auth():
     means these tests now exercise the actual auth path rather than bypassing
     it.
     """
-    from fastapi.testclient import TestClient
     import jwt
     from bson import ObjectId
+    from fastapi.testclient import TestClient
+
     import main
     from config import get_settings
     from utils.auth import get_current_user, invalidate_user_cache
 
     uid = ObjectId()
     db = FakeDB()
-    db["users"].docs.append({"_id": uid, "role": "beta", "isActive": True, "email": "t@example.com"})
+    db["users"].docs.append(
+        {"_id": uid, "role": "beta", "isActive": True, "email": "t@example.com"}
+    )
 
     main.app.dependency_overrides[get_current_user] = lambda: "u1"
     main.app.state.db = db
@@ -422,11 +492,15 @@ def _client_with_auth():
 def test_chat_endpoint_full_flow():
     client, app = _client_with_auth()
     try:
-        set_model_override(scripted(
-            AIMessage(content="education"),
-            AIMessage(content="Diversification spreads risk across assets."),
-        ))
-        r = client.post("/api/v2/copilot/chat", json={"message": "what is diversification"})
+        set_model_override(
+            scripted(
+                AIMessage(content="education"),
+                AIMessage(content="Diversification spreads risk across assets."),
+            )
+        )
+        r = client.post(
+            "/api/v2/copilot/chat", json={"message": "what is diversification"}
+        )
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["agent_used"] == "education"
@@ -455,6 +529,7 @@ def test_chat_endpoint_graceful_without_llm(monkeypatch):
 
 def test_copilot_health_endpoint_no_auth():
     from fastapi.testclient import TestClient
+
     import main
 
     r = TestClient(main.app).get("/api/v2/copilot/health")

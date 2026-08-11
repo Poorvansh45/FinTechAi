@@ -9,8 +9,6 @@ optional session id.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 MAX_MESSAGE_CHARS = 4000
@@ -18,7 +16,7 @@ MAX_MESSAGE_CHARS = 4000
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=MAX_MESSAGE_CHARS)
-    session_id: Optional[str] = Field(
+    session_id: str | None = Field(
         None, description="Conversation id; a new one is generated if omitted."
     )
 
@@ -26,7 +24,9 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     agent_used: str
-    provider_used: str = "none"  # which LLM answered — gemini | groq | ... (failover is transparent)
+    provider_used: str = (
+        "none"  # which LLM answered — gemini | groq | ... (failover is transparent)
+    )
     tools_called: list[str] = Field(default_factory=list)
     reasoning_summary: str = ""
     suggestions: list[str] = Field(default_factory=list)

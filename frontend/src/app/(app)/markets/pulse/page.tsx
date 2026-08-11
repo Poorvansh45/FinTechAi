@@ -9,6 +9,7 @@ import {
   WifiOff, Eye, Layers3, Gauge, Globe2, DollarSign, Cpu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { authHeader } from "@/lib/api/authToken";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -1306,7 +1307,7 @@ export default function MarketPulsePage() {
   const fetchData = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/markets/pulse');
+      const res = await fetch('/api/markets/pulse', { headers: await authHeader() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
@@ -1386,7 +1387,7 @@ export default function MarketPulsePage() {
         {/* Footer */}
         <motion.div {...fadeUp(11)} className="text-center py-6 mt-2">
           <p className="text-[9px] text-slate-700 uppercase tracking-widest">
-            FinTechAI Market Pulse · Yahoo Finance API · RSI + Regime AI · {loading ? 'Refreshing…' : '90s auto-refresh'} · Prices delayed 15min
+            Nivro Market Pulse · Yahoo Finance API · RSI + Regime AI · {loading ? 'Refreshing…' : '90s auto-refresh'} · Prices delayed 15min
           </p>
         </motion.div>
       </div>
