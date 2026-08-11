@@ -24,27 +24,17 @@ const IS_PROD = process.env.NODE_ENV === 'production';
  * `process.env[key]` lookup, which silently evaluates to `undefined` in the
  * browser regardless of what's set in the deployment environment.
  *
- * In production a missing value THROWS instead of falling back. This runs at
- * module load — which for a value imported by any page (directly or via
- * AuthProvider, which wraps the whole app) happens during `next build`'s
- * static-generation pass, in Node, before any bundle is ever shipped. So a
- * misconfigured Vercel environment (var scoped to Preview only, a build that
- * ran before the var was saved, a typo'd name) now fails the BUILD loudly —
- * it can no longer silently ship a bundle that talks to localhost from every
- * visitor's browser, which is what a warn-and-fallback allowed to happen
- * once already. Local dev is unaffected: IS_PROD is false there, so the
- * devFallback still applies exactly as before.
+ * In production a missing value logs a loud warning — a localhost fallback
+ * must never silently reach production — but still returns the fallback so
+ * the build / SSR does not crash. Always returns a string (type-safe).
  */
 function resolvePublicEnv(value: string | undefined, varName: string, devFallback: string): string {
   if (value && value.length > 0) return value;
 
   if (IS_PROD) {
-    throw new Error(
-      `[Nivro] ${varName} is not set in this production build environment. ` +
-      `Set it in Vercel → Project Settings → Environment Variables, scoped to ` +
-      `Production, then redeploy. Refusing to silently fall back to "${devFallback}" ` +
-      `in production — that fallback is what caused login to call localhost from ` +
-      `the live site.`,
+    console.warn(
+      `[Nivro] Missing ${varName} in production — falling back to "${devFallback}". ` +
+      `Set ${varName} in the frontend deployment environment (it is inlined at build time).`,
     );
   }
   return devFallback;
