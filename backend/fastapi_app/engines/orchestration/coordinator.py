@@ -144,16 +144,20 @@ class _StageWriter:
             self.active_scans[self.scan_id]["stage"] = stage
         log.info(f"[{self.scan_id}] stage={stage} RUNNING total={total}")
 
-    async def progress(self, stage: str, processed: int, errors: int = 0) -> None:
-        await self.meta_col.update_one(
-            {"_id": "daily_scan"},
-            {
-                "$set": {
-                    f"stages.{stage}.processed": processed,
-                    f"stages.{stage}.errors": errors,
-                }
-            },
-        )
+    async def progress(
+        self,
+        stage: str,
+        processed: int,
+        errors: int = 0,
+        total: int | None = None,
+    ) -> None:
+        fields = {
+            f"stages.{stage}.processed": processed,
+            f"stages.{stage}.errors": errors,
+        }
+        if total is not None:
+            fields[f"stages.{stage}.total"] = total
+        await self.meta_col.update_one({"_id": "daily_scan"}, {"$set": fields})
 
     async def finish(
         self,
@@ -305,9 +309,13 @@ async def run_full_scan(
         t_download = datetime.now(timezone.utc)
         await sw.start("download")
         download_errors = 0
+
+        async def _dl_progress(done: int, total: int) -> None:
+            await sw.progress("download", done, total=total)
+
         try:
             log.info(f"[{scan_id}] Downloading OHLC…")
-            await download_incremental_ohlc()
+            await download_incremental_ohlc(progress_cb=_dl_progress)
             log.info(f"[{scan_id}] Download stage complete")
         except Exception as e:
             download_errors = 1
@@ -363,6 +371,20 @@ async def run_full_scan(
         _dr._company_name_map = company_name_map
 
         # ── Stage: Indicators (centralized — computed exactly once per symbol) ──
+        # Loaded + computed on a worker thread and awaited per symbol (mirrors
+        # the Technical stage below) so the event loop — and /health — is
+        # never blocked for more than one symbol's compute at a time. Also
+        # keeps each symbol's DataFrame scoped to the worker thread's own
+        # stack frame, released as soon as that symbol's compute returns,
+        # rather than living in the coroutine's frame across the loop.
+        loop = asyncio.get_running_loop()
+
+        def _load_and_compute(symbol: str) -> IndicatorSet | None:
+            df = load_stock_dataframe(symbol)
+            if df.empty or len(df) < 30:
+                return None
+            return IndicatorEngine.compute(df)
+
         t_ind = datetime.now(timezone.utc)
         await sw.start("indicators", total=len(symbols))
         indicator_map: dict[str, IndicatorSet] = {}
@@ -371,10 +393,9 @@ async def run_full_scan(
         ind_failed: list[str] = []
         for i, sym in enumerate(symbols):
             try:
-                df = load_stock_dataframe(sym)
-                if df.empty or len(df) < 30:
+                ind = await loop.run_in_executor(None, _load_and_compute, sym)
+                if ind is None:
                     continue
-                ind = IndicatorEngine.compute(df)
                 indicator_map[sym] = ind
                 indicator_docs.append(
                     {
@@ -420,7 +441,6 @@ async def run_full_scan(
         tech_failed: list[str] = []
         batch_data: list[tuple] = []
         all_docs: dict[str, list[dict]] = {name: [] for name in TECHNICAL_COLLECTIONS}
-        loop = asyncio.get_running_loop()
 
         for i, symbol in enumerate(symbols):
             try:

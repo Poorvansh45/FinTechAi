@@ -1,0 +1,200 @@
+[
+  {
+    "segment": "NSE_EQ",
+    "name": "RELIANCE INDUSTRIES LTD",
+    "instrument_type": "EQ",
+    "instrument_key": "NSE_EQ|INE002A01018",
+    "isin": "INE002A01018",
+    "trading_symbol": "RELIANCE",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "TATA CONSULTANCY SERV LT",
+    "instrument_type": "EQ",
+    "instrument_key": "NSE_EQ|INE467B01029",
+    "isin": "INE467B01029",
+    "trading_symbol": "TCS",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "INFOSYS LIMITED",
+    "instrument_type": "EQ",
+    "instrument_key": "NSE_EQ|INE009A01021",
+    "isin": "INE009A01021",
+    "trading_symbol": "INFY",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "HDFC BANK LTD",
+    "instrument_type": "EQ",
+    "instrument_key": "NSE_EQ|INE040A01034",
+    "isin": "INE040A01034",
+    "trading_symbol": "HDFCBANK",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "TRANSPEK INDUSTRIES LTD",
+    "instrument_type": "BE",
+    "instrument_key": "NSE_EQ|INE687A01016",
+    "isin": "INE687A01016",
+    "trading_symbol": "TRANSPEK",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "VELJAN DENISON LTD.",
+    "instrument_type": "BE",
+    "instrument_key": "NSE_EQ|INE232E01013",
+    "isin": "INE232E01013",
+    "trading_symbol": "VELJAN",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "JOCIL LIMITED",
+    "instrument_type": "BE",
+    "instrument_key": "NSE_EQ|INE839G01010",
+    "isin": "INE839G01010",
+    "trading_symbol": "JOCIL",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "SANWARIA CONSUMER LIMITED",
+    "instrument_type": "BZ",
+    "instrument_key": "NSE_EQ|INE890C01046",
+    "isin": "INE890C01046",
+    "trading_symbol": "SANWARIA",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "SUPREME ENGINEERING LTD",
+    "instrument_type": "BZ",
+    "instrument_key": "NSE_EQ|INE319Z01021",
+    "isin": "INE319Z01021",
+    "trading_symbol": "SUPREMEENG",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "AMBANI ORGOCHEM LIMITED",
+    "instrument_type": "SM",
+    "instrument_key": "NSE_EQ|INE00C501018",
+    "isin": "INE00C501018",
+    "trading_symbol": "AMBANIORGO",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "APRAMEYA ENGINEERING LTD",
+    "instrument_type": "SM",
+    "instrument_key": "NSE_EQ|INE0LQG01010",
+    "isin": "INE0LQG01010",
+    "trading_symbol": "APRAMEYA",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "EPPELTONE ENGINEERS LTD",
+    "instrument_type": "SM",
+    "instrument_key": "NSE_EQ|INE11HF01010",
+    "isin": "INE11HF01010",
+    "trading_symbol": "EEPL",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "KCK INDUSTRIES LTD",
+    "instrument_type": "ST",
+    "instrument_key": "NSE_EQ|INE0J1E01027",
+    "isin": "INE0J1E01027",
+    "trading_symbol": "KCK",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "PRIZOR VIZTECH LIMITED",
+    "instrument_type": "ST",
+    "instrument_key": "NSE_EQ|INE0V9N01017",
+    "isin": "INE0V9N01017",
+    "trading_symbol": "PRIZOR",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "PRIME CABLE INDUSTRIES L",
+    "instrument_type": "ST",
+    "instrument_key": "NSE_EQ|INE0CQA01020",
+    "isin": "INE0CQA01020",
+    "trading_symbol": "PRIMECAB",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "SDL RJ 7.49% 2035",
+    "instrument_type": "SG",
+    "instrument_key": "NSE_EQ|IN2920250163",
+    "isin": "IN2920250163",
+    "trading_symbol": "749RJ35",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "SDL RJ 7.57% 2043",
+    "instrument_type": "SG",
+    "instrument_key": "NSE_EQ|IN2920250171",
+    "isin": "IN2920250171",
+    "trading_symbol": "757RJ43",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "ICICIPRAMC - SMALLIETF",
+    "instrument_type": "EQ",
+    "instrument_key": "NSE_EQ|INF109K1A476",
+    "isin": "INF109K1A476",
+    "trading_symbol": "SMALLIETF",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_EQ",
+    "name": "KOTAKMAMC - CHEMICAL",
+    "instrument_type": "EQ",
+    "instrument_key": "NSE_EQ|INF174KA1XV0",
+    "isin": "INF174KA1XV0",
+    "trading_symbol": "CHEMICAL",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_FO",
+    "name": "MIDCPNIFTY",
+    "instrument_type": "PE",
+    "instrument_key": "NSE_FO|50917",
+    "isin": "",
+    "trading_symbol": "MIDCPNIFTY 15225 PE 27 OCT 26",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_COM",
+    "name": "ZINC",
+    "instrument_type": "CE",
+    "instrument_key": "NSE_COM|127536",
+    "isin": "",
+    "trading_symbol": "ZINC 372.5 CE 23 SEP 26",
+    "exchange": "NSE"
+  },
+  {
+    "segment": "NSE_INDEX",
+    "name": "NIFTY100 Qualty30",
+    "instrument_type": "INDEX",
+    "instrument_key": "NSE_INDEX|NIFTY100 Qualty30",
+    "isin": "",
+    "trading_symbol": "NIFTY100 QUALTY30",
+    "exchange": "NSE"
+  }
+]

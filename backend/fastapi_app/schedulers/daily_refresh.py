@@ -565,6 +565,26 @@ async def run_pre_market_check(app_state) -> None:
     await perform_startup_recovery(app_state)
 
 
+async def run_universe_sync_job(app_state) -> None:
+    """Scheduled wrapper around services.universe_sync.run_universe_sync().
+
+    Keeps the scanner universe current with newly-listed NSE mainboard
+    stocks — never SME — with no manual step. Errors are logged and
+    swallowed: a Universe Sync failure must never take down the scheduler
+    or block the pre-market check / daily scan that follow it.
+    """
+    db = getattr(app_state, "db", None)
+    if db is None:
+        log.warning("[Scheduler] Universe Sync skipped — no DB")
+        return
+    try:
+        from services.universe_sync import run_universe_sync
+
+        await run_universe_sync(db)
+    except Exception as e:
+        log.error(f"[Scheduler] Universe Sync failed: {e}")
+
+
 async def maybe_run_on_startup(app_state) -> None:
     """Invoked on FastAPI startup."""
     await perform_startup_recovery(app_state)
@@ -580,7 +600,20 @@ def setup_scheduler(app_state) -> None:
 
         scheduler = AsyncIOScheduler(timezone="Asia/Kolkata")
 
-        # 1. Pre-market check at 08:00 AM IST
+        # 1. Universe Sync at 07:45 AM IST — before anything else touches the
+        # universe, so any newly-discovered mainboard IPO is in
+        # upstox_nse_stock_list.csv in time for the pre-market check and the
+        # daily scan's Download stage to pick it up.
+        scheduler.add_job(
+            run_universe_sync_job,
+            CronTrigger(hour=7, minute=45),
+            args=[app_state],
+            id="universe_sync",
+            replace_existing=True,
+            misfire_grace_time=600,
+        )
+
+        # 2. Pre-market check at 08:00 AM IST
         scheduler.add_job(
             run_pre_market_check,
             CronTrigger(hour=8, minute=0),
@@ -590,7 +623,7 @@ def setup_scheduler(app_state) -> None:
             misfire_grace_time=600,
         )
 
-        # 2. Daily EOD scan at 09:00 AM IST
+        # 3. Daily EOD scan at 09:00 AM IST
         scheduler.add_job(
             run_daily_scan,
             CronTrigger(hour=9, minute=0),

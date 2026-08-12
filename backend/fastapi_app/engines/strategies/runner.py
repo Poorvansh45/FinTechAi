@@ -410,33 +410,40 @@ async def discover_ipo_listings(db) -> int:
     """
     import pandas as pd
 
-    import services.ohlc_downloader as ohlc
+    from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
 
     from .ipo_vintage import MAX_LISTING_AGE_DAYS
 
-    # Read the cache off the MODULE, not a from-import: refresh_in_memory_cache()
-    # rebinds the module global, so a local name bound before the refresh would
-    # still point at the old (empty) dict.
-    if not ohlc._IN_MEMORY_STOCK_CACHE:
-        ohlc.refresh_in_memory_cache()
-    cache = ohlc._IN_MEMORY_STOCK_CACHE
-    if not cache:
+    # Backend-agnostic universe walk — works under both the CSV and Mongo OHLCV
+    # backends (services/ohlc_downloader.py's `_use_mongo()`). This used to read
+    # the module-level `_IN_MEMORY_STOCK_CACHE` dict directly, which is a
+    # CSV-backend-only cache that stays permanently empty under the Mongo
+    # backend production actually runs (render.yaml sets OHLCV_BACKEND=mongo),
+    # silently disabling auto-discovery. `get_cached_symbols()` /
+    # `load_stock_dataframe()` are the same accessors every other caller
+    # (coordinator, scanners) already uses, so this follows the existing
+    # backend-selection contract instead of bypassing it.
+    symbols = get_cached_symbols()
+    if not symbols:
         log.warning(
-            "[ipo_vintage] discover: OHLCV cache empty — cannot auto-detect listings"
+            "[ipo_vintage] discover: OHLCV universe empty — cannot auto-detect listings"
         )
         return 0
 
-    # Window start = the earliest date across the whole cache; anything first
+    # Window start = the earliest date across the whole universe; anything first
     # seen within WINDOW_BUFFER_DAYS of it is a clipped old stock, not a listing.
     WINDOW_BUFFER_DAYS = 60
     firsts: dict[str, pd.Timestamp] = {}
     latest = None
-    for sym, df in cache.items():
-        if sym.startswith("^") or df.empty:
+    for sym in symbols:
+        if sym.startswith("^"):
             continue
-        d0 = df["date"].iloc[0]
+        df = load_stock_dataframe(sym)
+        if df.empty:
+            continue
+        d0 = df["Date"].iloc[0]
         firsts[sym] = d0
-        last = df["date"].iloc[-1]
+        last = df["Date"].iloc[-1]
         latest = last if latest is None else max(latest, last)
     if not firsts or latest is None:
         return 0
@@ -519,22 +526,25 @@ async def run_ipo_vintage_study(db) -> dict:
     """
     import pandas as pd
 
-    import services.ohlc_downloader as ohlc
+    from services.ohlc_downloader import get_cached_symbols, load_stock_dataframe
 
     from .ipo_vintage import build_ipo_vintage_result
     from .ipo_vintage_backtest import build_ipo_vintage_study
 
-    if not ohlc._IN_MEMORY_STOCK_CACHE:
-        ohlc.refresh_in_memory_cache()
-    cache = ohlc._IN_MEMORY_STOCK_CACHE
-    if not cache:
+    # Backend-agnostic universe walk — see discover_ipo_listings() above for why
+    # this can no longer read _IN_MEMORY_STOCK_CACHE directly.
+    symbols = get_cached_symbols()
+    if not symbols:
         return {}
 
-    firsts = {
-        s: df["date"].iloc[0]
-        for s, df in cache.items()
-        if not s.startswith("^") and not df.empty
-    }
+    firsts: dict[str, pd.Timestamp] = {}
+    for s in symbols:
+        if s.startswith("^"):
+            continue
+        df = load_stock_dataframe(s)
+        if df.empty:
+            continue
+        firsts[s] = df["Date"].iloc[0]
     if not firsts:
         return {}
     window_start = min(firsts.values())
@@ -551,7 +561,7 @@ async def run_ipo_vintage_study(db) -> dict:
             r = build_ipo_vintage_result(
                 symbol=sym,
                 company_name=sym,
-                df=ohlc.load_stock_dataframe(sym),
+                df=load_stock_dataframe(sym),
                 listing_date=first_bar,
                 max_age_days=None,
             )

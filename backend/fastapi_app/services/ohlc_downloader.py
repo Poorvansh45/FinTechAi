@@ -3,6 +3,7 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -17,6 +18,15 @@ log = logging.getLogger("finai_edge.ohlc_downloader")
 BASE_SLEEP = 0.15  # min spacing between Upstox API calls (no 429s at this rate)
 MAX_WORKERS = 3  # parallel threads
 MAX_RETRIES = 5  # retry on rate limit
+
+# Bounds peak memory during ingestion: at most this many symbols' worth of
+# freshly-fetched history is ever held in RAM at once, instead of the whole
+# ~2,081-symbol universe (see _fetch_chunk / _persist_chunk_mongo below).
+# Does not change fetch concurrency — MAX_WORKERS threads per chunk, same as
+# before chunking existed.
+DOWNLOAD_CHUNK_SIZE = 200
+
+ProgressCallback = Callable[[int, int], Awaitable[None]]
 
 # Thread locks
 api_lock = threading.Lock()
@@ -523,12 +533,119 @@ def process_stock(row, last_date_map) -> dict[str, Any]:
 
 
 # =========================
+# CHUNKED PARALLEL FETCH + PERSIST
+# =========================
+# Splits the universe into bounded chunks so peak memory never holds more
+# than DOWNLOAD_CHUNK_SIZE symbols' worth of freshly-fetched DataFrames at
+# once. Fetch concurrency (MAX_WORKERS) and the module-level throttle()/
+# api_lock rate limiter are shared across every chunk exactly as before —
+# only how results are batched and persisted changed.
+
+
+def _fetch_chunk(chunk_df: pd.DataFrame, last_date_map: dict) -> dict[str, Any]:
+    """Runs the threaded Upstox fetch for one bounded chunk of symbols.
+
+    Synchronous — always dispatched via `loop.run_in_executor()` so it never
+    blocks the event loop. Same body as the pre-chunking single-shot fetch,
+    just scoped to `chunk_df` instead of the whole universe at once.
+    """
+    records: list[pd.DataFrame] = []
+    success: list[str] = []
+    failed: list[str] = []
+    missing: list[str] = []
+    up_to_date = 0
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {
+            executor.submit(process_stock, row, last_date_map): row["Symbol"]
+            for _, row in chunk_df.iterrows()
+        }
+        for future in as_completed(futures):
+            sym = futures[future]
+            res = future.result()
+
+            if res["status"] == "success":
+                records.append(res["df"])
+                success.append(sym)
+            elif res["status"] == "failure":
+                failed.append(sym)
+                missing.append(sym)
+            elif res["status"] == "no_data":
+                missing.append(sym)
+            elif res["status"] == "up_to_date":
+                up_to_date += 1
+    return {
+        "records": records,
+        "success": success,
+        "failed": failed,
+        "missing": missing,
+        "up_to_date": up_to_date,
+    }
+
+
+def _persist_chunk_mongo(chunk_records: list[pd.DataFrame]) -> int:
+    """Merge + validate + upsert one chunk's freshly-fetched symbols into the
+    `ohlcv` Mongo collection, one symbol at a time.
+
+    Extracted unchanged from what used to run once over the WHOLE universe
+    only after every symbol had already been fetched — the exact point that
+    held all ~2,081 freshly-fetched DataFrames in RAM simultaneously. Now
+    called once per chunk, so at most DOWNLOAD_CHUNK_SIZE symbols' worth is
+    ever in flight. Uses ohlcv_store's own synchronous pymongo client
+    (deliberately not Motor — see ohlcv_store.py's `_coll()`), so this is
+    dispatched via `loop.run_in_executor()` exactly like `_fetch_chunk()`.
+    """
+    from services.ohlcv_store import get_symbol, upsert_frame
+
+    new_df = pd.concat(chunk_records, ignore_index=True)
+    new_df.columns = new_df.columns.str.lower()
+    new_df["date"] = _to_naive_datetime(new_df["date"])
+    new_df["symbol"] = new_df["symbol"].astype(str).str.strip().str.upper()
+
+    written = 0
+    for sym, incoming in new_df.groupby("symbol"):
+        prior = get_symbol(sym)
+        if not prior.empty:
+            prior = prior.rename(
+                columns={
+                    "Symbol": "symbol",
+                    "Date": "date",
+                    "Open": "open",
+                    "High": "high",
+                    "Low": "low",
+                    "Close": "close",
+                    "Volume": "volume",
+                }
+            )[["symbol", "date", "open", "high", "low", "close", "volume"]]
+            merged = pd.concat([prior, incoming], ignore_index=True)
+        else:
+            merged = incoming
+
+        # Same validation the CSV path applies — duplicates, future dates,
+        # invalid OHLC, negative volumes.
+        merged = validate_and_clean_data(merged)
+        merged["date"] = merged["date"].dt.normalize()
+        merged = merged.sort_values("date")
+        upsert_frame(merged)
+        written += 1
+    return written
+
+
+# =========================
 # PUBLIC ENDPOINT
 # =========================
-async def download_incremental_ohlc() -> str:
+async def download_incremental_ohlc(
+    progress_cb: ProgressCallback | None = None,
+) -> str:
     """
     Main entry point for EOD incremental sync.
-    Creates or updates backend/data/Stock_Data.csv.
+    Creates or updates backend/data/Stock_Data.csv (CSV backend) or upserts
+    directly into MongoDB, chunk by chunk (Mongo backend).
+
+    `progress_cb`, when given, is awaited as `progress_cb(done, total)` after
+    every chunk — lets the Scan Coordinator write real Download-stage
+    progress into `scan_meta` instead of it staying frozen for the whole
+    ingestion. A callback failure is logged and swallowed, never allowed to
+    abort real ingestion work.
     """
     paths = get_downloader_paths()
 
@@ -614,54 +731,61 @@ async def download_incremental_ohlc() -> str:
     # path because its candles were inaccurate; ^NSEI keeps a yfinance fallback.
     log.info("ℹ️ OHLCV source: Upstox (public V3 historical) — Groww not used for OHLCV")
 
-    # Parallel Fetch
-    new_records = []
+    # Chunked parallel fetch. Mongo backend persists each chunk immediately
+    # (bounded, streaming — see _persist_chunk_mongo); the CSV backend still
+    # needs one full-history frame for its single sort+dedupe+rewrite pass, so
+    # it keeps accumulating `new_records` across chunks exactly as the old
+    # single-shot fetch did. That path isn't the one that OOM'd — production
+    # runs the Mongo backend (render.yaml sets OHLCV_BACKEND=mongo).
     loop = asyncio.get_running_loop()
+    use_mongo = _use_mongo()
 
-    # Progress tracking metrics
-    success_symbols = []
-    failed_symbols = []
-    missing_symbols = []  # symbols that returned no data or failed
-    # Use a mutable container for the counter to avoid UnboundLocalError
-    # inside the run_parallel() closure (integers can't be mutated in-place,
-    # but list/dict can).
-    counters = {"up_to_date": 0}
+    new_records: list[pd.DataFrame] = []
+    success_symbols: list[str] = []
+    failed_symbols: list[str] = []
+    missing_symbols: list[str] = []  # symbols that returned no data or failed
+    up_to_date_count = 0
+    mongo_written = 0
 
-    def run_parallel():
-        records = []
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            futures = {
-                executor.submit(process_stock, row, last_date_map): row["Symbol"]
-                for _, row in symbols_df.iterrows()
-            }
-            for done_count, future in enumerate(as_completed(futures), 1):
-                sym = futures[future]
-                res = future.result()
+    total = len(symbols_df)
+    n_chunks = (total + DOWNLOAD_CHUNK_SIZE - 1) // DOWNLOAD_CHUNK_SIZE
 
-                if res["status"] == "success":
-                    records.append(res["df"])
-                    success_symbols.append(sym)
-                elif res["status"] == "failure":
-                    failed_symbols.append(sym)
-                    missing_symbols.append(sym)
-                elif res["status"] == "no_data":
-                    missing_symbols.append(sym)
-                elif res["status"] == "up_to_date":
-                    counters["up_to_date"] += 1
+    for chunk_i in range(n_chunks):
+        start = chunk_i * DOWNLOAD_CHUNK_SIZE
+        chunk_df = symbols_df.iloc[start : start + DOWNLOAD_CHUNK_SIZE]
 
-                if done_count % 100 == 0 or done_count == len(symbols_df):
-                    log.info(
-                        f"Incremental Ingestion Progress: {done_count}/{len(symbols_df)} symbols processed"
-                    )
-        return records
+        # Delegate thread pool work to prevent event loop blocking.
+        chunk_result = await loop.run_in_executor(
+            None, _fetch_chunk, chunk_df, last_date_map
+        )
+        chunk_records = chunk_result["records"]
+        success_symbols.extend(chunk_result["success"])
+        failed_symbols.extend(chunk_result["failed"])
+        missing_symbols.extend(chunk_result["missing"])
+        up_to_date_count += chunk_result["up_to_date"]
 
-    # Delegate thread pool work to prevent event loop blocking
-    new_records = await loop.run_in_executor(None, run_parallel)
+        if chunk_records:
+            if use_mongo:
+                mongo_written += await loop.run_in_executor(
+                    None, _persist_chunk_mongo, chunk_records
+                )
+            else:
+                new_records.extend(chunk_records)
+
+        done_count = min(start + DOWNLOAD_CHUNK_SIZE, total)
+        log.info(
+            f"Incremental Ingestion Progress: {done_count}/{total} symbols processed"
+        )
+        if progress_cb is not None:
+            try:
+                await progress_cb(done_count, total)
+            except Exception as e:
+                # A progress-write hiccup must never abort real ingestion work.
+                log.warning(f"download progress callback failed: {e}")
 
     # Print ingestion reporting summary
     success_count = len(success_symbols)
     failure_count = len(failed_symbols)
-    up_to_date_count = counters["up_to_date"]
     log.info("=========================================")
     log.info("INGESTION ENGINE SUMMARY REPORT")
     log.info(f"  Success count:  {success_count}")
@@ -672,55 +796,19 @@ async def download_incremental_ohlc() -> str:
         log.info(f"  Failed Symbols: {', '.join(failed_symbols[:20])}...")
     log.info("=========================================")
 
-    # ── Mongo backend: merge and persist ONE SYMBOL AT A TIME ────────────
+    # ── Mongo backend: already merged + persisted above, chunk by chunk ──
     # The CSV branch below concatenates the entire history in RAM. That is the
     # 235 MB the migration exists to avoid, so this path never assembles a
     # whole-universe frame — and it never touches Stock_Data.csv.
-    if _use_mongo():
-        from services.ohlcv_store import get_symbol, upsert_frame
-
-        if not new_records:
+    if use_mongo:
+        if mongo_written == 0:
             log.info("No new EOD candles were fetched (all tickers up to date).")
-            refresh_in_memory_cache()
-            return f"mongo:{COLLECTION_HINT}"
-
-        new_df = pd.concat(new_records, ignore_index=True)
-        new_df.columns = new_df.columns.str.lower()
-        new_df["date"] = _to_naive_datetime(new_df["date"])
-        new_df["symbol"] = new_df["symbol"].astype(str).str.strip().str.upper()
-
-        written = 0
-        for sym, incoming in new_df.groupby("symbol"):
-            prior = get_symbol(sym)
-            if not prior.empty:
-                prior = prior.rename(
-                    columns={
-                        "Symbol": "symbol",
-                        "Date": "date",
-                        "Open": "open",
-                        "High": "high",
-                        "Low": "low",
-                        "Close": "close",
-                        "Volume": "volume",
-                    }
-                )[["symbol", "date", "open", "high", "low", "close", "volume"]]
-                merged = pd.concat([prior, incoming], ignore_index=True)
-            else:
-                merged = incoming
-
-            # Same validation the CSV path applies — duplicates, future dates,
-            # invalid OHLC, negative volumes.
-            merged = validate_and_clean_data(merged)
-            merged["date"] = merged["date"].dt.normalize()
-            merged = merged.sort_values("date")
-            upsert_frame(merged)
-            written += 1
-
+        else:
+            log.info(
+                f"✅ MongoDB OHLCV updated: {mongo_written} symbol(s) merged. "
+                f"Stock_Data.csv left untouched."
+            )
         refresh_in_memory_cache()
-        log.info(
-            f"✅ MongoDB OHLCV updated: {written} symbol(s) merged. "
-            f"Stock_Data.csv left untouched."
-        )
         return f"mongo:{COLLECTION_HINT}"
 
     # Merge and Save with lowercase columns and validation rules
