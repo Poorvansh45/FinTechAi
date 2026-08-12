@@ -10,8 +10,6 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
-  LogIn,
-  UserPlus,
   AlertCircle,
   Mail,
   Lock,
@@ -448,44 +446,28 @@ function AuthPageContent() {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="w-full max-w-[440px] bg-[#0B0F19]/80 border border-white/[0.06] backdrop-blur-3xl rounded-3xl p-8 sm:p-10 space-y-6 shadow-2xl relative"
+            className="w-full max-w-[440px] bg-[#0B0F19]/85 border border-white/[0.08] backdrop-blur-3xl rounded-3xl p-8 sm:p-10 space-y-6 shadow-2xl relative overflow-hidden"
           >
+            {/* Top ambient glow */}
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
             {/* Header */}
-            <div className="space-y-1 text-center">
-              <h2 className="text-xl font-bold text-white tracking-tight">
-                {isSignup ? 'Create your account' : 'Welcome back'}
-              </h2>
-              <p className="text-xs text-slate-400">
-                {isSignup ? 'Sign up to get started' : 'Sign in to continue to your workspace'}
-              </p>
-            </div>
-
-            {/* Mode Switcher Sliding Toggle */}
-            <div className="relative flex p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-hidden">
-              <div className="absolute top-1 bottom-1 left-1 right-1 pointer-events-none">
-                <motion.div
-                  className="h-full rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 shadow-md"
-                  initial={false}
-                  animate={{
-                    x: isSignup ? '100%' : '0%',
-                    width: '50%',
-                  }}
-                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                  style={{ marginLeft: isSignup ? '-4px' : '0px' }}
-                />
+            <div className="space-y-3.5 text-center relative z-10">
+              {/* Private Beta Badge */}
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] text-[11px] text-slate-300 font-medium shadow-inner">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse shadow-[0_0_8px_rgba(129,140,248,0.8)]" />
+                <span className="text-slate-400 font-mono text-[10px] tracking-wider uppercase">Invite-Only Private Beta</span>
               </div>
-              {/* Sign-in only: the "Create Account" half of this toggle is gone
-                  because there is no registration endpoint during the private
-                  beta. */}
-              <div className="flex-1 relative z-10 flex items-center justify-center gap-2 py-2 text-xs font-bold text-white">
-                <LogIn className="w-3.5 h-3.5" /> Sign In
+
+              <div className="space-y-1">
+                <h2 className="text-2xl font-bold text-white tracking-tight">
+                  {isSignup ? 'Create your account' : 'Welcome back'}
+                </h2>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  {isSignup ? 'Sign up to get started' : 'Sign in to continue to your workspace'}
+                </p>
               </div>
             </div>
-
-            <p className="mb-4 text-center text-[11px] leading-relaxed text-slate-500">
-              Nivro is currently an invite-only private beta.
-              Accounts are created by the team — there is no public sign-up.
-            </p>
 
             {/* Form */}
             <AnimatePresence mode="wait">
