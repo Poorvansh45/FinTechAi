@@ -110,12 +110,22 @@ test('development keeps the localhost fallback (M-8 is production-only)', () => 
 // errorHandler is a pure function of (err, req, res), so it is exercised
 // directly with a fake res — no server, no MongoDB, no environment mutation
 // beyond the module reload each case needs.
+//
+// production:true forces a real reload of config/env.js (via the cache
+// delete below), which re-runs its fail-closed guards — including the M-8
+// MONGODB_URI check. CI has no .env, so MONGODB_URI is genuinely unset;
+// without stubbing it here that guard throws and fails this test, even
+// though it has nothing to do with what's under test (error-message
+// leakage). JWT_SECRET needs no equivalent stub: smoke.test.js sets it once
+// at file load (line 14) and never deletes it, so it's already present.
 
 function runErrorHandler({ production, err }) {
   const path = require.resolve('../middleware/errorHandler');
   const envPath = require.resolve('../config/env');
   const prevEnv = process.env.NODE_ENV;
+  const prevMongoUri = process.env.MONGODB_URI;
   process.env.NODE_ENV = production ? 'production' : 'development';
+  process.env.MONGODB_URI = prevMongoUri || 'mongodb://example.invalid:27017/finai_edge';
   delete require.cache[path];
   delete require.cache[envPath];
   const { errorHandler } = require(path);
@@ -128,6 +138,8 @@ function runErrorHandler({ production, err }) {
   errorHandler(err, {}, res, () => {});
 
   process.env.NODE_ENV = prevEnv;
+  if (prevMongoUri === undefined) delete process.env.MONGODB_URI;
+  else process.env.MONGODB_URI = prevMongoUri;
   delete require.cache[path];
   delete require.cache[envPath];
   return captured;
