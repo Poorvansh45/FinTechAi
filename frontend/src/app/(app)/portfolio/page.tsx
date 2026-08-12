@@ -568,28 +568,7 @@ function PortfolioBuilderScreen({ onBack, onRestart }: { onBack: () => void; onR
                 sector: SUGGESTED_STOCKS.find(sg => sg.ticker === s.ticker)?.sector,
             }));
 
-            console.log('[OptionA] Calling analyzeHoldings with payload:', holdingsPayload);
             const result = await portfolioApi.analyzeHoldings(holdingsPayload);
-
-            console.log('[OptionA] FastAPI analyzeHoldings response:', {
-                health_score: result.health?.score,
-                health_label: result.health?.label,
-                risk_level: result.risk?.risk_level?.level,
-                volatility_pct: result.risk?.volatility_pct,
-                sharpe_ratio: result.risk?.sharpe_ratio,
-                sortino_ratio: result.risk?.sortino_ratio,
-                beta: result.risk?.beta,
-                var_95: result.risk?.var_95,
-                max_drawdown_pct: result.risk?.max_drawdown_pct,
-                cagr: result.risk?.cagr,
-                diversification_score: result.diversification_score,
-                sector_count: result.sector_exposure?.length,
-                insight_count: result.insights?.length,
-                rebalance_count: result.rebalance_suggestions?.length,
-                data_source: result.risk?.data_source,
-                health_breakdown: result.health?.breakdown,
-                concentration: result.concentration,
-            });
 
             if ((result as any).warnings) setWarnings((result as any).warnings);
             setAnalysis(result);
@@ -1593,7 +1572,6 @@ const DEFAULT_HOLDINGS: ManualHolding[] = [];
 //  2. health/insights/sectorData all read from apiResponse, not local math
 //  3. Removed fake dailyPnl drift array — now shows actual total P&L only
 //  4. chartData removed (was entirely fabricated) — replaced with real data
-//  5. Added console.log for response tracing
 // ─────────────────────────────────────────────────────────────────────────────
 function ManualPortfolioBuilderScreen({ onBack, onRestart }: { onBack: () => void; onRestart: () => void }) {
     const [holdings, setHoldings] = useState<ManualHolding[]>(DEFAULT_HOLDINGS);
@@ -1670,9 +1648,7 @@ function ManualPortfolioBuilderScreen({ onBack, onRestart }: { onBack: () => voi
         setFetchingQuote(true);
         try {
             const symbol = stock.ticker.includes('.NS') ? stock.ticker : `${stock.ticker}.NS`;
-            console.log('[ManualBuilder] Fetching quote for:', symbol);
             const quoteRes = await marketApi.getQuote(symbol);
-            console.log('[ManualBuilder] Quote response:', quoteRes);
             if (quoteRes.data?.price) {
                 setForm(c => ({ ...c, currentPrice: String(Math.round(quoteRes.data.price! * 100) / 100) }));
             }
@@ -1822,7 +1798,6 @@ function ManualPortfolioBuilderScreen({ onBack, onRestart }: { onBack: () => voi
 
     // ── Run Analysis — FIX: store API response ───────────────────────────────
     const runAnalysis = async () => {
-        console.log('[ManualBuilder] runAnalysis triggered, holdings:', holdings.length);
         if (!holdings.length || isAnalyzing) return;
 
         setMessageIndex(0);
@@ -1840,23 +1815,7 @@ function ManualPortfolioBuilderScreen({ onBack, onRestart }: { onBack: () => voi
                 sector: h.sector,
             }));
 
-            console.log('[ManualBuilder] Sending to FastAPI:', apiHoldingsPayload);
             const res = await portfolioApi.analyzeHoldings(apiHoldingsPayload);
-
-            // FIX: Log and STORE the response (previously it was discarded after logging)
-            console.log('[ManualBuilder] FastAPI response received:', {
-                success: res.success,
-                health_score: res.health?.score,
-                health_label: res.health?.label,
-                risk_level: res.risk?.risk_level?.level,
-                volatility_pct: res.risk?.volatility_pct,
-                sharpe_ratio: res.risk?.sharpe_ratio,
-                diversification_score: res.diversification_score,
-                sector_count: res.sector_exposure?.length,
-                rebalance_count: res.rebalance_suggestions?.length,
-                insight_count: res.insights?.length,
-                data_source: res.risk?.data_source,
-            });
 
             setApiResponse(res);  // FIX: actually save the response to state
         } catch (err: any) {
@@ -2786,7 +2745,6 @@ function AIBuildingScreen({ answers, onDone }: { answers: OnboardingAnswers; onD
 
         // FIX: actually call FastAPI instead of a fake setTimeout
         const callAPI = async () => {
-            console.log('[AIBuilding] Calling FastAPI /ai/generate-portfolio with:', answers);
             try {
                 const result = await aiApi.generatePortfolio({
                     goal: answers.goal,
@@ -2794,11 +2752,6 @@ function AIBuildingScreen({ answers, onDone }: { answers: OnboardingAnswers; onD
                     risk: answers.risk,
                     monthly_investment: answers.monthly,
                     asset_preferences: answers.assets?.length > 0 ? answers.assets : undefined,
-                });
-                console.log('[AIBuilding] FastAPI AI response received:', {
-                    method: (result as any).generation_method,
-                    allocations: (result as any).allocations?.length,
-                    expected_return: (result as any).expected_return_range,
                 });
                 setProgress(100);
                 setTimeout(() => onDone(result), 600);
@@ -2892,13 +2845,6 @@ function BeginnerResultsScreen({ answers, apiData, onBack, onRestart }: {
 }) {
     // FIX: Use API data when available; fall back to rule-based local template only when null
     const hasApiData = apiData !== null && apiData?.allocations?.length > 0;
-
-    console.log('[BeginnerResults] Rendering with apiData:', {
-        hasApiData,
-        generation_method: apiData?.generation_method,
-        allocation_count: apiData?.allocations?.length,
-        expected_return: apiData?.expected_return_range,
-    });
 
     // When FastAPI responded — render from API fields
     if (hasApiData) {
