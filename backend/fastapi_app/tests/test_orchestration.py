@@ -162,6 +162,41 @@ def test_stage_writer_start_progress_finish_transitions():
     asyncio.run(run())
 
 
+def test_stage_writer_progress_can_update_total_mid_stage():
+    """Phase 2: the Download stage doesn't know its true symbol count until
+    the symbols CSV is read, so `progress()` must be able to backfill `total`
+    on a later call — existing callers (LaunchPad/AlphaZone/IPOVintage) that
+    never pass `total` must keep working unchanged (it stays whatever
+    `start()` set, untouched)."""
+
+    async def run():
+        db = FakeDB()
+        meta_col = db.get_collection("scan_meta")
+        await meta_col.replace_one(
+            {"_id": "daily_scan"},
+            _new_scan_doc("S1", "manual", datetime.now(timezone.utc)),
+        )
+        sw = _StageWriter(meta_col, {}, "S1")
+
+        await sw.start("download")  # total unknown yet, defaults to 0
+        doc = await meta_col.find_one({})
+        assert doc["stages"]["download"]["total"] == 0
+
+        await sw.progress("download", 5, total=23)
+        doc = await meta_col.find_one({})
+        assert doc["stages"]["download"]["processed"] == 5
+        assert doc["stages"]["download"]["total"] == 23
+
+        # A caller that omits `total` (every existing stage-progress closure)
+        # must not reset it back to 0.
+        await sw.progress("download", 10)
+        doc = await meta_col.find_one({})
+        assert doc["stages"]["download"]["processed"] == 10
+        assert doc["stages"]["download"]["total"] == 23
+
+    asyncio.run(run())
+
+
 # ── Atomic publish (staging + rename) ────────────────────────────────────────
 
 
