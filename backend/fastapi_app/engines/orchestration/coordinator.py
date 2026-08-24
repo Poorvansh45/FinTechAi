@@ -310,6 +310,19 @@ async def run_full_scan(
         await sw.start("download")
         download_errors = 0
 
+        # Refresh universe (upstox_nse_stock_list.csv) with newly listed mainboard stocks
+        try:
+            from services.universe_sync import run_universe_sync
+
+            sync_res = await run_universe_sync(db)
+            if sync_res.get("newly_added_symbols"):
+                log.info(
+                    f"[{scan_id}] Universe sync added {len(sync_res['newly_added_symbols'])} "
+                    f"new symbols to upstox_nse_stock_list.csv: {sync_res['newly_added_symbols']}"
+                )
+        except Exception as e:
+            log.warning(f"[{scan_id}] Universe sync failed (continuing scan): {e}")
+
         async def _dl_progress(done: int, total: int) -> None:
             await sw.progress("download", done, total=total)
 

@@ -17,12 +17,12 @@ import {
   RangeFilter,
   EMPTY_RANGE,
   isRangeActive,
-  CONFIDENCE_PRESETS,
+  PRICE_PRESETS,
   type RangeValue,
 } from "@/components/screener/filters";
 import { IPO_VINTAGE_TERMS, IPO_VINTAGE_FAQS } from "@/lib/screener/quantContent";
 
-const CONF_BOUNDS: [number, number] = [0, 100];
+const PRICE_BOUNDS: [number, number] = [100, 5000];
 const RETURN_BOUNDS: [number, number] = [-30, 60];
 const RISK_BOUNDS: [number, number] = [0, 40];
 
@@ -276,7 +276,7 @@ export default function IPOVintagePage() {
   const [freshness, setFreshness] = useState("");   // max_days_since_trigger
   const [horizon, setHorizon] = useState("15");     // 15, not 7 — see the API docstring
   const [sortBy, setSortBy] = useState("days_since_trigger");
-  const [conf, setConf] = useState<RangeValue>(EMPTY_RANGE);
+  const [price, setPrice] = useState<RangeValue>(EMPTY_RANGE);
   const [ret, setRet] = useState<RangeValue>(EMPTY_RANGE);
   const [risk, setRisk] = useState<RangeValue>(EMPTY_RANGE);
   const [search, setSearch] = useState("");
@@ -322,8 +322,8 @@ export default function IPOVintagePage() {
         sort_by: view === "live" ? sortBy : (sortBy === "days_since_trigger" ? "confidence" : sortBy),
       };
       if (view === "live" && freshness) params.max_days_since_trigger = Number(freshness);
-      if (conf.min !== null) params.min_confidence = conf.min;
-      if (conf.max !== null) params.max_confidence = conf.max;
+      if (price.min !== null) params.price_min = price.min;
+      if (price.max !== null) params.price_max = price.max;
       if (ret.min !== null) params.min_return = ret.min;
       if (ret.max !== null) params.max_return = ret.max;
       if (risk.max !== null) params.max_risk = risk.max;
@@ -340,7 +340,7 @@ export default function IPOVintagePage() {
     } finally {
       setLoading(false);
     }
-  }, [view, historyStatus, freshness, horizon, sortBy, conf, ret, risk]);
+  }, [view, historyStatus, freshness, horizon, sortBy, price, ret, risk]);
 
   // Bucket counts for the view toggle — one cheap call each on mount.
   useEffect(() => {
@@ -369,11 +369,11 @@ export default function IPOVintagePage() {
   const activeCount =
     (view === "live" && freshness ? 1 : 0) +
     (view === "history" && historyStatus !== "history" ? 1 : 0) +
-    [conf, ret, risk].filter(isRangeActive).length;
+    [price, ret, risk].filter(isRangeActive).length;
 
   const resetFilters = () => {
     setFreshness(""); setHistoryStatus("history");
-    setConf(EMPTY_RANGE); setRet(EMPTY_RANGE); setRisk(EMPTY_RANGE);
+    setPrice(EMPTY_RANGE); setRet(EMPTY_RANGE); setRisk(EMPTY_RANGE);
   };
 
   const handleOpenWatchlist = (s: any, e: React.MouseEvent) => {
@@ -571,10 +571,20 @@ export default function IPOVintagePage() {
           presets={RISK_PRESETS} accent="cyan"
           description="Distance from entry to the opening-candle stop. Wide on new listings — the most useful filter here." />
 
-        <RangeFilter label="Confidence" value={conf} onChange={setConf}
-          min={CONF_BOUNDS[0]} max={CONF_BOUNDS[1]} step={1} unit="%"
-          presets={CONFIDENCE_PRESETS} accent="cyan"
-          description="Rule-based: risk quality 40%, breakout strength 35%, volume 25%. No ML." />
+        <RangeFilter
+          label="Price"
+          value={price}
+          onChange={setPrice}
+          min={PRICE_BOUNDS[0]}
+          max={PRICE_BOUNDS[1]}
+          step={10}
+          unit="₹"
+          unitPosition="prefix"
+          format={(v) => `₹${v.toLocaleString("en-IN")}`}
+          presets={PRICE_PRESETS}
+          accent="cyan"
+          description="Current market price (CMP)."
+        />
 
         <RangeFilter label={`Return @ ${horizon}d`} value={ret} onChange={setRet}
           min={RETURN_BOUNDS[0]} max={RETURN_BOUNDS[1]} step={1} unit="%"

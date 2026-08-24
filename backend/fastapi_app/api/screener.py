@@ -740,6 +740,8 @@ async def get_ipo_vintage(
     request: Request,
     status: str = Query("live"),  # live | stopped | expired | history | all
     horizon: int = Query(15),  # 7|15|30|60|90 — which horizon to expose/filter
+    price_min: float = Query(None),  # CMP band — lower
+    price_max: float = Query(None),  # CMP band — upper
     min_confidence: float = Query(None),
     max_confidence: float = Query(None),
     min_return: float = Query(None),  # applies to the selected horizon's return_pct
@@ -748,7 +750,7 @@ async def get_ipo_vintage(
     max_days_since_trigger: int = Query(None),  # freshness ceiling for live setups
     sort_by: str = Query(
         "confidence"
-    ),  # confidence | risk_pct | mfe_pct | days_since_trigger
+    ),  # confidence | risk_pct | mfe_pct | days_since_trigger | cmp
     limit: int = Query(5000),  # effectively "all" — the tracked universe is small
 ):
     """
@@ -786,6 +788,16 @@ async def get_ipo_vintage(
     elif status == "history":
         # The isolated track record: everything that is NOT actionable.
         query["setup_status"] = {"$in": ["stopped", "expired"]}
+
+    # Price (CMP) band.
+    price_q: dict = {}
+    if price_min is not None:
+        price_q["$gte"] = price_min
+    if price_max is not None:
+        price_q["$lte"] = price_max
+    if price_q:
+        query["cmp"] = price_q
+
     conf_q: dict = {}
     if min_confidence is not None:
         conf_q["$gte"] = min_confidence
@@ -801,7 +813,7 @@ async def get_ipo_vintage(
     # risk + recency ascending (tightest stop / freshest first); rest descending.
     sort_field = (
         sort_by
-        if sort_by in ("confidence", "risk_pct", "mfe_pct", "days_since_trigger")
+        if sort_by in ("confidence", "risk_pct", "mfe_pct", "days_since_trigger", "cmp")
         else "confidence"
     )
     sort_dir = 1 if sort_field in ("risk_pct", "days_since_trigger") else -1
