@@ -7,6 +7,7 @@ Pydantic Settings loading from .env with sensible defaults.
 import os
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
@@ -19,7 +20,12 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:9002"
 
     # ── Database ────────────────────────────────────────────────────
-    mongodb_uri: str = "mongodb://localhost:27017/finai_edge"
+    mongodb_uri: str = Field(
+        default="mongodb://localhost:27017/finai_edge",
+        validation_alias=AliasChoices(
+            "MONGODB_URI", "MONGO_URI", "DATABASE_URL", "mongodb_uri"
+        ),
+    )
 
     # ── OHLCV source ────────────────────────────────────────────────
     # "csv"   — backend/data/Stock_Data.csv, loaded whole into RAM (~235 MB).
@@ -121,7 +127,7 @@ class Settings(BaseSettings):
         return self.gemini_available or self.groq_available
 
     model_config = {
-        "env_file": "../.env",
+        "env_file": (".env", "../.env"),
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }
