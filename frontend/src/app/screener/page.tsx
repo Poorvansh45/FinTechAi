@@ -44,14 +44,20 @@ export default function ScreenerOverviewPage() {
   const fetchCounts = useCallback(async () => {
     setLoading(true);
     try {
-      const [lpRes, azRes, ivRes] = await Promise.all([
+      const [lpRes, azRes, ivRes] = await Promise.allSettled([
         screenerService.getLaunchPad(),
         screenerService.getAlphaZone(),
         screenerService.getIpoVintage(),
       ]);
-      if (lpRes.data?.success) setLpCount(lpRes.data.count);
-      if (azRes.data?.success) setAzCount(azRes.data.count);
-      if (ivRes.data?.success) setIvCount(ivRes.data.count);
+      if (lpRes.status === "fulfilled" && lpRes.value.data?.success) {
+        setLpCount(lpRes.value.data.count);
+      }
+      if (azRes.status === "fulfilled" && azRes.value.data?.success) {
+        setAzCount(azRes.value.data.count);
+      }
+      if (ivRes.status === "fulfilled" && ivRes.value.data?.success) {
+        setIvCount(ivRes.value.data.count);
+      }
     } catch (err) {
       console.error("Failed to load opportunity counts", err);
     } finally {
