@@ -19,6 +19,7 @@ from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
 
+import pandas as pd
 from engines.indicators import IndicatorEngine
 
 from .base import MarketContext, Strategy, SymbolContext
@@ -387,9 +388,93 @@ async def run_alphazone_scan(
 run_alphazone_from_cache = run_alphazone_scan
 
 
+_UPSTOX_MASTER_ISIN_CACHE: dict[str, str] = {}
+_UPSTOX_MASTER_NAME_CACHE: dict[str, str] = {}
+
+
+def _resolve_missing_isins(
+    missing_symbols: set[str],
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Resolve ISINs and company names for any symbols not present in the local CSV
+    (e.g. BE/BZ series or newly migrated symbols) by querying the Upstox instrument master."""
+    global _UPSTOX_MASTER_ISIN_CACHE, _UPSTOX_MASTER_NAME_CACHE
+    needed = {s.upper() for s in missing_symbols if s} - set(_UPSTOX_MASTER_ISIN_CACHE.keys())
+    if needed:
+        try:
+            from scripts.refresh_upstox_symbols import fetch_instrument_master
+
+            master_df = fetch_instrument_master()
+            matches = master_df[
+                (master_df["segment"].isin(["NSE_EQ", "BSE_EQ"]))
+                & (master_df["trading_symbol"].str.upper().isin(needed))
+            ]
+            for _, r in matches.iterrows():
+                sym = str(r.get("trading_symbol", "")).strip().upper()
+                name = str(r.get("name", "")).strip()
+                isin = str(r.get("isin", "")).strip()
+                if sym and isin and sym not in _UPSTOX_MASTER_ISIN_CACHE:
+                    _UPSTOX_MASTER_ISIN_CACHE[sym] = isin
+                if sym and name and sym not in _UPSTOX_MASTER_NAME_CACHE:
+                    _UPSTOX_MASTER_NAME_CACHE[sym] = name
+        except Exception as e:
+            log.warning(f"[ipo_vintage] Failed to resolve missing ISINs from master: {e}")
+
+    resolved_names = {s: _UPSTOX_MASTER_NAME_CACHE[s] for s in missing_symbols if s in _UPSTOX_MASTER_NAME_CACHE}
+    resolved_isins = {s: _UPSTOX_MASTER_ISIN_CACHE[s] for s in missing_symbols if s in _UPSTOX_MASTER_ISIN_CACHE}
+    return resolved_names, resolved_isins
+
+
+def check_bse_trading_prior_to(
+    isin: str,
+    nse_listing_date: pd.Timestamp,
+    fetch_fn=None,
+    symbol: str | None = None,
+) -> tuple[bool, int, str | None]:
+    """Check if a stock had trading history on BSE before its NSE listing.
+
+    Returns (has_prior_bse_history, prior_bse_bars_count, earliest_bse_date).
+    - has_prior_bse_history = True  -> Listed on BSE before NSE (NOT a fresh IPO).
+    - has_prior_bse_history = False -> Genuine fresh IPO.
+    """
+    key_isin = isin or ""
+    if not key_isin or not str(key_isin).startswith("INE"):
+        if symbol:
+            _, resolved = _resolve_missing_isins({symbol.upper()})
+            key_isin = resolved.get(symbol.upper(), "")
+
+    if not key_isin or not str(key_isin).startswith("INE"):
+        return False, 0, None
+
+    if fetch_fn is None:
+        from services.ohlc_downloader import fetch_upstox_range
+
+        fetch_fn = fetch_upstox_range
+
+    # 7-day grace window before NSE listing date handles simultaneous IPO listing delays
+    cutoff_date = nse_listing_date - pd.Timedelta(days=7)
+    start_date = nse_listing_date - pd.Timedelta(days=365 * 10)
+
+    bse_key = f"BSE_EQ|{key_isin}"
+    try:
+        df_bse = fetch_fn(bse_key, start_date, cutoff_date)
+        if df_bse is not None and not df_bse.empty:
+            earliest = df_bse["date"].iloc[0]
+            earliest_str = (
+                earliest.strftime("%Y-%m-%d")
+                if hasattr(earliest, "strftime")
+                else str(earliest)
+            )
+            return True, len(df_bse), earliest_str
+    except Exception as e:
+        log.warning(f"[ipo_vintage] BSE history check failed for {key_isin}: {e}")
+
+    return False, 0, None
+
+
 async def discover_ipo_listings(db) -> int:
-    """Auto-populate `ipo_listings` from the OHLCV cache — no scraper, no
-    external provider, no manual entry.
+    """Auto-populate `ipo_listings` from the OHLCV cache and verify fresh IPO status
+    against BSE history using Upstox — excluding companies that were already trading on
+    BSE before their NSE listing.
 
     The insight: for a genuinely recent listing, the FIRST bar in its price
     history IS its listing candle. `Stock_Data.csv` holds a rolling ~5-year
@@ -398,15 +483,10 @@ async def discover_ipo_listings(db) -> int:
     at (or near) the window start is simply an older stock clipped by the
     window, and is skipped.
 
-    Only listings inside the tracked vintage age bound are added, so this can't
-    balloon the collection. Manually-added rows (`source="manual"`) are never
-    overwritten — the POST endpoint stays authoritative for anything a human
-    entered, including a corrected listing date.
-
-    Caveat worth knowing: this detects "first day of trading under this symbol",
-    which is an IPO in the overwhelming majority of cases but also catches
-    re-listings, demergers and ticker changes. The setup's mechanics (breakout
-    over the first-day range) are identical either way, so they're kept.
+    Additionally, candidate listings are checked against BSE historical trading:
+    if a stock was already listed and trading on BSE prior to its NSE listing,
+    it is flagged with `is_fresh_ipo=False` and excluded from the active IPO Vintage
+    opportunity tracker.
     """
     import pandas as pd
 
@@ -414,15 +494,6 @@ async def discover_ipo_listings(db) -> int:
 
     from .ipo_vintage import MAX_LISTING_AGE_DAYS
 
-    # Backend-agnostic universe walk — works under both the CSV and Mongo OHLCV
-    # backends (services/ohlc_downloader.py's `_use_mongo()`). This used to read
-    # the module-level `_IN_MEMORY_STOCK_CACHE` dict directly, which is a
-    # CSV-backend-only cache that stays permanently empty under the Mongo
-    # backend production actually runs (render.yaml sets OHLCV_BACKEND=mongo),
-    # silently disabling auto-discovery. `get_cached_symbols()` /
-    # `load_stock_dataframe()` are the same accessors every other caller
-    # (coordinator, scanners) already uses, so this follows the existing
-    # backend-selection contract instead of bypassing it.
     symbols = get_cached_symbols()
     if not symbols:
         log.warning(
@@ -452,11 +523,9 @@ async def discover_ipo_listings(db) -> int:
     earliest_real = window_start + pd.Timedelta(days=WINDOW_BUFFER_DAYS)
     age_cutoff = latest - pd.Timedelta(days=MAX_LISTING_AGE_DAYS)
 
-    # Real company names come from the freshly-refreshed universe CSV — new
-    # listings aren't in `screener_cache` yet (that's populated by the technical
-    # stage), so build_company_map() would return the bare ticker for exactly
-    # the symbols this function cares about.
+    # Real company names and ISINs come from the universe CSV
     names: dict[str, str] = {}
+    isins: dict[str, str] = {}
     try:
         import os
 
@@ -467,19 +536,40 @@ async def discover_ipo_listings(db) -> int:
             udf = pd.read_csv(csv_path)
             udf.columns = udf.columns.str.strip()
             for _, r in udf.iterrows():
-                t, n = (
-                    str(r.get("trading_symbol", "")).strip(),
-                    str(r.get("company_name", "")).strip(),
-                )
+                t = str(r.get("trading_symbol", "")).strip().upper()
+                n = str(r.get("company_name", "")).strip()
+                i = str(r.get("isin", "")).strip()
                 if t and n:
-                    names[t.upper()] = n
+                    names[t] = n
+                if t and i:
+                    isins[t] = i
     except Exception as e:
-        log.warning(f"[ipo_vintage] discover: could not load company names: {e}")
+        log.warning(f"[ipo_vintage] discover: could not load universe metadata: {e}")
 
-    col = db.get_collection("ipo_listings")
-    existing = {
-        d["symbol"]: d async for d in col.find({}, {"_id": 0, "symbol": 1, "source": 1})
+    # For candidate symbols missing from the CSV, resolve from Upstox master
+    candidates = [
+        sym for sym, first_bar in firsts.items()
+        if first_bar > earliest_real and first_bar >= age_cutoff
+    ]
+    missing_candidates = {
+        sym.upper() for sym in candidates
+        if sym.upper() not in isins or not isins[sym.upper()]
     }
+    if missing_candidates:
+        extra_names, extra_isins = _resolve_missing_isins(missing_candidates)
+        for s, n in extra_names.items():
+            if s not in names:
+                names[s] = n
+        for s, i in extra_isins.items():
+            if s not in isins:
+                isins[s] = i
+
+    col = db.get_collection("ipo_listings") if db is not None else None
+    existing: dict[str, dict] = {}
+    if col is not None:
+        existing = {
+            d["symbol"]: d async for d in col.find({}, {"_id": 0})
+        }
 
     added = 0
     for sym, first_bar in firsts.items():
@@ -488,23 +578,42 @@ async def discover_ipo_listings(db) -> int:
         prev = existing.get(sym)
         if prev and prev.get("source") == "manual":
             continue  # never clobber a human-entered listing date
+
         company = names.get(sym.upper(), sym)
-        await col.update_one(
-            {"symbol": sym},
-            {
-                "$set": {
-                    "symbol": sym,
-                    "company_name": company or sym,
-                    "listing_date": first_bar.strftime("%Y-%m-%d"),
-                    "source": "auto",
-                }
-            },
-            upsert=True,
-        )
-        added += 1
+        isin = isins.get(sym.upper(), "")
+
+        # Check existing classification or query Upstox for BSE history
+        if prev and prev.get("is_fresh_ipo") is not None:
+            is_fresh_ipo = prev.get("is_fresh_ipo", True)
+            bse_bars = prev.get("bse_prior_bars", 0)
+            bse_first_date = prev.get("bse_first_date")
+        else:
+            has_bse_prior, bse_bars, bse_first_date = check_bse_trading_prior_to(
+                isin, first_bar, symbol=sym
+            )
+            is_fresh_ipo = not has_bse_prior
+
+        doc_to_set = {
+            "symbol": sym,
+            "company_name": company or sym,
+            "listing_date": first_bar.strftime("%Y-%m-%d"),
+            "isin": isin,
+            "is_fresh_ipo": is_fresh_ipo,
+            "bse_prior_bars": bse_bars,
+            "bse_first_date": bse_first_date,
+            "source": "auto",
+        }
+        if col is not None:
+            await col.update_one(
+                {"symbol": sym},
+                {"$set": doc_to_set},
+                upsert=True,
+            )
+        if is_fresh_ipo:
+            added += 1
 
     log.info(
-        f"[ipo_vintage] discover: {added} listing(s) auto-detected from first-bar-in-history "
+        f"[ipo_vintage] discover: {added} fresh IPO listing(s) auto-detected "
         f"(window starts {window_start:%Y-%m-%d}, tracking listings after {age_cutoff:%Y-%m-%d})"
     )
     return added
@@ -550,11 +659,24 @@ async def run_ipo_vintage_study(db) -> dict:
     window_start = min(firsts.values())
     cutoff = window_start + pd.Timedelta(days=60)
 
+    # Exclude listings known to be BSE-first
+    bse_first_symbols: set[str] = set()
+    if db is not None:
+        try:
+            bse_first_symbols = {
+                d["symbol"]
+                async for d in db.get_collection("ipo_listings").find(
+                    {"is_fresh_ipo": False}, {"_id": 0, "symbol": 1}
+                )
+            }
+        except Exception:
+            pass
+
     t0 = time.time()
     docs: list[dict] = []
     listings = 0
     for sym, first_bar in firsts.items():
-        if first_bar <= cutoff:
+        if first_bar <= cutoff or sym in bse_first_symbols:
             continue
         listings += 1
         try:
@@ -635,7 +757,7 @@ async def run_ipo_vintage_scan(
 
     listings = (
         await db.get_collection("ipo_listings")
-        .find({}, {"_id": 0})
+        .find({"is_fresh_ipo": {"$ne": False}}, {"_id": 0})
         .to_list(length=5000)
     )
 

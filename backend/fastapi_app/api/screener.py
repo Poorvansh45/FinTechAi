@@ -702,6 +702,7 @@ async def add_ipo_listing(request: Request, payload: IPOListingIn):
         "company_name": (payload.company_name or payload.symbol).strip(),
         "listing_date": payload.listing_date,
         "issue_price": payload.issue_price,
+        "is_fresh_ipo": True,
         # Marks this row as human-entered so auto-discovery leaves it alone —
         # a hand-corrected listing date must survive every later scan.
         "source": "manual",

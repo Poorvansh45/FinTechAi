@@ -150,3 +150,85 @@ def test_discover_ipo_listings_returns_zero_on_empty_universe(monkeypatch):
     db = FakeDB(FakeIpoListingsCollection())
     added = asyncio.run(discover_ipo_listings(db))
     assert added == 0
+
+
+def test_discover_ipo_listings_excludes_bse_first_listings(monkeypatch):
+    """A company that traded on BSE prior to listing on NSE must be marked
+    with is_fresh_ipo=False and excluded from the fresh IPO count."""
+    universe = {
+        "OLDCO": _frame("2020-01-01", "2026-08-01"),
+        "FRESH_IPO": _frame("2026-06-01", "2026-08-01"),
+        "BSE_FIRST": _frame("2026-06-01", "2026-08-01"),
+    }
+    monkeypatch.setattr(ohlc, "get_cached_symbols", lambda: list(universe.keys()))
+    monkeypatch.setattr(
+        ohlc, "load_stock_dataframe", lambda sym: universe.get(sym, pd.DataFrame())
+    )
+    monkeypatch.setattr(ohlc, "_IN_MEMORY_STOCK_CACHE", {})
+
+    # Mock check_bse_trading_prior_to
+    from engines.strategies import runner
+
+    def fake_bse_check(isin, nse_date, fetch_fn=None, symbol=None, **kwargs):
+        if "BSE_FIRST" in str(symbol) or "BSE_FIRST" in str(isin):
+            return True, 500, "2018-01-01"
+        return False, 0, None
+
+    monkeypatch.setattr(runner, "check_bse_trading_prior_to", fake_bse_check)
+
+    collection = FakeIpoListingsCollection()
+    db = FakeDB(collection)
+
+    added = asyncio.run(discover_ipo_listings(db))
+
+    # Only FRESH_IPO is counted as a fresh IPO addition
+    assert added == 1
+    assert collection.docs["FRESH_IPO"]["is_fresh_ipo"] is True
+    assert collection.docs["BSE_FIRST"]["is_fresh_ipo"] is False
+    assert collection.docs["BSE_FIRST"]["bse_first_date"] == "2018-01-01"
+    assert collection.docs["BSE_FIRST"]["bse_prior_bars"] == 500
+
+
+def test_check_bse_trading_prior_to_helper():
+    """Direct unit test of check_bse_trading_prior_to helper."""
+    from engines.strategies.runner import check_bse_trading_prior_to
+
+    # 1. Invalid or non-INE ISIN
+    assert check_bse_trading_prior_to("", pd.Timestamp("2024-01-01")) == (
+        False,
+        0,
+        None,
+    )
+    assert check_bse_trading_prior_to("INF123456", pd.Timestamp("2024-01-01")) == (
+        False,
+        0,
+        None,
+    )
+
+    # 2. Fresh IPO (BSE returns empty dataframe before NSE listing)
+    def mock_fetch_empty(key, start, end):
+        return pd.DataFrame()
+
+    has_prior, count, earliest = check_bse_trading_prior_to(
+        "INE123456789", pd.Timestamp("2024-01-15"), fetch_fn=mock_fetch_empty
+    )
+    assert has_prior is False
+    assert count == 0
+    assert earliest is None
+
+    # 3. BSE-first listing (BSE returns historical bars)
+    def mock_fetch_bse_history(key, start, end):
+        return pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2018-05-10"), pd.Timestamp("2023-12-01")],
+                "close": [150.0, 320.0],
+            }
+        )
+
+    has_prior, count, earliest = check_bse_trading_prior_to(
+        "INE987654321", pd.Timestamp("2024-01-15"), fetch_fn=mock_fetch_bse_history
+    )
+    assert has_prior is True
+    assert count == 2
+    assert earliest == "2018-05-10"
+
