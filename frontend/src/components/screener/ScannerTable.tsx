@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import AddToWatchlistModal from "../watchlists/AddToWatchlistModal";
 import { ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
@@ -270,6 +270,54 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
     );
   }
 
+  const [sortKey, setSortKey] = useState<string>("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (key: string) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "symbol" || key === "company" ? "asc" : "desc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: string }) => (
+    <span className="ml-1 text-gray-500 text-[10px] select-none inline-block">
+      {sortKey === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+    </span>
+  );
+
+  const sortedRows = useMemo(() => {
+    if (!sortKey) return rows;
+    return [...rows].sort((a, b) => {
+      let av: any = 0, bv: any = 0;
+      const ra = a as any;
+      const rb = b as any;
+      if (sortKey === "symbol") { av = a.symbol || ""; bv = b.symbol || ""; }
+      else if (sortKey === "company") { av = a.company_name || ""; bv = b.company_name || ""; }
+      else if (sortKey === "price") { av = ltp(a) ?? 0; bv = ltp(b) ?? 0; }
+      else if (sortKey === "volume") { av = a.volume ?? 0; bv = b.volume ?? 0; }
+      else if (sortKey === "rsi") { av = a.indicators?.rsi_14 ?? ra.rsi ?? 0; bv = b.indicators?.rsi_14 ?? rb.rsi ?? 0; }
+      else if (sortKey === "ema50d") { av = a.indicators?.ema_50_dist_pct ?? ra.ema_50_dist_pct ?? -999; bv = b.indicators?.ema_50_dist_pct ?? rb.ema_50_dist_pct ?? -999; }
+      else if (sortKey === "ema200d") { av = a.indicators?.ema_200_dist_pct ?? ra.ema_200_dist_pct ?? -999; bv = b.indicators?.ema_200_dist_pct ?? rb.ema_200_dist_pct ?? -999; }
+      else if (sortKey === "macd") { av = a.indicators?.macd ?? 0; bv = b.indicators?.macd ?? 0; }
+      else if (sortKey === "fvg_score") { av = ra.fvg_score ?? ra.best_fvg_score ?? 0; bv = rb.fvg_score ?? rb.best_fvg_score ?? 0; }
+      else if (sortKey === "strength") { av = ra.nearest_bullish_fvg?.strength || ra.strength || ""; bv = rb.nearest_bullish_fvg?.strength || rb.strength || ""; }
+      else if (sortKey === "gap_zone") { av = ra.nearest_bullish_fvg?.gap_size_pct ?? ra.gap_size_pct ?? 0; bv = rb.nearest_bullish_fvg?.gap_size_pct ?? rb.gap_size_pct ?? 0; }
+      else if (sortKey === "dist_fvg") { av = ra.nearest_bullish_fvg?.distance_pct ?? ra.distance_to_fvg_pct ?? 999; bv = rb.nearest_bullish_fvg?.distance_pct ?? rb.distance_to_fvg_pct ?? 999; }
+      else if (sortKey === "vol_ratio") { av = ra.current_volume_ratio ?? ra.volume_ratio ?? 0; bv = rb.current_volume_ratio ?? rb.volume_ratio ?? 0; }
+      else if (sortKey === "score") { av = a.momentum_score ?? a.smc_score ?? 0; bv = b.momentum_score ?? b.smc_score ?? 0; }
+      else if (sortKey === "dist_zone") { av = ra.distance_pct ?? ra.nearest_demand?.distance_pct ?? 999; bv = rb.distance_pct ?? rb.nearest_demand?.distance_pct ?? 999; }
+      else if (sortKey === "event") { av = ra.event ?? ra.nearest_demand?.event ?? ""; bv = rb.event ?? rb.nearest_demand?.event ?? ""; }
+
+      if (typeof av === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [rows, sortKey, sortDir]);
+
   // ── Column definitions per mode ─────────────────────────────────────────
 
   const isFVG      = mode === "fvg";
@@ -286,29 +334,55 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
             <tr className="border-b border-gray-800 bg-gray-800/40">
               {canExpand && <th className="w-8" />}
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">#</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Symbol</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Company</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">LTP</th>
+              <th onClick={() => handleSort("symbol")} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none">
+                Symbol <SortIcon col="symbol" />
+              </th>
+              <th onClick={() => handleSort("company")} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none">
+                Company <SortIcon col="company" />
+              </th>
+              <th onClick={() => handleSort("price")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none">
+                LTP <SortIcon col="price" />
+              </th>
 
               {/* Technical columns */}
               {!isFVG && !isSurge && !isMomentum && !isSMC && (
                 <>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Volume</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">RSI</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">EMA50 Dist</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">EMA200 Dist</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">MACD</th>
+                  <th onClick={() => handleSort("volume")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Volume <SortIcon col="volume" />
+                  </th>
+                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    RSI <SortIcon col="rsi" />
+                  </th>
+                  <th onClick={() => handleSort("ema50d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    EMA50 Dist <SortIcon col="ema50d" />
+                  </th>
+                  <th onClick={() => handleSort("ema200d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    EMA200 Dist <SortIcon col="ema200d" />
+                  </th>
+                  <th onClick={() => handleSort("macd")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    MACD <SortIcon col="macd" />
+                  </th>
                 </>
               )}
 
               {/* FVG columns */}
               {isFVG && (
                 <>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">RSI</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">FVG Score</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Strength</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Gap Zone</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Dist %</th>
+                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    RSI <SortIcon col="rsi" />
+                  </th>
+                  <th onClick={() => handleSort("fvg_score")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    FVG Score <SortIcon col="fvg_score" />
+                  </th>
+                  <th onClick={() => handleSort("strength")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Strength <SortIcon col="strength" />
+                  </th>
+                  <th onClick={() => handleSort("gap_zone")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Gap Zone <SortIcon col="gap_zone" />
+                  </th>
+                  <th onClick={() => handleSort("dist_fvg")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Dist % <SortIcon col="dist_fvg" />
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Mitigated</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">FVGs</th>
                 </>
@@ -317,7 +391,9 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
               {/* Volume Surge columns */}
               {isSurge && (
                 <>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Vol Ratio</th>
+                  <th onClick={() => handleSort("vol_ratio")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Vol Ratio <SortIcon col="vol_ratio" />
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Avg 1D</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Avg 5D</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Win Rate 1D</th>
@@ -330,11 +406,19 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
               {/* Momentum columns */}
               {isMomentum && (
                 <>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Score</th>
+                  <th onClick={() => handleSort("score")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Score <SortIcon col="score" />
+                  </th>
                   <th className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase">Category</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">RSI</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">EMA50 Dist</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">EMA200 Dist</th>
+                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    RSI <SortIcon col="rsi" />
+                  </th>
+                  <th onClick={() => handleSort("ema50d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    EMA50 Dist <SortIcon col="ema50d" />
+                  </th>
+                  <th onClick={() => handleSort("ema200d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    EMA200 Dist <SortIcon col="ema200d" />
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">RS vs Nifty</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">52W High Dist</th>
                 </>
@@ -343,9 +427,15 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
               {/* SMC columns */}
               {isSMC && (
                 <>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">SMC Score</th>
-                  <th className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase">Event</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Dist to Zone</th>
+                  <th onClick={() => handleSort("score")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    SMC Score <SortIcon col="score" />
+                  </th>
+                  <th onClick={() => handleSort("event")} className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Event <SortIcon col="event" />
+                  </th>
+                  <th onClick={() => handleSort("dist_zone")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                    Dist to Zone <SortIcon col="dist_zone" />
+                  </th>
                   <th className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase">Zone</th>
                   <th className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase">PD Zone</th>
                 </>
@@ -355,7 +445,7 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
             </tr>
           </thead>
           <tbody>
-            {rows.map((item, idx) => {
+            {sortedRows.map((item, idx) => {
               const price    = ltp(item);
               const sym      = item.symbol;
               const isOpen   = expanded.has(sym);

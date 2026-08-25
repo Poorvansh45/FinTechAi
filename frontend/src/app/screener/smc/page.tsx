@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useMemo } from "react";
 import ScannerTable from "@/components/screener/ScannerTable";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import { ScannerContext } from "../context";
@@ -90,7 +90,36 @@ function ZoneProximityTab() {
     { key: "removed" as const, label: "❌ Removed", color: "bg-red-500/10 border-red-500/30 text-red-300",       count: data.removed.length },
   ];
 
-  const rows = data[activeSheet];
+  const [sortKey, setSortKey] = useState<string>("distance_pct");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (key: string) => {
+    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir(key === "symbol" || key === "distance_pct" ? "asc" : "desc"); }
+  };
+
+  const SortIcon = ({ col }: { col: string }) => (
+    <span className="ml-1 text-gray-500 text-[10px] select-none inline-block">
+      {sortKey === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+    </span>
+  );
+
+  const sortedRows = useMemo(() => {
+    const raw = data[activeSheet] || [];
+    return [...raw].sort((a, b) => {
+      let av: any = 0, bv: any = 0;
+      if (sortKey === "symbol") { av = a.symbol || ""; bv = b.symbol || ""; }
+      else if (sortKey === "ltp") { av = a.ltp ?? 0; bv = b.ltp ?? 0; }
+      else if (sortKey === "distance_pct") { av = a.distance_pct ?? 0; bv = b.distance_pct ?? 0; }
+      else if (sortKey === "zone_low") { av = a.zone_low ?? 0; bv = b.zone_low ?? 0; }
+      else if (sortKey === "zone_high") { av = a.zone_high ?? 0; bv = b.zone_high ?? 0; }
+      else if (sortKey === "event") { av = a.event || ""; bv = b.event || ""; }
+      if (typeof av === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [data, activeSheet, sortKey, sortDir]);
+
+  const rows = sortedRows;
 
   return (
     <div className="space-y-5">
@@ -151,12 +180,24 @@ function ZoneProximityTab() {
               <thead>
                 <tr className="bg-gray-800/40 border-b border-gray-800 text-xs text-gray-400 uppercase">
                   <th className="px-4 py-3 text-left">#</th>
-                  <th className="px-4 py-3 text-left">Symbol</th>
-                  <th className="px-4 py-3 text-right">LTP (₹)</th>
-                  <th className="px-4 py-3 text-right">Dist to Zone</th>
-                  <th className="px-4 py-3 text-right">Zone Low</th>
-                  <th className="px-4 py-3 text-right">Zone High</th>
-                  <th className="px-4 py-3 text-left">Event</th>
+                  <th onClick={() => handleSort("symbol")} className="px-4 py-3 text-left cursor-pointer hover:text-white transition-colors select-none">
+                    Symbol <SortIcon col="symbol" />
+                  </th>
+                  <th onClick={() => handleSort("ltp")} className="px-4 py-3 text-right cursor-pointer hover:text-white transition-colors select-none">
+                    LTP (₹) <SortIcon col="ltp" />
+                  </th>
+                  <th onClick={() => handleSort("distance_pct")} className="px-4 py-3 text-right cursor-pointer hover:text-white transition-colors select-none">
+                    Dist to Zone <SortIcon col="distance_pct" />
+                  </th>
+                  <th onClick={() => handleSort("zone_low")} className="px-4 py-3 text-right cursor-pointer hover:text-white transition-colors select-none">
+                    Zone Low <SortIcon col="zone_low" />
+                  </th>
+                  <th onClick={() => handleSort("zone_high")} className="px-4 py-3 text-right cursor-pointer hover:text-white transition-colors select-none">
+                    Zone High <SortIcon col="zone_high" />
+                  </th>
+                  <th onClick={() => handleSort("event")} className="px-4 py-3 text-left cursor-pointer hover:text-white transition-colors select-none">
+                    Event <SortIcon col="event" />
+                  </th>
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>

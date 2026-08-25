@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import React, { useState, useEffect, useCallback, useContext, useMemo } from "react";
 import Link from "next/link";
 import {
   Landmark, Search, AlertCircle, Bookmark, Sparkles,
@@ -276,6 +276,8 @@ export default function IPOVintagePage() {
   const [freshness, setFreshness] = useState("");   // max_days_since_trigger
   const [horizon, setHorizon] = useState("15");     // 15, not 7 — see the API docstring
   const [sortBy, setSortBy] = useState("days_since_trigger");
+  const [sortKey, setSortKey] = useState<string>("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [price, setPrice] = useState<RangeValue>(EMPTY_RANGE);
   const [ret, setRet] = useState<RangeValue>(EMPTY_RANGE);
   const [risk, setRisk] = useState<RangeValue>(EMPTY_RANGE);
@@ -382,11 +384,85 @@ export default function IPOVintagePage() {
     setIsModalOpen(true);
   };
 
-  const filtered = stocks.filter((s) => {
-    if (!search.trim()) return true;
-    const q = search.trim().toLowerCase();
-    return s.symbol.toLowerCase().includes(q) || (s.company_name || "").toLowerCase().includes(q);
-  });
+  const handleSort = (key: string) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "symbol" || key === "risk" ? "asc" : "desc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: string }) => (
+    <span className="ml-1 text-gray-500 text-[10px] inline-block select-none">
+      {sortKey === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
+    </span>
+  );
+
+  const filtered = useMemo(() => {
+    let rows = stocks;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      rows = rows.filter(
+        (s) =>
+          s.symbol?.toLowerCase().includes(q) ||
+          (s.company_name || "").toLowerCase().includes(q)
+      );
+    }
+    return [...rows].sort((a, b) => {
+      let av: any = 0, bv: any = 0;
+      if (sortKey === "symbol") {
+        av = a.symbol || "";
+        bv = b.symbol || "";
+      } else if (sortKey === "date") {
+        if (view === "live") {
+          av = a.days_since_trigger ?? 999;
+          bv = b.days_since_trigger ?? 999;
+          return sortDir === "asc" ? av - bv : bv - av;
+        } else {
+          av = a.listing_date || "";
+          bv = b.listing_date || "";
+        }
+      } else if (sortKey === "entry") {
+        av = a.entry ?? 0;
+        bv = b.entry ?? 0;
+      } else if (sortKey === "stop") {
+        av = a.stop_loss ?? 0;
+        bv = b.stop_loss ?? 0;
+      } else if (sortKey === "risk") {
+        av = a.risk_pct ?? 0;
+        bv = b.risk_pct ?? 0;
+      } else if (sortKey === "cmp") {
+        av = a.cmp ?? 0;
+        bv = b.cmp ?? 0;
+      } else if (sortKey === "return") {
+        av = a.unrealized_return_pct ?? 0;
+        bv = b.unrealized_return_pct ?? 0;
+      } else if (sortKey === "horizon") {
+        av = a.selected_horizon_return_pct ?? -999;
+        bv = b.selected_horizon_return_pct ?? -999;
+      } else if (sortKey === "max_dd") {
+        av = a.max_drawdown_pct ?? 0;
+        bv = b.max_drawdown_pct ?? 0;
+      } else if (sortKey === "confidence") {
+        av = a.confidence ?? 0;
+        bv = b.confidence ?? 0;
+      } else if (sortKey === "outcome") {
+        if (view === "live") {
+          av = a.sessions_left_in_window ?? 0;
+          bv = b.sessions_left_in_window ?? 0;
+        } else {
+          av = a.setup_status || "";
+          bv = b.setup_status || "";
+        }
+      }
+
+      if (typeof av === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [stocks, search, sortKey, sortDir, view]);
 
   const handleAddListing = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -639,22 +715,71 @@ export default function IPOVintagePage() {
           <table className="w-full min-w-[900px] text-xs">
             <thead className="bg-gray-900/60 text-gray-500">
               <tr>
-                <th className="px-3 py-2.5 text-left font-semibold">Symbol</th>
-                <th className="px-3 py-2.5 text-left font-semibold">
-                  {view === "live" ? "Triggered" : "Listed"}
+                <th
+                  onClick={() => handleSort("symbol")}
+                  className="px-3 py-2.5 text-left font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                >
+                  Symbol <SortIcon col="symbol" />
                 </th>
-                <th className="px-3 py-2.5 text-right font-semibold">Entry</th>
-                <th className="px-3 py-2.5 text-right font-semibold">Stop</th>
-                <th className="px-3 py-2.5 text-right font-semibold">Risk %</th>
-                <th className="px-3 py-2.5 text-right font-semibold">CMP</th>
-                <th className="px-3 py-2.5 text-right font-semibold">
-                  {view === "live" ? "Since Entry" : "Final"}
+                <th
+                  onClick={() => handleSort("date")}
+                  className="px-3 py-2.5 text-left font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                >
+                  {view === "live" ? "Triggered" : "Listed"} <SortIcon col="date" />
                 </th>
-                <th className="px-3 py-2.5 text-right font-semibold">@{horizon}d</th>
-                <th className="px-3 py-2.5 text-right font-semibold">Max DD</th>
-                <th className="px-3 py-2.5 text-right font-semibold">Conf.</th>
-                <th className="px-3 py-2.5 text-center font-semibold">
-                  {view === "live" ? "Window" : "Outcome"}
+                <th
+                  onClick={() => handleSort("entry")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                >
+                  Entry <SortIcon col="entry" />
+                </th>
+                <th
+                  onClick={() => handleSort("stop")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                >
+                  Stop <SortIcon col="stop" />
+                </th>
+                <th
+                  onClick={() => handleSort("risk")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-amber-400/80"
+                >
+                  Risk % <SortIcon col="risk" />
+                </th>
+                <th
+                  onClick={() => handleSort("cmp")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                >
+                  CMP <SortIcon col="cmp" />
+                </th>
+                <th
+                  onClick={() => handleSort("return")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-emerald-400/80"
+                >
+                  {view === "live" ? "Since Entry" : "Final"} <SortIcon col="return" />
+                </th>
+                <th
+                  onClick={() => handleSort("horizon")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-cyan-400/80"
+                >
+                  @{horizon}d <SortIcon col="horizon" />
+                </th>
+                <th
+                  onClick={() => handleSort("max_dd")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-red-400/80"
+                >
+                  Max DD <SortIcon col="max_dd" />
+                </th>
+                <th
+                  onClick={() => handleSort("confidence")}
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-blue-400/80"
+                >
+                  Conf. <SortIcon col="confidence" />
+                </th>
+                <th
+                  onClick={() => handleSort("outcome")}
+                  className="px-3 py-2.5 text-center font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                >
+                  {view === "live" ? "Window" : "Outcome"} <SortIcon col="outcome" />
                 </th>
               </tr>
             </thead>
