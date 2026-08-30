@@ -145,10 +145,10 @@ export default function ScreenerOverviewPage() {
               <span className="flex h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
               <span className="text-xs font-semibold uppercase tracking-wider text-indigo-400">Scanner Dashboard</span>
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white md:text-4xl bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">
               Market Scan Overview
             </h1>
-            <p className="text-sm text-gray-400 max-w-xl">
+            <p className="text-sm text-gray-400 max-w-xl hidden sm:block">
               Rethinking financial research with proprietary signal detection, institution-grade structures, and low-risk momentum swings.
             </p>
           </div>
@@ -170,7 +170,7 @@ export default function ScreenerOverviewPage() {
 
         <ScanStepper meta={scanMeta} />
 
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-gray-800/80 pt-8">
+        <div className="mt-6 sm:mt-8 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 border-t border-gray-800/80 pt-6 sm:pt-8">
           <div className="space-y-1">
             <span className="text-xs text-gray-500">Scan Status</span>
             <div className="flex items-center gap-2">

@@ -761,11 +761,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {!isLandingPage && !isAuthPage && (
         <>
           <nav
-            className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around py-1.5 px-2"
+            className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-around px-2 mobile-bottom-nav"
             style={{
               background: 'rgba(8,12,20,0.96)',
               backdropFilter: 'blur(20px)',
               borderTop: '1px solid rgba(99,102,241,0.08)',
+              paddingTop: '6px',
+              paddingBottom: `max(8px, env(safe-area-inset-bottom))`,
             }}
           >
             {MOBILE_TABS.map(({ href, icon: Icon, label }) => {
@@ -774,7 +776,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={href}
                   href={href}
-                  className={`relative flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all ${active ? 'text-violet-400' : 'text-slate-600'}`}
+                  className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[44px] ${active ? 'text-violet-400' : 'text-slate-600'}`}
                 >
                   {active && (
                     <span
@@ -783,12 +785,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     />
                   )}
                   <Icon className="w-5 h-5" />
-                  <span className="text-[10px] font-medium">{label}</span>
+                  <span className="text-[9px] font-medium">{label}</span>
                 </Link>
               );
             })}
           </nav>
-          <div className="lg:hidden h-16" />
+          <div className="lg:hidden mobile-bottom-spacer" />
         </>
       )}
     </div>

@@ -93,7 +93,8 @@ export const NAV_MODULES: NavModule[] = [
 ];
 
 export const MOBILE_TABS = [
-  { href: '/markets',     label: 'Markets',   icon: LayoutDashboard },
+  { href: '/home',        label: 'Home',      icon: LayoutDashboard },
+  { href: '/markets',     label: 'Markets',   icon: Activity        },
   { href: '/screener',    label: 'Screener',  icon: ScanLine        },
   { href: '/ai-copilot',  label: 'AI',        icon: Sparkles        },
   { href: '/journal',     label: 'Journal',   icon: BookOpen        },

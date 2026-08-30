@@ -83,6 +83,9 @@
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
+    -webkit-overflow-scrolling: touch;
+    /* Safe area for iPhone notch / Dynamic Island */
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .dark body {
     background-color: #030712;
@@ -914,5 +917,58 @@ textarea:focus-visible {
 .animate-workspace-pulse {
   animation: workspacePulse 2s infinite ease-in-out;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE UTILITIES  (screens < 768px)
+   These complement Tailwind breakpoint classes throughout the app.
+═══════════════════════════════════════════════════════════════ */
+
+/* Smooth momentum scrolling on iOS for any scrollable area */
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scroll-touch::-webkit-scrollbar { display: none; }
+
+/* Horizontal scroll container for tables on mobile */
+.mobile-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.mobile-table-scroll::-webkit-scrollbar { display: none; }
+
+/* Bottom navigation safe area spacer */
+.mobile-bottom-spacer {
+  height: calc(4rem + env(safe-area-inset-bottom));
+}
+
+/* Bottom nav itself — accounts for iPhone home indicator */
+.mobile-bottom-nav {
+  padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+}
+
+/* Prevent text from overflowing on very small screens */
+@media (max-width: 480px) {
+  .mobile-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  /* Ensure tap targets are at least 44×44px per Apple HIG */
+  button, a, [role="button"] {
+    min-height: 36px;
+  }
+}
+
+/* Scrollbar hidden utility (for tab strips, nav bars) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
 
 

@@ -101,30 +101,30 @@ export default function DashboardPage(){
   ];
 
   return(
-    <div className="space-y-5 animate-fadeIn">
+    <div className="space-y-4 sm:space-y-5 animate-fadeIn">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold">Dashboard</h1>
+          <h1 className="text-lg sm:text-xl font-bold">Dashboard</h1>
           <p className="text-xs text-muted-foreground">{now.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
         </div>
-        <Link href="/journal" className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:'linear-gradient(135deg,#4f46e5,#7c3aed)',boxShadow:'0 0 16px rgba(99,102,241,0.3)'}}>
+        <Link href="/journal" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-sm font-bold text-white" style={{background:'linear-gradient(135deg,#4f46e5,#7c3aed)',boxShadow:'0 0 16px rgba(99,102,241,0.3)'}}>
           <Plus className="w-4 h-4"/> New Trade
         </Link>
       </div>
 
       {/* 4 KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         {KPIS.map(k=>(
-          <div key={k.label} className="kpi-card p-4 animate-fadeUp">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{k.label}</div>
-              <div className="w-7 h-7 rounded-xl flex items-center justify-center" style={{background:`${k.col}15`,border:`1px solid ${k.col}25`}}>
-                <k.icon className="w-3.5 h-3.5" style={{color:k.col}}/>
+          <div key={k.label} className="kpi-card p-3 sm:p-4 animate-fadeUp">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <div className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-muted-foreground leading-tight">{k.label}</div>
+              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:`${k.col}15`,border:`1px solid ${k.col}25`}}>
+                <k.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" style={{color:k.col}}/>
               </div>
             </div>
-            <div className="text-xl font-bold tabular-nums mb-0.5" style={{color:k.up?'#22c55e':'#ef4444'}}>{k.val}</div>
-            <div className="text-[10px] text-muted-foreground">{k.sub}</div>
+            <div className="text-lg sm:text-xl font-bold tabular-nums mb-0.5" style={{color:k.up?'#22c55e':'#ef4444'}}>{k.val}</div>
+            <div className="text-[9px] sm:text-[10px] text-muted-foreground">{k.sub}</div>
           </div>
         ))}
       </div>

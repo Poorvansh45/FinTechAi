@@ -446,7 +446,7 @@ function AuthPageContent() {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="w-full max-w-[440px] bg-[#0B0F19]/85 border border-white/[0.08] backdrop-blur-3xl rounded-3xl p-8 sm:p-10 space-y-6 shadow-2xl relative overflow-hidden"
+            className="w-full max-w-[440px] bg-[#0B0F19]/85 border border-white/[0.08] backdrop-blur-3xl rounded-3xl p-5 sm:p-8 lg:p-10 space-y-5 sm:space-y-6 shadow-2xl relative overflow-hidden"
           >
             {/* Top ambient glow */}
             <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />

@@ -102,10 +102,10 @@ export default function AppHomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050816] text-white py-6 md:py-8">
+    <div className="min-h-screen bg-[#050816] text-white py-4 sm:py-6 md:py-8">
       {/* ══ Welcome Header Section ════════════════════════════════ */}
-      <div className="max-w-[1600px] mx-auto px-6 md:px-8 mb-8">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-6 rounded-3xl border border-white/[0.08] bg-[#09101E] backdrop-blur-md relative overflow-hidden">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 md:px-8 mb-4 sm:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/[0.08] bg-[#09101E] backdrop-blur-md relative overflow-hidden">
           {/* Background beam effects */}
           <div className="absolute top-0 right-0 w-[400px] h-[200px] bg-violet-600/5 rounded-full blur-[80px] pointer-events-none" />
           
@@ -140,7 +140,7 @@ export default function AppHomePage() {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-start lg:items-end gap-3.5 relative z-10 min-w-[150px]">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3.5 relative z-10">
             {/* Live Indicator */}
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold w-fit">
               <span className="relative flex h-1.5 w-1.5">
@@ -159,7 +159,7 @@ export default function AppHomePage() {
             {/* Elegant Open Dashboard button */}
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-bold text-white transition-all hover:opacity-90 shadow-lg shadow-purple-500/10 border border-purple-500/30 w-fit"
+              className="inline-flex items-center gap-2 px-4 sm:px-5 py-2 rounded-full text-xs font-bold text-white transition-all hover:opacity-90 shadow-lg shadow-purple-500/10 border border-purple-500/30 w-fit"
               style={{ background: 'linear-gradient(135deg,#6D5DFB,#8B5CF6)' }}
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
@@ -169,15 +169,15 @@ export default function AppHomePage() {
         </div>
       </div>
 
-      {/* ══ Bento Grid Content ══════════════════════════════════ */}
+      {/* ══ Bento Grid Content ════════════════════════════ */}
       <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="max-w-[1600px] mx-auto px-6 md:px-8 gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 pb-12"
+        className="max-w-[1600px] mx-auto px-3 sm:px-6 md:px-8 gap-4 sm:gap-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 pb-8 sm:pb-12"
       >
         {/* ROW 1 CARD 1: Markets Watchlist */}
-        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-6 flex flex-col justify-between min-h-[220px]">
+        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-4 sm:p-6 flex flex-col justify-between min-h-[180px] sm:min-h-[220px]">
           <div>
             <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
               <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export default function AppHomePage() {
         </motion.div>
 
         {/* ROW 1 CARD 2: Trading Journal Stats */}
-        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-6 flex flex-col justify-between min-h-[220px]">
+        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-4 sm:p-6 flex flex-col justify-between min-h-[180px] sm:min-h-[220px]">
           <div>
             <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
               <div className="flex items-center gap-2">
@@ -285,7 +285,7 @@ export default function AppHomePage() {
         </motion.div>
 
         {/* ROW 1 CARD 3: Performance Analytics */}
-        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-6 flex flex-col justify-between min-h-[220px]">
+        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-4 sm:p-6 flex flex-col justify-between min-h-[180px] sm:min-h-[220px]">
           <div>
             <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
               <div className="flex items-center gap-2">
@@ -337,7 +337,7 @@ export default function AppHomePage() {
         </motion.div>
 
         {/* ROW 1 CARD 4: Portfolio Allocation */}
-        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-6 flex flex-col justify-between min-h-[220px]">
+        <motion.div variants={itemVariants} className="bg-[#09101E] border border-white/[0.08] rounded-3xl transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)] p-4 sm:p-6 flex flex-col justify-between min-h-[180px] sm:min-h-[220px]">
           <div>
             <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-3">
               <div className="flex items-center gap-2">

@@ -140,7 +140,7 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
 
         {/* ── Export bar ───────────────────────────────────────────── */}
         {scanData.length > 0 && (
-          <div className="border-b border-gray-800/60 bg-gray-900/40 px-6 py-2">
+          <div className="border-b border-gray-800/60 bg-gray-900/40 px-3 sm:px-6 py-2">
             <div className="max-w-[1600px] mx-auto flex items-center justify-end">
               <button
                 onClick={() => exportCSV(scanData, scannerName.toLowerCase().replace(" ", "_"))}
@@ -154,8 +154,8 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
         )}
 
         {/* ── Scanner tab strip ────────────────────────────────────── */}
-        <div className="border-b border-gray-800/60 bg-gray-900/20 px-6">
-          <div className="max-w-[1600px] mx-auto flex items-center gap-1 overflow-x-auto py-1.5 scrollbar-none">
+        <div className="border-b border-gray-800/60 bg-gray-900/20 px-2 sm:px-6">
+          <div className="max-w-[1600px] mx-auto flex items-center gap-0.5 sm:gap-1 overflow-x-auto py-1 sm:py-1.5 scrollbar-none">
             {SCANNER_TABS.map(({ href, label, icon: Icon, category, badge }) => {
               const active = isActive(href);
               const style = CATEGORY_STYLES[category];
@@ -163,20 +163,23 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
                 <Link
                   key={href}
                   href={href}
-                  className={`group relative flex items-center gap-2 px-3.5 py-2.5 rounded-t-md border-b-2 text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
+                  className={`group relative flex items-center gap-1.5 px-2 sm:px-3.5 py-2 sm:py-2.5 rounded-t-md border-b-2 text-[11px] sm:text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
                     active
                       ? `${style.border} ${style.text} ${style.bg}`
                       : "border-transparent text-gray-500 hover:text-gray-200 hover:bg-blue-500/[0.06] hover:border-blue-500/30"
                   }`}
                 >
                   <Icon
-                    size={15}
+                    size={14}
                     strokeWidth={1.75}
                     className={active ? style.icon : "text-gray-500 group-hover:text-blue-300 transition-colors duration-200"}
                   />
-                  <span>{label}</span>
+                  {/* Hide label text on very small screens — icon conveys context */}
+                  <span className="hidden xs:inline sm:inline">{label}</span>
+                  {/* Always show label on sm+ but shorten on xs if needed */}
+                  <span className="xs:hidden sm:hidden">{label.split(" ")[0]}</span>
                   {badge && !active && (
-                    <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+                    <span className="hidden sm:inline px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
                       {badge}
                     </span>
                   )}
@@ -187,7 +190,7 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
         </div>
 
         {/* ── Page content ─────────────────────────────────────────── */}
-        <div className="max-w-[1600px] mx-auto px-6 py-8">
+        <div className="max-w-[1600px] mx-auto px-3 py-4 sm:px-6 sm:py-8">
           {children}
         </div>
       </div>

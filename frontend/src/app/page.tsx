@@ -200,7 +200,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="space-y-[120px] pb-24 animate-fadeIn overflow-x-hidden">
+    <div className="space-y-[60px] sm:space-y-[120px] pb-24 animate-fadeIn overflow-x-hidden">
       
       {/* ── 2. HERO SECTION WITH CINEMATIC GLOW ── */}
       <div 
