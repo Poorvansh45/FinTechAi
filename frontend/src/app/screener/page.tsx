@@ -4,10 +4,11 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import {
   Rocket, Shield, Filter, Waves, BookMarked,
-  RefreshCw, Clock, BarChart3, TrendingUp, Sparkles, Landmark
+  RefreshCw, Clock, BarChart3, TrendingUp, Sparkles, Landmark, Lock
 } from "lucide-react";
 import { screenerService } from "@/services/screenerService";
 import { ScanStepper } from "@/components/screener/ScanStepper";
+import { useAuth } from "@/context/AuthProvider";
 
 const formatISTDate = (isoString?: string) => {
   if (!isoString) return "—";
@@ -32,6 +33,9 @@ const formatISTDate = (isoString?: string) => {
 };
 
 export default function ScreenerOverviewPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.email?.trim().toLowerCase() === "poorvanshnandwar145@gmail.com";
+
   const [lpCount, setLpCount] = useState<number | null>(null);
   const [azCount, setAzCount] = useState<number | null>(null);
   const [ivCount, setIvCount] = useState<number | null>(null);
@@ -99,6 +103,10 @@ export default function ScreenerOverviewPage() {
   }, [scanMeta?.status, checkStatus]);
 
   const handleTriggerScan = async () => {
+    if (!isAdmin) {
+      setScanError("Only admin (poorvanshnandwar145@gmail.com) can trigger market scans.");
+      return;
+    }
     setTriggering(true);
     setScanError(null);
     try {
@@ -114,6 +122,8 @@ export default function ScreenerOverviewPage() {
       const detail = err?.response?.data?.detail;
       if (status === 401) {
         setScanError("Sign in to run a full scan.");
+      } else if (status === 403) {
+        setScanError("Only admin (poorvanshnandwar145@gmail.com) can trigger market scans.");
       } else if (status === 409) {
         setScanError(detail?.message || "A scan is already running.");
         checkStatus();
@@ -156,15 +166,30 @@ export default function ScreenerOverviewPage() {
           <div className="flex flex-col items-stretch gap-2 w-full md:w-auto md:items-end">
             <button
               onClick={handleTriggerScan}
-              disabled={triggering || status === "RUNNING"}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold text-sm px-6 py-3.5 rounded-2xl shadow-lg hover:shadow-indigo-500/20 active:scale-98 transition-all disabled:opacity-50 w-full md:w-auto"
+              disabled={triggering || status === "RUNNING" || !isAdmin}
+              title={!isAdmin ? "Only admin (poorvanshnandwar145@gmail.com) can trigger market scans" : undefined}
+              className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-semibold text-sm px-6 py-3.5 rounded-2xl shadow-lg hover:shadow-indigo-500/20 active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-indigo-600 disabled:hover:to-blue-600 w-full md:w-auto"
             >
-              <RefreshCw size={15} className={`${triggering || status === "RUNNING" ? "animate-spin" : ""}`} />
-              {status === "RUNNING" ? "Scanning Market…" : "Run Full Scan"}
+              {!isAdmin ? (
+                <>
+                  <Lock size={15} className="text-slate-300" />
+                  <span>Admin Only</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw size={15} className={`${triggering || status === "RUNNING" ? "animate-spin" : ""}`} />
+                  <span>{status === "RUNNING" ? "Scanning Market…" : "Run Full Scan"}</span>
+                </>
+              )}
             </button>
-            {scanError && (
+            {!isAdmin ? (
+              <p className="text-[11px] text-gray-400/90 md:text-right max-w-xs flex items-center justify-center md:justify-end gap-1">
+                <Lock size={11} className="text-amber-400/80" />
+                <span>Full scans are restricted to admin account</span>
+              </p>
+            ) : scanError ? (
               <p className="text-xs text-amber-300/90 md:text-right max-w-xs">{scanError}</p>
-            )}
+            ) : null}
           </div>
         </div>
 

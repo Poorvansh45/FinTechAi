@@ -914,6 +914,7 @@ async def scan_status(request: Request):
 # minutes, so back-to-back manual runs are never legitimate — this is abuse
 # control for the HTTP path only; the APScheduler cron path is not subject to it.
 MANUAL_SCAN_COOLDOWN_MIN = 30
+ADMIN_SCANNER_EMAIL = "poorvanshnandwar145@gmail.com"
 
 
 @v2_router.post("/trigger-scan")
@@ -923,17 +924,27 @@ async def trigger_scan(
     user_id: str = Depends(get_current_user),
     _role: str = Depends(require_not_demo("Running a full market scan")),
 ):
-    """Manually trigger a full market scan. **Requires a valid non-demo JWT.**
+    """Manually trigger a full market scan. **Requires valid admin JWT.**
 
-    A scan pins the CPU for ~30-40 minutes, so this endpoint is deliberately
-    hard to abuse: it needs a verified caller, it refuses while another scan is
-    running, and it enforces a per-deployment cooldown between manual runs.
-
-    The authoritative mutual exclusion lives in the Scan Coordinator's atomic
-    `scan_meta` claim (engines/orchestration/coordinator.py) — cron and startup
-    go through that too. The checks here exist so the caller gets an immediate,
-    specific 409 instead of a queued task that silently no-ops.
+    A scan pins the CPU for ~30-40 minutes, so this endpoint is restricted:
+    it requires caller email to be poorvanshnandwar145@gmail.com, refuses while
+    another scan is running, and enforces a per-deployment cooldown.
     """
+    req_id = f"REQ-{uuid.uuid4().hex[:6]}"
+
+    # ── Admin Email Restriction ──────────────────────────────────────────
+    user_obj = getattr(request.state, "user", {}) or {}
+    user_email = (user_obj.get("email") or "").strip().lower()
+    if user_email != ADMIN_SCANNER_EMAIL.lower():
+        log.warning(
+            f"[{req_id}] POST /trigger-scan REJECTED (403, unauthorized email: '{user_email}') | "
+            f"user={user_id}"
+        )
+        raise HTTPException(
+            403,
+            "Only admin (poorvanshnandwar145@gmail.com) can trigger market scans.",
+        )
+
     db = _db(request)
     if db is None:
         raise HTTPException(503, "Database not connected")
@@ -941,7 +952,6 @@ async def trigger_scan(
     from engines.orchestration.coordinator import STALE_SCAN_HOURS
     from schedulers.daily_refresh import run_daily_scan
 
-    req_id = f"REQ-{uuid.uuid4().hex[:6]}"
     now = datetime.now(timezone.utc)
     meta_col = db.get_collection("scan_meta")
     meta = await meta_col.find_one({"_id": "daily_scan"}) or {}
