@@ -38,6 +38,7 @@ const TRIGGER_OFF = 'text-slate-400 hover:text-white hover:bg-white/[0.05]';
 const PANEL_ACCENT: Record<string, { tile: string; rowActive: string }> = {
   'text-blue-400':    { tile: 'bg-blue-500/10 text-blue-300',       rowActive: 'bg-blue-500/[0.10]'    },
   'text-emerald-400': { tile: 'bg-emerald-500/10 text-emerald-300', rowActive: 'bg-emerald-500/[0.10]' },
+  'text-cyan-400':    { tile: 'bg-cyan-500/10 text-cyan-300',       rowActive: 'bg-cyan-500/[0.10]'    },
   'text-violet-400':  { tile: 'bg-violet-500/10 text-violet-300',   rowActive: 'bg-violet-500/[0.10]'  },
   'text-amber-400':   { tile: 'bg-amber-500/10 text-amber-300',     rowActive: 'bg-amber-500/[0.10]'   },
   'text-pink-400':    { tile: 'bg-pink-500/10 text-pink-300',       rowActive: 'bg-pink-500/[0.10]'    },
@@ -50,7 +51,7 @@ const BADGE_TONE: Record<string, string> = {
   Live:    'border-emerald-500/25 bg-emerald-500/10 text-emerald-300',
   New:     'border-blue-500/25    bg-blue-500/10    text-blue-300',
   AI:      'border-violet-500/25  bg-violet-500/10  text-violet-300',
-  Beta:    'border-amber-500/25   bg-amber-500/10   text-amber-300',
+  Beta:    'border-cyan-500/25    bg-cyan-500/10    text-cyan-300',
   Popular: 'border-amber-500/25   bg-amber-500/10   text-amber-300',
 };
 const BADGE_FALLBACK = 'border-slate-500/25 bg-slate-500/10 text-slate-300';
@@ -70,22 +71,28 @@ const MODULE_INFOS_DATA = [
     moduleIndex: 1,
   },
   {
+    id: 'sector-xpert',
+    label: 'Sector Xpert',
+    subtitle: "Explore India's market sectors, performance, and sector leaders",
+    moduleIndex: 2,
+  },
+  {
     id: 'portfolio',
     label: 'Portfolio',
     subtitle: "Whether you already have investments or you're starting from scratch, Nivro helps you build, analyze and improve your portfolio.",
-    moduleIndex: 2,
+    moduleIndex: 3,
   },
   {
     id: 'workspace',
     label: 'Workspace',
     subtitle: 'Manage your trading journal, history and performance',
-    moduleIndex: 3,
+    moduleIndex: 4,
   },
   {
     id: 'copilot',
     label: 'AI Copilot',
     subtitle: 'Your personal intelligent AI trading assistant',
-    moduleIndex: 4,
+    moduleIndex: 5,
   },
 ];
 
@@ -308,6 +315,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   const marketsActive = pathname.startsWith('/markets');
   const screenerActive = pathname.startsWith('/screener');
+  const sectorXpertActive = pathname.startsWith('/sector-xpert') || pathname.startsWith('/sector');
   const portfolioActive = pathname.startsWith('/portfolio');
   const workspaceActive = pathname.startsWith('/journal') || pathname.startsWith('/workspace') || pathname.startsWith('/analytics');
   const copilotActive = pathname.startsWith('/ai-');
@@ -341,6 +349,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const triggerRefs = useRef<Record<string, HTMLButtonElement | HTMLAnchorElement | null>>({
     markets: null,
     screener: null,
+    'sector-xpert': null,
     portfolio: null,
     workspace: null,
     copilot: null,
@@ -440,11 +449,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Nav trigger data
   const NAV_TRIGGERS = [
-    { id: 'markets',   label: 'Markets',    isActive: marketsActive   },
-    { id: 'screener',  label: 'Screener',   isActive: screenerActive  },
-    { id: 'portfolio', label: 'Portfolio',  isActive: portfolioActive },
-    { id: 'workspace', label: 'Workspace',  isActive: workspaceActive },
-    { id: 'copilot',   label: 'Nivro Copilot', isActive: copilotActive   },
+    { id: 'markets',      label: 'Markets',       isActive: marketsActive      },
+    { id: 'screener',     label: 'Screener',      isActive: screenerActive     },
+    { id: 'sector-xpert', label: 'Sector Xpert',  isActive: sectorXpertActive  },
+    { id: 'portfolio',    label: 'Portfolio',     isActive: portfolioActive    },
+    { id: 'workspace',    label: 'Workspace',     isActive: workspaceActive    },
+    { id: 'copilot',      label: 'Nivro Copilot', isActive: copilotActive      },
   ];
 
   const activeModule = activeMenu ? MODULE_INFOS[activeMenu] : null;
@@ -515,8 +525,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   {/* ── Premium Mega Menu Triggers ── */}
                   <div className="hidden lg:flex items-center gap-1 ml-3">
                     {NAV_TRIGGERS.map(({ id, label, isActive }) => {
-                      if (id === 'portfolio' || id === 'copilot' || id === 'screener') {
-                        const href = id === 'portfolio' ? '/portfolio' : id === 'screener' ? '/screener' : '/ai-copilot';
+                      if (id === 'portfolio' || id === 'copilot' || id === 'screener' || id === 'sector-xpert') {
+                        const href = id === 'portfolio' ? '/portfolio' : id === 'screener' ? '/screener' : id === 'sector-xpert' ? '/sector-xpert' : '/ai-copilot';
                         return (
                           <Link
                             key={id}
@@ -524,7 +534,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                             ref={(el) => { triggerRefs.current[id] = el; }}
                             className={cn(TRIGGER_BASE, isActive ? TRIGGER_ON : TRIGGER_OFF)}
                           >
-                            {label}
+                            {id === 'sector-xpert' ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span>Sector Xpert</span>
+                                <span className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+                                  BETA
+                                </span>
+                              </span>
+                            ) : (
+                              label
+                            )}
                           </Link>
                         );
                       }

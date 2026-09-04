@@ -58,6 +58,16 @@ export const NAV_MODULES: NavModule[] = [
     ],
   },
   {
+    id: 'sector-xpert',
+    label: 'Sector Xpert',
+    href: '/sector-xpert',
+    color: 'text-cyan-400',
+    glowColor: 'rgba(6,182,212,0.15)',
+    items: [
+      { href: '/sector-xpert', label: 'Sector Xpert', icon: PieChart, desc: 'Explore India\'s market sectors & leadership', badge: 'Beta' },
+    ],
+  },
+  {
     id: 'portfolio',
     label: 'Portfolio',
     href: '/portfolio',
