@@ -53,12 +53,12 @@ function computeAdvancedMetrics(trades: Trade[]) {
   };
 }
 
-const DONUT_COLORS = ['#22c55e', '#ef4444', '#64748b'];
+const DONUT_COLORS = ['rgb(var(--positive-400))', 'rgb(var(--negative-400))', 'rgb(var(--neutral-500))'];
 
 const CustomTip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="glass-card p-2 text-[10px]" style={{ border: '1px solid rgba(99,102,241,0.3)' }}>
+    <div className="glass-card p-2 text-[11px]" style={{ border: '1px solid rgb(var(--brand-500) / 0.3)' }}>
       <div className="text-muted-foreground mb-1">{label}</div>
       {payload.map((p) => (
         <div key={p.name} className="tabular-nums font-bold" style={{ color: p.color }}>
@@ -167,26 +167,26 @@ export default function AnalyticsPage() {
   }, [closed]);
 
   const metrics = [
-    { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}`, color: totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400', icon: TrendingUp, trend: totalPnl >= 0 ? 'up' as const : 'down' as const, tooltip: 'Sum of closed trade P&L' },
-    { label: 'Win Rate', value: `${winRate.toFixed(1)}%`, color: winRate >= 50 ? 'text-emerald-400' : 'text-amber-400', icon: Target, tooltip: 'Winning trades / closed trades' },
-    { label: 'Avg Win', value: `+${adv.avgWin.toFixed(2)}`, color: 'text-emerald-400', icon: TrendingUp },
-    { label: 'Avg Loss', value: `-${adv.avgLoss.toFixed(2)}`, color: 'text-red-400', icon: TrendingDown },
-    { label: 'Profit Factor', value: adv.profitFactor > 50 ? '∞' : String(adv.profitFactor), color: adv.profitFactor >= 1.5 ? 'text-emerald-400' : 'text-amber-400', icon: Award, tooltip: 'Gross profit / gross loss' },
-    { label: 'Drawdown', value: `-${adv.maxDrawdown.toFixed(2)}`, color: 'text-red-400', icon: AlertTriangle },
-    { label: 'Sharpe Ratio', value: String(adv.sharpe), color: adv.sharpe >= 1 ? 'text-emerald-400' : 'text-amber-400', icon: BarChart3 },
-    { label: 'Expectancy', value: `${adv.expectancy >= 0 ? '+' : ''}${adv.expectancy}`, color: adv.expectancy >= 0 ? 'text-emerald-400' : 'text-red-400', icon: Zap },
+    { label: 'Total P&L', value: `${totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}`, color: totalPnl >= 0 ? 'text-positive-400' : 'text-negative-400', icon: TrendingUp, trend: totalPnl >= 0 ? 'up' as const : 'down' as const, tooltip: 'Sum of closed trade P&L' },
+    { label: 'Win Rate', value: `${winRate.toFixed(1)}%`, color: winRate >= 50 ? 'text-positive-400' : 'text-warning-400', icon: Target, tooltip: 'Winning trades / closed trades' },
+    { label: 'Avg Win', value: `+${adv.avgWin.toFixed(2)}`, color: 'text-positive-400', icon: TrendingUp },
+    { label: 'Avg Loss', value: `-${adv.avgLoss.toFixed(2)}`, color: 'text-negative-400', icon: TrendingDown },
+    { label: 'Profit Factor', value: adv.profitFactor > 50 ? '∞' : String(adv.profitFactor), color: adv.profitFactor >= 1.5 ? 'text-positive-400' : 'text-warning-400', icon: Award, tooltip: 'Gross profit / gross loss' },
+    { label: 'Drawdown', value: `-${adv.maxDrawdown.toFixed(2)}`, color: 'text-negative-400', icon: AlertTriangle },
+    { label: 'Sharpe Ratio', value: String(adv.sharpe), color: adv.sharpe >= 1 ? 'text-positive-400' : 'text-warning-400', icon: BarChart3 },
+    { label: 'Expectancy', value: `${adv.expectancy >= 0 ? '+' : ''}${adv.expectancy}`, color: adv.expectancy >= 0 ? 'text-positive-400' : 'text-negative-400', icon: Zap },
   ];
 
   return (
-    <div className="space-y-4 animate-fadeIn pb-6">
+    <div className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-6 sm:py-6 space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-lg font-bold flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-indigo-400" />
+            <BarChart3 className="w-5 h-5 text-brand-400" />
             Performance Analytics
             <LiveIndicator />
           </h1>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
+          <p className="text-[11px] text-muted-foreground mt-0.5">
             {closed.length} closed · institutional density layout
           </p>
         </div>
@@ -209,22 +209,22 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[65fr_35fr] gap-3">
         <div className="glass-card p-4">
           <h3 className="text-sm font-semibold mb-1">Equity Curve</h3>
-          <p className="text-[10px] text-muted-foreground mb-2">Cumulative growth per trade</p>
+          <p className="text-[11px] text-muted-foreground mb-2">Cumulative growth per trade</p>
           <div className="h-52">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={equityCurve} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="eqGrad2" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.45} />
-                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                    <stop offset="0%" stopColor="rgb(var(--brand-400))" stopOpacity={0.45} />
+                    <stop offset="100%" stopColor="rgb(var(--brand-400))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="name" tick={{ fontSize: 8, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 8, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--foreground) / 0.04)" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'rgb(var(--neutral-500))' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'rgb(var(--neutral-500))' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTip />} />
-                <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
-                <Area type="monotone" dataKey="equity" stroke="#818cf8" strokeWidth={2} fill="url(#eqGrad2)" dot={false} activeDot={{ r: 5, fill: '#a5b4fc', stroke: '#6366f1', strokeWidth: 2 }} />
+                <ReferenceLine y={0} stroke="rgb(var(--foreground) / 0.1)" />
+                <Area type="monotone" dataKey="equity" stroke="rgb(var(--brand-400))" strokeWidth={2} fill="url(#eqGrad2)" dot={false} activeDot={{ r: 5, fill: 'rgb(var(--brand-300))', stroke: 'rgb(var(--brand-400))', strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -234,7 +234,7 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         <div className="glass-card p-3 col-span-1">
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Win/Loss</h4>
+          <h4 className="text-[11px] font-bold text-neutral-500 mb-2">Win/Loss</h4>
           <div className="h-28">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -246,25 +246,25 @@ export default function AnalyticsPage() {
           </div>
         </div>
         <div className="glass-card p-3 col-span-1 md:col-span-2">
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Setup Performance</h4>
+          <h4 className="text-[11px] font-bold text-neutral-500 mb-2">Setup Performance</h4>
           <div className="h-28">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={setupPerf} margin={{ left: -28, bottom: 0 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 7, fill: '#64748b' }} interval={0} angle={-25} textAnchor="end" height={40} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'rgb(var(--neutral-500))' }} interval={0} angle={-25} textAnchor="end" height={56} />
                 <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                  {setupPerf.map((e, i) => <Cell key={i} fill={e.total >= 0 ? '#6366f1' : '#ef4444'} />)}
+                  {setupPerf.map((e, i) => <Cell key={i} fill={e.total >= 0 ? 'rgb(var(--brand-400))' : 'rgb(var(--negative-400))'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
         <div className="glass-card p-3 col-span-1">
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Sessions</h4>
+          <h4 className="text-[11px] font-bold text-neutral-500 mb-2">Sessions</h4>
           <div className="space-y-1.5 mt-1">
             {sessionPerf.map((s) => (
-              <div key={s.name} className="flex justify-between text-[10px]">
+              <div key={s.name} className="flex justify-between text-[11px]">
                 <span className="text-muted-foreground">{s.name}</span>
-                <span className={`font-bold tabular-nums ${s.total >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className={`font-bold tabular-nums ${s.total >= 0 ? 'text-positive-400' : 'text-negative-400'}`}>
                   {s.total >= 0 ? '+' : ''}{s.total.toFixed(0)}
                 </span>
               </div>
@@ -272,36 +272,36 @@ export default function AnalyticsPage() {
           </div>
         </div>
         <div className="glass-card p-3 col-span-1">
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">By Day</h4>
+          <h4 className="text-[11px] font-bold text-neutral-500 mb-2">By Day</h4>
           <div className="h-28">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={dayPerf} margin={{ left: -28 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 7, fill: '#64748b' }} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'rgb(var(--neutral-500))' }} />
                 <Bar dataKey="pnl" radius={[2, 2, 0, 0]}>
-                  {dayPerf.map((e, i) => <Cell key={i} fill={e.pnl >= 0 ? '#22c55e' : '#ef4444'} />)}
+                  {dayPerf.map((e, i) => <Cell key={i} fill={e.pnl >= 0 ? 'rgb(var(--positive-400))' : 'rgb(var(--negative-400))'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
         <div className="glass-card p-3 col-span-1">
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">Instruments</h4>
+          <h4 className="text-[11px] font-bold text-neutral-500 mb-2">Instruments</h4>
           <div className="space-y-1 mt-1">
             {instrPerf.map((x) => (
-              <div key={x.name} className="flex justify-between text-[9px]">
+              <div key={x.name} className="flex justify-between text-[11px]">
                 <span className="truncate text-muted-foreground max-w-[60px]">{x.name}</span>
-                <span className={x.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}>{x.pnl >= 0 ? '+' : ''}{x.pnl.toFixed(0)}</span>
+                <span className={x.pnl >= 0 ? 'text-positive-400' : 'text-negative-400'}>{x.pnl >= 0 ? '+' : ''}{x.pnl.toFixed(0)}</span>
               </div>
             ))}
           </div>
         </div>
         <div className="glass-card p-3 col-span-1">
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2">RR Distribution</h4>
+          <h4 className="text-[11px] font-bold text-neutral-500 mb-2">RR Distribution</h4>
           <div className="h-28">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rrDist} margin={{ left: -28 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 8, fill: '#64748b' }} />
-                <Bar dataKey="value" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'rgb(var(--neutral-500))' }} />
+                <Bar dataKey="value" fill="rgb(var(--brand-400))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

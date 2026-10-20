@@ -30,25 +30,25 @@ const fmtPct = (v?: number | null): string => {
 };
 
 const retColor = (v?: number | null) =>
-  v == null ? "text-gray-500" : v > 0 ? "text-emerald-400" : v < 0 ? "text-red-400" : "text-gray-400";
+  v == null ? "text-neutral-500" : v > 0 ? "text-positive-400" : v < 0 ? "text-negative-400" : "text-neutral-400";
 
 const SOURCE_COLORS: Record<string, string> = {
-  "SMC Scanner":       "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  "FVG Scanner":       "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  "Volume Scanner":    "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  "Momentum Scanner":  "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  "Technical Screener": "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  "SMC Scanner":       "bg-brand-500/20 text-brand-300 border-brand-500/30",
+  "FVG Scanner":       "bg-brand-500/20 text-brand-300 border-brand-500/30",
+  "Volume Scanner":    "bg-warning-500/20 text-warning-300 border-warning-500/30",
+  "Momentum Scanner":  "bg-positive-500/20 text-positive-300 border-positive-500/30",
+  "Technical Screener": "bg-warning-500/20 text-warning-300 border-warning-500/30",
 };
 
 const sourceBadge = (src?: string) =>
   src && SOURCE_COLORS[src]
     ? SOURCE_COLORS[src]
-    : "bg-gray-700/50 text-gray-400 border-gray-600";
+    : "bg-neutral-700/50 text-neutral-400 border-neutral-600";
 
 export default function WatchlistTable({ stocks, onRemove }: Props) {
   if (!stocks.length) {
     return (
-      <div className="py-16 text-center text-gray-600 text-sm">
+      <div className="py-16 text-center text-neutral-500 text-sm">
         No stocks in this watchlist.
       </div>
     );
@@ -58,7 +58,7 @@ export default function WatchlistTable({ stocks, onRemove }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-gray-800/40 border-b border-gray-800 text-xs text-gray-400 uppercase tracking-wider">
+          <tr className="bg-neutral-800/40 border-b border-neutral-800 text-xs text-neutral-400">
             <th className="px-4 py-3 text-left">#</th>
             <th className="px-4 py-3 text-left">Symbol</th>
             <th className="px-4 py-3 text-left">Company</th>
@@ -79,31 +79,31 @@ export default function WatchlistTable({ stocks, onRemove }: Props) {
           {stocks.map((s, i) => (
             <tr
               key={s.symbol}
-              className="border-b border-gray-800/50 hover:bg-gray-800/25 transition-colors"
+              className="border-b border-neutral-800/50 hover:bg-neutral-800/25 transition-colors"
             >
-              <td className="px-4 py-3 text-gray-600 text-xs">{i + 1}</td>
+              <td className="px-4 py-3 text-neutral-500 text-xs">{i + 1}</td>
 
               <td className="px-4 py-3">
-                <span className="font-bold text-blue-400">{s.symbol}</span>
+                <span className="font-bold text-brand-400">{s.symbol}</span>
               </td>
 
-              <td className="px-4 py-3 text-gray-400 text-xs max-w-[140px] truncate">
+              <td className="px-4 py-3 text-neutral-400 text-xs max-w-[140px] truncate">
                 {s.company_name || "—"}
               </td>
 
               <td className="px-4 py-3">
                 {s.source_module ? (
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${sourceBadge(s.source_module)}`}>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-medium border ${sourceBadge(s.source_module)}`}>
                     {s.source_module.replace(" Scanner", "").replace(" Screener", "")}
                   </span>
                 ) : "—"}
               </td>
 
-              <td className="px-4 py-3 text-right text-gray-300 font-mono text-xs">
+              <td className="px-4 py-3 text-right text-neutral-300 font-mono text-xs">
                 {s.added_price != null ? `₹${s.added_price.toFixed(2)}` : "—"}
               </td>
 
-              <td className="px-4 py-3 text-right font-semibold text-white font-mono text-xs">
+              <td className="px-4 py-3 text-right font-semibold text-foreground font-mono text-xs">
                 {s.current_price != null ? `₹${s.current_price.toFixed(2)}` : "—"}
               </td>
 
@@ -111,11 +111,11 @@ export default function WatchlistTable({ stocks, onRemove }: Props) {
                 {fmtPct(s.return_pct)}
               </td>
 
-              <td className="px-4 py-3 text-right text-emerald-400 text-xs">
+              <td className="px-4 py-3 text-right text-positive-400 text-xs">
                 {fmtPct(s.highest_return_pct)}
               </td>
 
-              <td className="px-4 py-3 text-right text-red-400 text-xs">
+              <td className="px-4 py-3 text-right text-negative-400 text-xs">
                 {fmtPct(s.lowest_return_pct)}
               </td>
 
@@ -123,7 +123,7 @@ export default function WatchlistTable({ stocks, onRemove }: Props) {
                 {fmtPct(s.current_drawdown_pct)}
               </td>
 
-              <td className="px-4 py-3 text-right text-gray-400 text-xs">
+              <td className="px-4 py-3 text-right text-neutral-400 text-xs">
                 {s.volatility_pct != null ? `${s.volatility_pct.toFixed(1)}%` : "—"}
               </td>
 
@@ -131,7 +131,7 @@ export default function WatchlistTable({ stocks, onRemove }: Props) {
                 {fmtPct(s.alpha_vs_nifty)}
               </td>
 
-              <td className="px-4 py-3 text-right text-gray-500 text-xs">
+              <td className="px-4 py-3 text-right text-neutral-500 text-xs">
                 {s.days_held != null ? `${s.days_held}d` : "—"}
               </td>
 
@@ -139,7 +139,7 @@ export default function WatchlistTable({ stocks, onRemove }: Props) {
                 {onRemove && (
                   <button
                     onClick={() => onRemove(s.symbol)}
-                    className="p-1.5 rounded hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-colors"
+                    className="p-1.5 rounded hover:bg-negative-500/20 text-neutral-500 hover:text-negative-400 transition-colors"
                     title="Remove from watchlist"
                   >
                     <TrashIcon className="w-3.5 h-3.5" />

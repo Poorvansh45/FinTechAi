@@ -18,10 +18,10 @@ export default function WatchlistSummaryCards({ stats }: Props) {
     v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 
   const retColor = (v?: number | null) =>
-    v == null ? "text-gray-400"
-    : v > 0   ? "text-emerald-400"
-    : v < 0   ? "text-red-400"
-    : "text-gray-400";
+    v == null ? "text-neutral-400"
+    : v > 0   ? "text-positive-400"
+    : v < 0   ? "text-negative-400"
+    : "text-neutral-400";
 
   const cards = [
     {
@@ -33,7 +33,7 @@ export default function WatchlistSummaryCards({ stats }: Props) {
     {
       label: "Win Rate",
       value: stats.win_rate_pct != null ? `${stats.win_rate_pct.toFixed(1)}%` : "—",
-      color: (stats.win_rate_pct ?? 0) >= 50 ? "text-emerald-400" : "text-red-400",
+      color: (stats.win_rate_pct ?? 0) >= 50 ? "text-positive-400" : "text-negative-400",
       sub: "trades profitable",
     },
     {
@@ -45,19 +45,19 @@ export default function WatchlistSummaryCards({ stats }: Props) {
     {
       label: "Best Pick",
       value: stats.best_performer?.symbol ?? "—",
-      color: "text-emerald-400",
+      color: "text-positive-400",
       sub: stats.best_performer ? fmtPct(stats.best_performer.return) : "",
     },
     {
       label: "Worst Pick",
       value: stats.worst_performer?.symbol ?? "—",
-      color: "text-red-400",
+      color: "text-negative-400",
       sub: stats.worst_performer ? fmtPct(stats.worst_performer.return) : "",
     },
     {
       label: "Volatility",
       value: stats.overall_volatility_pct != null ? `${stats.overall_volatility_pct.toFixed(1)}%` : "—",
-      color: "text-yellow-400",
+      color: "text-warning-400",
       sub: "annualised",
     },
     {
@@ -69,7 +69,7 @@ export default function WatchlistSummaryCards({ stats }: Props) {
     {
       label: "Holdings",
       value: String(stats.total_stocks ?? 0),
-      color: "text-blue-400",
+      color: "text-brand-400",
       sub: "active stocks",
     },
   ];
@@ -79,11 +79,11 @@ export default function WatchlistSummaryCards({ stats }: Props) {
       {cards.map(({ label, value, color, sub }) => (
         <div
           key={label}
-          className="bg-gray-900 border border-gray-800 rounded-xl p-3 text-center hover:border-gray-700 transition-colors"
+          className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-center hover:border-neutral-700 transition-colors"
         >
           <div className={`text-lg font-bold ${color}`}>{value}</div>
-          <div className="text-gray-500 text-[10px] mt-0.5 leading-tight">{label}</div>
-          {sub && <div className="text-gray-600 text-[9px] mt-0.5">{sub}</div>}
+          <div className="text-neutral-500 text-[11px] mt-0.5 leading-tight">{label}</div>
+          {sub && <div className="text-neutral-500 text-[11px] mt-0.5">{sub}</div>}
         </div>
       ))}
     </div>

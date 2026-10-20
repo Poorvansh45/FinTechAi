@@ -145,7 +145,7 @@ function TradesTable({ trades, onDelete }: { trades: Trade[]; onDelete: (id: str
           {trades.map((t) => {
             const m = derive(t);
             const pnl = m.pnl ?? 0;
-            const pnlCls = pnl > 0 ? 'text-green-600' : pnl < 0 ? 'text-red-600' : 'text-muted-foreground';
+            const pnlCls = pnl > 0 ? 'text-positive-400' : pnl < 0 ? 'text-negative-400' : 'text-muted-foreground';
             return (
               <tr key={t.id} className="border-t">
                 <Td>{new Date(t.entryAt).toLocaleString()}</Td>
@@ -157,7 +157,7 @@ function TradesTable({ trades, onDelete }: { trades: Trade[]; onDelete: (id: str
                 <Td className={pnlCls}>{pnl.toFixed(2)}</Td>
                 <Td>
                   {t.criteriaMet ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-[11px]">Met</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-positive-900/30 text-positive-300 text-[11px]">Met</span>
                   ) : (
                     <span className="inline-flex items-center px-2 py-0.5 rounded bg-muted text-muted-foreground text-[11px]">—</span>
                   )}
@@ -201,7 +201,7 @@ function Sparkline({ data }: { data: { x: number; y: number }[] }) {
     .map((d, i) => `${i === 0 ? 'M' : 'L'} ${scaleX(d.x).toFixed(1)} ${scaleY(d.y).toFixed(1)}`)
     .join(' ');
   const last = ys[ys.length - 1] - ys[0];
-  const stroke = last >= 0 ? '#16a34a' : '#ef4444';
+  const stroke = last >= 0 ? 'rgb(var(--positive-600))' : 'rgb(var(--negative-400))';
   return (
     <svg width={w} height={h} className="block">
       <path d={path} fill="none" stroke={stroke} strokeWidth="2" />

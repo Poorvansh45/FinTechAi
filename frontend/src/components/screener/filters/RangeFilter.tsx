@@ -96,15 +96,15 @@ export function RangeFilter({
   return (
     <div
       className={`rounded-xl border px-3 pb-2 pt-2.5 transition-colors ${
-        active ? a.cardOn : "border-gray-800/80 bg-gray-900/30"
+        active ? a.cardOn : "border-transparent bg-neutral-950/40"
       }`}
     >
       {/* label + presets */}
-      <div className="mb-2 flex items-start justify-between gap-2">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-x-2 gap-y-1.5">
         <div className="flex min-w-0 items-center gap-1">
           <span
-            className={`truncate text-[11px] font-bold uppercase tracking-wider ${
-              active ? a.text : "text-gray-400"
+            className={`truncate text-[11px] font-bold ${
+              active ? a.text : "text-neutral-400"
             }`}
             title={description}
           >
@@ -116,7 +116,7 @@ export function RangeFilter({
               onClick={() => onChange({ min: null, max: null })}
               aria-label={`Clear ${label} filter`}
               title="Clear"
-              className="text-gray-600 transition-colors hover:text-gray-300"
+              className="text-neutral-500 transition-colors hover:text-neutral-300"
             >
               <X size={11} />
             </button>
@@ -124,7 +124,7 @@ export function RangeFilter({
         </div>
 
         {!!presets?.length && (
-          <div className="flex flex-wrap justify-end gap-1">
+          <div className="flex min-w-0 flex-wrap justify-end gap-1">
             {presets.map((p) => {
               const on = sameRange(value, p);
               return (
@@ -133,10 +133,10 @@ export function RangeFilter({
                   type="button"
                   onClick={() => onChange(on ? { min: null, max: null } : { min: p.min, max: p.max })}
                   aria-pressed={on}
-                  className={`rounded border px-1.5 py-px text-[10px] font-medium leading-4 transition-colors ${
+                  className={`rounded border px-1.5 py-px text-[11px] font-medium leading-4 transition-colors ${
                     on
                       ? a.chipOn
-                      : "border-gray-800 bg-gray-950/60 text-gray-500 hover:border-gray-700 hover:text-gray-300"
+                      : "border-neutral-800 bg-neutral-950/60 text-neutral-500 hover:border-neutral-700 hover:text-neutral-300"
                   }`}
                 >
                   {p.label}
@@ -144,7 +144,7 @@ export function RangeFilter({
               );
             })}
             {showCustom && (
-              <span className="rounded border border-gray-700 bg-gray-800/60 px-1.5 py-px text-[10px] font-medium leading-4 text-gray-400">
+              <span className="rounded border border-neutral-700 bg-neutral-800/60 px-1.5 py-px text-[11px] font-medium leading-4 text-neutral-400">
                 Custom
               </span>
             )}
@@ -168,7 +168,7 @@ export function RangeFilter({
         />
         {!singleEnded ? (
           <>
-            <span className="text-[10px] text-gray-600">–</span>
+            <span className="text-[11px] text-neutral-500">–</span>
             <NumberBox
               inputRef={maxRef}
               ariaLabel={`${label} maximum`}
@@ -183,7 +183,7 @@ export function RangeFilter({
             />
           </>
         ) : (
-          <span className="flex-1 text-[10px] text-gray-600">and above</span>
+          <span className="flex-1 text-[11px] text-neutral-500">and above</span>
         )}
       </div>
 
@@ -235,7 +235,7 @@ function NumberBox({
   return (
     <div className="relative flex-1">
       {hasPrefix && (
-        <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-500">
+        <span className="pointer-events-none absolute left-1.5 top-1/2 -translate-y-1/2 text-[11px] text-neutral-500">
           {unit}
         </span>
       )}
@@ -249,12 +249,12 @@ function NumberBox({
         onChange={(e) => onText(e.target.value)}
         onBlur={onBlur}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-        className={`h-7 w-full rounded-md border bg-gray-950/80 text-center font-mono text-xs text-white outline-none transition-colors placeholder:text-gray-600 focus:ring-2 ${
-          bordered ? "border-gray-700" : "border-gray-800"
+        className={`h-7 w-full rounded-md border bg-neutral-950/80 text-center font-mono text-xs text-foreground outline-none transition-colors placeholder:text-neutral-500 focus:ring-2 ${
+          bordered ? "border-neutral-700" : "border-neutral-800"
         } ${accentFocus} ${hasPrefix ? "pl-4" : "px-1.5"} ${hasSuffix ? "pr-4" : ""}`}
       />
       {hasSuffix && (
-        <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-500">
+        <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-[11px] text-neutral-500">
           {unit}
         </span>
       )}

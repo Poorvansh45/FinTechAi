@@ -24,12 +24,12 @@ export function ThinkingStages() {
   }, []);
 
   return (
-    <div className="flex gap-4 p-4 md:p-5 rounded-2xl border bg-[#090D1A]/50 backdrop-blur-sm border-white/[0.05] mr-3 md:mr-12">
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-violet-500/10 border border-violet-500/20 text-violet-400">
+    <div className="flex gap-4 p-4 md:p-5 rounded-xl border bg-neutral-950/50 backdrop-blur-sm border-foreground/[0.05] mr-3 md:mr-12">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-brand-500/10 border border-brand-500/20 text-brand-400">
         <Bot className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0 space-y-3">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-violet-300">
+        <div className="flex items-center gap-2 text-[11px] font-semibold text-brand-300">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           <AnimatePresence mode="wait">
             <motion.span
@@ -44,8 +44,8 @@ export function ThinkingStages() {
           </AnimatePresence>
         </div>
         <div className="space-y-2">
-          <div className="h-3 w-5/6 rounded bg-white/5 animate-pulse" />
-          <div className="h-3 w-4/6 rounded bg-white/5 animate-pulse" />
+          <div className="h-3 w-5/6 rounded bg-foreground/5 animate-pulse" />
+          <div className="h-3 w-4/6 rounded bg-foreground/5 animate-pulse" />
         </div>
       </div>
     </div>

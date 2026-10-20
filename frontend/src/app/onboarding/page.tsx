@@ -73,9 +73,9 @@ const HORIZONS = [
 ];
 
 const RISK_LEVELS = [
-  { id: 'conservative', label: 'Conservative', color: '#22c55e', desc: 'Capital preservation first. Mostly debt + gold.' },
-  { id: 'balanced',     label: 'Balanced',     color: '#6366f1', desc: 'Growth + stability. Mix of equity and debt.' },
-  { id: 'aggressive',   label: 'Aggressive',   color: '#f59e0b', desc: 'Maximum growth. Equity-heavy portfolio.' },
+  { id: 'conservative', label: 'Conservative', color: 'rgb(var(--positive-400))', desc: 'Capital preservation first. Mostly debt + gold.' },
+  { id: 'balanced',     label: 'Balanced',     color: 'rgb(var(--brand-400))', desc: 'Growth + stability. Mix of equity and debt.' },
+  { id: 'aggressive',   label: 'Aggressive',   color: 'rgb(var(--warning-400))', desc: 'Maximum growth. Equity-heavy portfolio.' },
 ];
 
 const ASSET_PREFS = [
@@ -85,11 +85,11 @@ const ASSET_PREFS = [
 ];
 
 const ASSET_TYPE_COLORS: Record<string, string> = {
-  equity:        '#6366f1',
-  debt:          '#22c55e',
-  gold:          '#f59e0b',
-  international: '#3b82f6',
-  etf:           '#ec4899',
+  equity:        'rgb(var(--brand-400))',
+  debt:          'rgb(var(--positive-400))',
+  gold:          'rgb(var(--warning-400))',
+  international: 'rgb(var(--brand-400))',
+  etf:           'rgb(var(--brand-400))',
 };
 
 // ── Formatters ─────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ function StepDots({ current, total }: { current: number; total: number }) {
           className="h-1.5 rounded-full transition-all duration-300"
           style={{
             width: i === current ? 24 : 6,
-            background: i <= current ? '#6366f1' : 'rgba(99,102,241,0.2)',
+            background: i <= current ? 'rgb(var(--brand-400))' : 'rgb(var(--brand-500) / 0.2)',
           }}
         />
       ))}
@@ -128,10 +128,10 @@ function OptionCard({
       onClick={onClick}
       whileHover={{ scale: 1.015 }}
       whileTap={{ scale: 0.985 }}
-      className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 ${
+      className={`w-full text-left p-4 rounded-xl border transition-all duration-200 ${
         selected
-          ? 'border-violet-500/60 bg-violet-500/10 shadow-[0_0_20px_rgba(99,102,241,0.15)]'
-          : 'border-white/[0.08] bg-white/[0.03] hover:border-white/[0.15] hover:bg-white/[0.05]'
+          ? 'border-brand-500/60 bg-brand-500/10'
+          : 'border-foreground/[0.08] bg-foreground/[0.03] hover:border-foreground/[0.15] hover:bg-foreground/[0.05]'
       } ${className}`}
     >
       {children}
@@ -162,25 +162,23 @@ function AILoadingScreen() {
     <div className="flex flex-col items-center justify-center min-h-[340px] gap-8">
       {/* Animated orb */}
       <div className="relative">
-        <div className="w-20 h-20 rounded-full border-2 border-violet-500/30 flex items-center justify-center">
-          <div className="w-16 h-16 rounded-full border-2 border-t-violet-500 border-r-violet-400 border-b-transparent border-l-transparent animate-spin" />
+        <div className="w-20 h-20 rounded-full border-2 border-brand-500/30 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full border-2 border-t-brand-500 border-r-brand-400 border-b-transparent border-l-transparent animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <Sparkles className="w-7 h-7 text-violet-400" />
+            <Sparkles className="w-7 h-7 text-brand-400" />
           </div>
         </div>
-        {/* Pulse rings */}
-        <div className="absolute inset-0 rounded-full border border-violet-500/20 animate-ping" />
       </div>
 
       <div className="text-center space-y-3">
-        <h3 className="text-base font-bold text-white">AI is building your portfolio</h3>
+        <h3 className="text-base font-bold text-foreground">AI is building your portfolio</h3>
         <AnimatePresence mode="wait">
           <motion.p
             key={stepIndex}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="text-[13px] text-slate-400"
+            className="text-[13px] text-neutral-400"
           >
             {LOADING_STEPS[stepIndex]}
           </motion.p>
@@ -192,7 +190,7 @@ function AILoadingScreen() {
               className="h-1 rounded-full transition-all duration-500"
               style={{
                 width: i === stepIndex ? 20 : 4,
-                background: i <= stepIndex ? '#6366f1' : 'rgba(99,102,241,0.2)',
+                background: i <= stepIndex ? 'rgb(var(--brand-400))' : 'rgb(var(--brand-500) / 0.2)',
               }}
             />
           ))}
@@ -232,25 +230,25 @@ function PortfolioResult({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="w-7 h-7 rounded-lg bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+            <div className="w-7 h-7 rounded-lg bg-brand-500/15 border border-brand-500/25 flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-brand-400" />
             </div>
-            <h2 className="text-[17px] font-black text-white">Your AI Portfolio</h2>
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded border ${
+            <h2 className="text-[17px] font-bold text-foreground">Your AI Portfolio</h2>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${
               isGemini
-                ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
-                : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                ? 'bg-brand-500/10 text-brand-400 border-brand-500/20'
+                : 'bg-warning-500/10 text-warning-400 border-warning-500/20'
             }`}>
               {isGemini ? 'Gemini AI' : 'Template'}
             </span>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-[11px] text-neutral-500">
             {formData.risk} · {formData.horizon} horizon · {formatINR(formData.monthly_investment)}/month SIP
           </p>
         </div>
         <button
           onClick={onRestart}
-          className="flex items-center gap-1.5 text-[11px] text-slate-400 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-[11px] text-neutral-400 hover:text-foreground transition-colors"
         >
           <RefreshCw className="w-3 h-3" /> Regenerate
         </button>
@@ -258,40 +256,40 @@ function PortfolioResult({
 
       {/* Warnings */}
       {portfolio.warnings.length > 0 && (
-        <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/8 border border-amber-500/15">
-          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
-          <span className="text-[11px] text-amber-300/80">{portfolio.warnings.join(' ')}</span>
+        <div className="flex items-start gap-2 p-3 rounded-xl bg-warning-500/8 border border-warning-500/15">
+          <AlertTriangle className="w-3.5 h-3.5 text-warning-400 flex-shrink-0 mt-0.5" />
+          <span className="text-[11px] text-warning-300">{portfolio.warnings.join(' ')}</span>
         </div>
       )}
 
       {/* SIP Projection */}
       <div className="glass-card p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-violet-400" />
-          <span className="text-sm font-bold text-white">SIP Projection</span>
-          <span className="ml-auto text-[10px] text-slate-500">
+          <BarChart3 className="w-4 h-4 text-brand-400" />
+          <span className="text-sm font-bold text-foreground">SIP Projection</span>
+          <span className="ml-auto text-[11px] text-neutral-500">
             Expected {portfolio.expected_return_range}
           </span>
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Monthly SIP',    value: formatINR(proj.monthly_sip),         color: 'text-white' },
-            { label: 'Total Invested', value: formatINR(proj.total_invested),       color: 'text-slate-300' },
-            { label: 'Low Estimate',   value: formatINR(proj.projected_value_low),  color: 'text-amber-400' },
+            { label: 'Monthly SIP',    value: formatINR(proj.monthly_sip),         color: 'text-foreground' },
+            { label: 'Total Invested', value: formatINR(proj.total_invested),       color: 'text-neutral-300' },
+            { label: 'Low Estimate',   value: formatINR(proj.projected_value_low),  color: 'text-warning-400' },
           ].map(m => (
-            <div key={m.label} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] text-center">
-              <div className={`text-[15px] font-black tabular-nums ${m.color}`}>{m.value}</div>
-              <div className="text-[9px] text-slate-500 mt-0.5">{m.label}</div>
+            <div key={m.label} className="p-3 rounded-xl bg-foreground/[0.02] border border-foreground/[0.04] text-center">
+              <div className={`text-[15px] font-bold tabular-nums ${m.color}`}>{m.value}</div>
+              <div className="text-[11px] text-neutral-500 mt-0.5">{m.label}</div>
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-emerald-500/8 border border-emerald-500/15">
-          <TrendingUp className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-          <div className="text-[11px] text-emerald-300">
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-positive-500/8 border border-positive-500/15">
+          <TrendingUp className="w-3.5 h-3.5 text-positive-400 flex-shrink-0" />
+          <div className="text-[11px] text-positive-300">
             In {proj.horizon_years} years: <span className="font-bold">{formatINR(proj.projected_value_low)}</span>
             {' – '}
             <span className="font-bold">{formatINR(proj.projected_value_high)}</span>
-            <span className="text-slate-500 ml-1">({proj.expected_rate_low}–{proj.expected_rate_high}% p.a.)</span>
+            <span className="text-neutral-500 ml-1">({proj.expected_rate_low}–{proj.expected_rate_high}% p.a.)</span>
           </div>
         </div>
       </div>
@@ -299,8 +297,8 @@ function PortfolioResult({
       {/* Asset type summary bar */}
       <div className="glass-card p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <PieChart className="w-4 h-4 text-violet-400" />
-          <span className="text-sm font-bold text-white">Asset Mix</span>
+          <PieChart className="w-4 h-4 text-brand-400" />
+          <span className="text-sm font-bold text-foreground">Asset Mix</span>
         </div>
         <div className="flex h-3 rounded-full overflow-hidden gap-0.5">
           {Object.entries(assetTypeGroups).map(([type, pct]) => (
@@ -310,17 +308,17 @@ function PortfolioResult({
               animate={{ width: `${pct}%` }}
               transition={{ duration: 0.8, ease: EASE }}
               className="h-full rounded-sm"
-              style={{ background: ASSET_TYPE_COLORS[type] ?? '#64748b', minWidth: 4 }}
+              style={{ background: ASSET_TYPE_COLORS[type] ?? 'rgb(var(--neutral-500))', minWidth: 4 }}
               title={`${type}: ${pct.toFixed(0)}%`}
             />
           ))}
         </div>
         <div className="flex flex-wrap gap-3">
           {Object.entries(assetTypeGroups).map(([type, pct]) => (
-            <div key={type} className="flex items-center gap-1.5 text-[10px]">
-              <span className="w-2 h-2 rounded-sm" style={{ background: ASSET_TYPE_COLORS[type] ?? '#64748b' }} />
-              <span className="text-slate-400 capitalize">{type}</span>
-              <span className="font-bold text-white">{pct.toFixed(0)}%</span>
+            <div key={type} className="flex items-center gap-1.5 text-[11px]">
+              <span className="w-2 h-2 rounded-sm" style={{ background: ASSET_TYPE_COLORS[type] ?? 'rgb(var(--neutral-500))' }} />
+              <span className="text-neutral-400 capitalize">{type}</span>
+              <span className="font-bold text-foreground">{pct.toFixed(0)}%</span>
             </div>
           ))}
         </div>
@@ -328,28 +326,28 @@ function PortfolioResult({
 
       {/* Allocations */}
       <div className="glass-card overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.05]">
+        <div className="px-5 py-4 border-b border-foreground/[0.05]">
           <div className="flex items-center gap-2">
-            <Briefcase className="w-4 h-4 text-violet-400" />
-            <span className="text-sm font-bold text-white">Recommended Allocation</span>
-            <span className="ml-auto text-[10px] text-slate-500">{portfolio.allocations.length} instruments</span>
+            <Briefcase className="w-4 h-4 text-brand-400" />
+            <span className="text-sm font-bold text-foreground">Recommended Allocation</span>
+            <span className="ml-auto text-[11px] text-neutral-500">{portfolio.allocations.length} instruments</span>
           </div>
         </div>
-        <div className="divide-y divide-white/[0.04]">
+        <div className="divide-y divide-foreground/[0.04]">
           {portfolio.allocations.map((alloc, i) => (
             <motion.div
               key={alloc.ticker}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.06, duration: 0.25 }}
-              className="flex items-start gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
+              className="flex items-start gap-3 px-5 py-3.5 hover:bg-foreground/[0.02] transition-colors"
             >
               <div
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black flex-shrink-0 mt-0.5"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5"
                 style={{
-                  background: `${ASSET_TYPE_COLORS[alloc.asset_type] ?? '#64748b'}20`,
-                  color: ASSET_TYPE_COLORS[alloc.asset_type] ?? '#64748b',
-                  border: `1px solid ${ASSET_TYPE_COLORS[alloc.asset_type] ?? '#64748b'}30`,
+                  background: `${ASSET_TYPE_COLORS[alloc.asset_type] ?? 'rgb(var(--neutral-500))'}20`,
+                  color: ASSET_TYPE_COLORS[alloc.asset_type] ?? 'rgb(var(--neutral-500))',
+                  border: `1px solid ${ASSET_TYPE_COLORS[alloc.asset_type] ?? 'rgb(var(--neutral-500))'}30`,
                 }}
               >
                 {alloc.allocation_pct.toFixed(0)}%
@@ -357,35 +355,35 @@ function PortfolioResult({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="text-[13px] font-bold text-white leading-tight">{alloc.name}</div>
+                    <div className="text-[13px] font-bold text-foreground leading-tight">{alloc.name}</div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-[9px] font-mono text-slate-500">{alloc.ticker}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.04] text-slate-500 capitalize">
+                      <span className="text-[11px] font-mono text-neutral-500">{alloc.ticker}</span>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-foreground/[0.04] text-neutral-500 capitalize">
                         {alloc.asset_type}
                       </span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded capitalize ${
-                        alloc.risk_level === 'low' ? 'text-emerald-400 bg-emerald-500/10' :
-                        alloc.risk_level === 'moderate' ? 'text-violet-400 bg-violet-500/10' :
-                        'text-amber-400 bg-amber-500/10'
+                      <span className={`text-[11px] px-1.5 py-0.5 rounded capitalize ${
+                        alloc.risk_level === 'low' ? 'text-positive-400 bg-positive-500/10' :
+                        alloc.risk_level === 'moderate' ? 'text-brand-400 bg-brand-500/10' :
+                        'text-warning-400 bg-warning-500/10'
                       }`}>{alloc.risk_level}</span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className="text-[12px] font-bold text-white">{formatINR(alloc.monthly_sip)}</div>
-                    <div className="text-[9px] text-slate-500">per month</div>
+                    <div className="text-[12px] font-bold text-foreground">{formatINR(alloc.monthly_sip)}</div>
+                    <div className="text-[11px] text-neutral-500">per month</div>
                   </div>
                 </div>
                 {/* Allocation bar */}
-                <div className="mt-2 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                <div className="mt-2 h-1 rounded-full bg-foreground/[0.06] overflow-hidden">
                   <motion.div
                     className="h-full rounded-full"
-                    style={{ background: ASSET_TYPE_COLORS[alloc.asset_type] ?? '#6366f1' }}
+                    style={{ background: ASSET_TYPE_COLORS[alloc.asset_type] ?? 'rgb(var(--brand-400))' }}
                     initial={{ width: 0 }}
                     animate={{ width: `${alloc.allocation_pct}%` }}
                     transition={{ delay: i * 0.06 + 0.2, duration: 0.7, ease: EASE }}
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">{alloc.description}</p>
+                <p className="text-[11px] text-neutral-500 mt-1.5 leading-relaxed">{alloc.description}</p>
               </div>
             </motion.div>
           ))}
@@ -395,20 +393,20 @@ function PortfolioResult({
       {/* AI reasoning */}
       <div className="glass-card p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-violet-400" />
-          <span className="text-sm font-bold text-white">AI Reasoning</span>
+          <Sparkles className="w-4 h-4 text-brand-400" />
+          <span className="text-sm font-bold text-foreground">AI Reasoning</span>
         </div>
-        <p className="text-[12px] text-slate-400 leading-relaxed">{portfolio.reasoning}</p>
+        <p className="text-[12px] text-neutral-400 leading-relaxed">{portfolio.reasoning}</p>
         {portfolio.beginner_explanation && (
-          <div className="mt-3 p-3 rounded-xl bg-blue-500/6 border border-blue-500/15">
-            <div className="text-[10px] font-bold text-blue-400 mb-1 uppercase tracking-wider">For Beginners</div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">{portfolio.beginner_explanation}</p>
+          <div className="mt-3 p-3 rounded-xl bg-brand-500/6 border border-brand-500/15">
+            <div className="text-[11px] font-bold text-brand-400 mb-1">For Beginners</div>
+            <p className="text-[11px] text-neutral-400 leading-relaxed">{portfolio.beginner_explanation}</p>
           </div>
         )}
         {portfolio.goal_alignment && (
-          <div className="p-3 rounded-xl bg-emerald-500/6 border border-emerald-500/15">
-            <div className="text-[10px] font-bold text-emerald-400 mb-1 uppercase tracking-wider">Goal Alignment</div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">{portfolio.goal_alignment}</p>
+          <div className="p-3 rounded-xl bg-positive-500/6 border border-positive-500/15">
+            <div className="text-[11px] font-bold text-positive-400 mb-1">Goal Alignment</div>
+            <p className="text-[11px] text-neutral-400 leading-relaxed">{portfolio.goal_alignment}</p>
           </div>
         )}
       </div>
@@ -417,8 +415,8 @@ function PortfolioResult({
       <div className="flex gap-3">
         <button
           onClick={() => router.push('/portfolio')}
-          className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-2xl text-[13px] font-bold text-white transition-all"
-          style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
+          className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[13px] font-bold text-white transition-all"
+          style={{ background: 'rgb(var(--brand-600))' }}
         >
           <Briefcase className="w-4 h-4" />
           Go to Portfolio Dashboard
@@ -496,7 +494,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-neutral-900 ">
       <div className="w-full max-w-xl">
 
         {/* Header */}
@@ -506,12 +504,12 @@ export default function OnboardingPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center mb-8"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 mb-4">
-              <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-              <span className="text-[11px] font-bold text-violet-400">AI Wealth Advisor</span>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-brand-500/10 border border-brand-500/20 mb-4">
+              <Sparkles className="w-3.5 h-3.5 text-brand-400" />
+              <span className="text-[11px] font-bold text-brand-400">AI Wealth Advisor</span>
             </div>
-            <h1 className="text-2xl font-black text-white">Build Your Portfolio</h1>
-            <p className="text-[13px] text-slate-500 mt-1">
+            <h1 className="text-2xl font-bold text-foreground">Build Your Portfolio</h1>
+            <p className="text-[13px] text-neutral-500 mt-1">
               Answer 4 questions. Get an AI-powered investment plan in seconds.
             </p>
           </motion.div>
@@ -521,7 +519,7 @@ export default function OnboardingPage() {
         {step < TOTAL_STEPS && !loading && (
           <div className="flex items-center justify-between mb-6 px-1">
             <StepDots current={step} total={TOTAL_STEPS} />
-            <span className="text-[10px] text-slate-500">Step {step + 1} of {TOTAL_STEPS}</span>
+            <span className="text-[11px] text-neutral-500">Step {step + 1} of {TOTAL_STEPS}</span>
           </div>
         )}
 
@@ -551,8 +549,8 @@ export default function OnboardingPage() {
                 {step === 0 && (
                   <>
                     <div className="flex items-center gap-2">
-                      <Target className="w-5 h-5 text-violet-400" />
-                      <h2 className="text-base font-bold text-white">What's your primary goal?</h2>
+                      <Target className="w-5 h-5 text-brand-400" />
+                      <h2 className="text-base font-bold text-foreground">What's your primary goal?</h2>
                     </div>
                     <div className="grid grid-cols-1 gap-2.5">
                       {GOALS.map(g => {
@@ -561,18 +559,18 @@ export default function OnboardingPage() {
                           <OptionCard key={g.id} selected={goal === g.id} onClick={() => setGoal(g.id)}>
                             <div className="flex items-center gap-3">
                               <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                                goal === g.id ? 'bg-violet-500/20' : 'bg-white/[0.05]'
+                                goal === g.id ? 'bg-brand-500/20' : 'bg-foreground/[0.05]'
                               }`}>
-                                <Icon className={`w-4 h-4 ${goal === g.id ? 'text-violet-400' : 'text-slate-500'}`} />
+                                <Icon className={`w-4 h-4 ${goal === g.id ? 'text-brand-400' : 'text-neutral-500'}`} />
                               </div>
                               <div>
-                                <div className={`text-[13px] font-bold ${goal === g.id ? 'text-white' : 'text-slate-300'}`}>
+                                <div className={`text-[13px] font-bold ${goal === g.id ? 'text-foreground' : 'text-neutral-300'}`}>
                                   {g.label}
                                 </div>
-                                <div className="text-[11px] text-slate-500">{g.desc}</div>
+                                <div className="text-[11px] text-neutral-500">{g.desc}</div>
                               </div>
                               {goal === g.id && (
-                                <div className="ml-auto w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center flex-shrink-0">
+                                <div className="ml-auto w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center flex-shrink-0">
                                   <Check className="w-3 h-3 text-white" />
                                 </div>
                               )}
@@ -588,20 +586,20 @@ export default function OnboardingPage() {
                 {step === 1 && (
                   <>
                     <div className="flex items-center gap-2">
-                      <Clock className="w-5 h-5 text-violet-400" />
-                      <h2 className="text-base font-bold text-white">What's your investment horizon?</h2>
+                      <Clock className="w-5 h-5 text-brand-400" />
+                      <h2 className="text-base font-bold text-foreground">What's your investment horizon?</h2>
                     </div>
                     <div className="grid grid-cols-3 gap-3">
                       {HORIZONS.map(h => (
                         <OptionCard key={h.id} selected={horizon === h.id} onClick={() => setHorizon(h.id)}>
                           <div className="text-center py-2">
-                            <div className={`text-[14px] font-black ${horizon === h.id ? 'text-white' : 'text-slate-400'}`}>
+                            <div className={`text-[14px] font-bold ${horizon === h.id ? 'text-foreground' : 'text-neutral-400'}`}>
                               {h.label}
                             </div>
-                            <div className="text-[10px] text-slate-500 mt-0.5">{h.sub}</div>
+                            <div className="text-[11px] text-neutral-500 mt-0.5">{h.sub}</div>
                             {horizon === h.id && (
                               <div className="mt-2 flex justify-center">
-                                <div className="w-4 h-4 rounded-full bg-violet-500 flex items-center justify-center">
+                                <div className="w-4 h-4 rounded-full bg-brand-500 flex items-center justify-center">
                                   <Check className="w-2.5 h-2.5 text-white" />
                                 </div>
                               </div>
@@ -617,8 +615,8 @@ export default function OnboardingPage() {
                 {step === 2 && (
                   <>
                     <div className="flex items-center gap-2">
-                      <Shield className="w-5 h-5 text-violet-400" />
-                      <h2 className="text-base font-bold text-white">What's your risk appetite?</h2>
+                      <Shield className="w-5 h-5 text-brand-400" />
+                      <h2 className="text-base font-bold text-foreground">What's your risk appetite?</h2>
                     </div>
                     <div className="grid grid-cols-1 gap-3">
                       {RISK_LEVELS.map(r => (
@@ -629,15 +627,15 @@ export default function OnboardingPage() {
                               style={{ background: r.color, opacity: risk === r.id ? 1 : 0.3 }}
                             />
                             <div className="flex-1">
-                              <div className={`text-[14px] font-bold capitalize ${risk === r.id ? 'text-white' : 'text-slate-400'}`}>
+                              <div className={`text-[14px] font-bold capitalize ${risk === r.id ? 'text-foreground' : 'text-neutral-400'}`}>
                                 {r.label}
                               </div>
-                              <div className="text-[11px] text-slate-500 mt-0.5">{r.desc}</div>
+                              <div className="text-[11px] text-neutral-500 mt-0.5">{r.desc}</div>
                             </div>
                             {risk === r.id && (
                               <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                                    style={{ background: r.color }}>
-                                <Check className="w-3 h-3 text-white" />
+                                <Check className="w-3 h-3 text-foreground" />
                               </div>
                             )}
                           </div>
@@ -651,20 +649,20 @@ export default function OnboardingPage() {
                 {step === 3 && (
                   <>
                     <div className="flex items-center gap-2">
-                      <DollarSign className="w-5 h-5 text-violet-400" />
-                      <h2 className="text-base font-bold text-white">Monthly SIP amount</h2>
+                      <DollarSign className="w-5 h-5 text-brand-400" />
+                      <h2 className="text-base font-bold text-foreground">Monthly SIP amount</h2>
                     </div>
 
                     {/* Amount input */}
                     <div className="space-y-2">
                       <div className="relative flex items-center">
-                        <span className="absolute left-4 text-slate-400 font-bold text-sm pointer-events-none">₹</span>
+                        <span className="absolute left-4 text-neutral-400 font-bold text-sm pointer-events-none">₹</span>
                         <input
                           type="number"
                           value={monthlyInvestment}
                           onChange={e => setMonthlyInvestment(Math.max(500, Number(e.target.value)))}
-                          className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl text-white text-lg font-bold
-                            pl-8 pr-4 py-3 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/20
+                          className="w-full bg-foreground/[0.04] border border-foreground/[0.1] rounded-xl text-foreground text-lg font-bold
+                            pl-8 pr-4 py-3 outline-none focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20
                             transition-all tabular-nums"
                           min={500}
                           step={500}
@@ -677,8 +675,8 @@ export default function OnboardingPage() {
                             onClick={() => setMonthlyInvestment(amt)}
                             className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border ${
                               monthlyInvestment === amt
-                                ? 'bg-violet-500/15 text-violet-400 border-violet-500/30'
-                                : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:border-white/[0.12]'
+                                ? 'bg-brand-500/15 text-brand-400 border-brand-500/30'
+                                : 'bg-foreground/[0.03] text-neutral-500 border-foreground/[0.06] hover:border-foreground/[0.12]'
                             }`}
                           >
                             ₹{(amt / 1000).toFixed(0)}K
@@ -689,8 +687,8 @@ export default function OnboardingPage() {
 
                     {/* Asset preferences */}
                     <div className="space-y-2">
-                      <label className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.1em]">
-                        Asset Preferences <span className="text-slate-600 normal-case">(optional)</span>
+                      <label className="text-[11px] font-bold text-neutral-500">
+                        Asset Preferences <span className="text-neutral-500 normal-case">(optional)</span>
                       </label>
                       <div className="flex flex-wrap gap-2">
                         {ASSET_PREFS.map(pref => {
@@ -703,8 +701,8 @@ export default function OnboardingPage() {
                               )}
                               className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all border ${
                                 active
-                                  ? 'bg-violet-500/15 text-violet-400 border-violet-500/30'
-                                  : 'bg-white/[0.02] text-slate-500 border-white/[0.06] hover:border-white/[0.12]'
+                                  ? 'bg-brand-500/15 text-brand-400 border-brand-500/30'
+                                  : 'bg-foreground/[0.02] text-neutral-500 border-foreground/[0.06] hover:border-foreground/[0.12]'
                               }`}
                             >
                               {active && <Check className="w-2.5 h-2.5 inline mr-1" />}
@@ -717,12 +715,12 @@ export default function OnboardingPage() {
 
                     {/* Summary */}
                     {goal && horizon && risk && (
-                      <div className="p-3 rounded-xl bg-violet-500/6 border border-violet-500/15 text-[11px] text-slate-400 space-y-1">
-                        <div className="font-bold text-white text-[12px] mb-1.5">Ready to generate your portfolio:</div>
-                        <div>Goal: <span className="text-white capitalize">{goal.replace(/_/g, ' ')}</span></div>
-                        <div>Horizon: <span className="text-white">{horizon}</span></div>
-                        <div>Risk: <span className="text-white capitalize">{risk}</span></div>
-                        <div>Monthly SIP: <span className="text-white">{formatINR(monthlyInvestment)}</span></div>
+                      <div className="p-3 rounded-xl bg-brand-500/6 border border-brand-500/15 text-[11px] text-neutral-400 space-y-1">
+                        <div className="font-bold text-foreground text-[12px] mb-1.5">Ready to generate your portfolio:</div>
+                        <div>Goal: <span className="text-foreground capitalize">{goal.replace(/_/g, ' ')}</span></div>
+                        <div>Horizon: <span className="text-foreground">{horizon}</span></div>
+                        <div>Risk: <span className="text-foreground capitalize">{risk}</span></div>
+                        <div>Monthly SIP: <span className="text-foreground">{formatINR(monthlyInvestment)}</span></div>
                       </div>
                     )}
                   </>
@@ -737,10 +735,10 @@ export default function OnboardingPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mt-3 flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20"
+            className="mt-3 flex items-start gap-2 p-3 rounded-xl bg-negative-500/10 border border-negative-500/20"
           >
-            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="text-[11px] text-red-300">{error}</div>
+            <AlertTriangle className="w-4 h-4 text-negative-400 flex-shrink-0 mt-0.5" />
+            <div className="text-[11px] text-negative-300">{error}</div>
           </motion.div>
         )}
 
@@ -751,8 +749,8 @@ export default function OnboardingPage() {
               onClick={() => step > 0 ? setStep(s => s - 1) : undefined}
               className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all
                 ${step > 0
-                  ? 'text-slate-300 border border-white/[0.08] hover:bg-white/[0.05]'
-                  : 'text-slate-600 cursor-not-allowed'
+                  ? 'text-neutral-300 border border-foreground/[0.08] hover:bg-foreground/[0.05]'
+                  : 'text-neutral-500 cursor-not-allowed'
                 }`}
               disabled={step === 0}
             >
@@ -766,7 +764,7 @@ export default function OnboardingPage() {
               whileTap={{ scale: canProceed ? 0.97 : 1 }}
               className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl text-[12px] font-bold text-white
                 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
+              style={{ background: 'rgb(var(--brand-600))' }}
             >
               {step === TOTAL_STEPS - 1 ? (
                 <><Sparkles className="w-4 h-4" /> Generate Portfolio</>
@@ -778,7 +776,7 @@ export default function OnboardingPage() {
         )}
 
         {loading && (
-          <p className="text-center text-[10px] text-slate-600 mt-3">
+          <p className="text-center text-[11px] text-neutral-500 mt-3">
             This may take up to 30 seconds…
           </p>
         )}

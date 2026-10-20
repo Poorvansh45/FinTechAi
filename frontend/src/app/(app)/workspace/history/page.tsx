@@ -41,18 +41,18 @@ export default function TradeHistoryPage() {
   }, [allTrades, filterText, closedOnly]);
 
   return (
-    <div className="space-y-4 animate-fadeIn pb-6">
+    <div className="mx-auto w-full max-w-[1600px] px-3 py-4 sm:px-6 sm:py-6 space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-lg font-bold flex items-center gap-2">
-            <History className="w-5 h-5 text-amber-400" />
+            <History className="w-5 h-5 text-warning-400" />
             Trade History
             <LiveIndicator label="Archive" />
           </h1>
-          <p className="text-[10px] text-muted-foreground mt-0.5">{filtered.length} trades · full history view</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{filtered.length} trades · full history view</p>
         </div>
         <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-          <input type="checkbox" checked={closedOnly} onChange={(e) => setClosedOnly(e.target.checked)} className="accent-indigo-500" />
+          <input type="checkbox" checked={closedOnly} onChange={(e) => setClosedOnly(e.target.checked)} className="accent-brand-500" />
           Closed only
         </label>
       </div>
@@ -64,11 +64,11 @@ export default function TradeHistoryPage() {
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             placeholder="Search instrument…"
-            className="w-full bg-transparent border border-white/8 rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none focus:border-indigo-500/50"
+            className="w-full bg-transparent border border-foreground/8 rounded-lg pl-8 pr-3 py-1.5 text-xs outline-none focus:border-brand-500/50"
           />
         </div>
         {filterText && (
-          <button type="button" onClick={() => setFilterText('')} className="text-xs text-red-400 flex items-center gap-1">
+          <button type="button" onClick={() => setFilterText('')} className="text-xs text-negative-400 flex items-center gap-1">
             <X className="w-3 h-3" /> Clear
           </button>
         )}

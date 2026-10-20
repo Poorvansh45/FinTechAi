@@ -22,7 +22,7 @@ const inr = (v: number | null | undefined) =>
 const pct = (v: number | null | undefined) =>
   v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
 const tone = (v: number | null | undefined) =>
-  v == null ? 'text-slate-500' : v > 0 ? 'text-emerald-400' : v < 0 ? 'text-red-400' : 'text-slate-300';
+  v == null ? 'text-neutral-500' : v > 0 ? 'text-positive-400' : v < 0 ? 'text-negative-400' : 'text-neutral-300';
 const today = () => new Date().toISOString().slice(0, 10);
 
 type Tab = 'holdings' | 'ipos' | 'exits' | 'notes';
@@ -35,16 +35,16 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 ];
 
 const IPO_STATUS_TONE: Record<IpoStatus, string> = {
-  Applied:        'border-amber-500/30 bg-amber-500/10 text-amber-300',
-  Allotted:       'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
-  'Not Allotted': 'border-slate-500/30 bg-slate-500/10 text-slate-400',
-  Withdrawn:      'border-slate-500/30 bg-slate-500/10 text-slate-500',
+  Applied:        'border-warning-500/30 bg-warning-500/10 text-warning-300',
+  Allotted:       'border-positive-500/30 bg-positive-500/10 text-positive-300',
+  'Not Allotted': 'border-neutral-500/30 bg-neutral-500/10 text-neutral-400',
+  Withdrawn:      'border-neutral-500/30 bg-neutral-500/10 text-neutral-500',
 };
 
 const CONVICTION_TONE: Record<Conviction, string> = {
-  Core:      'border-indigo-500/30 bg-indigo-500/10 text-indigo-300',
-  Satellite: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
-  Tactical:  'border-amber-500/30 bg-amber-500/10 text-amber-300',
+  Core:      'border-brand-500/30 bg-brand-500/10 text-brand-300',
+  Satellite: 'border-brand-500/30 bg-brand-500/10 text-brand-300',
+  Tactical:  'border-warning-500/30 bg-warning-500/10 text-warning-300',
 };
 
 // ── Small shared pieces ──────────────────────────────────────────────────────
@@ -55,8 +55,8 @@ function Section({ title, subtitle, action, children }: {
     <section>
       <div className="mb-4 flex items-end justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold tracking-tight text-white">{title}</h2>
-          {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+          <h2 className="text-base font-bold tracking-tight text-foreground">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs text-neutral-500">{subtitle}</p>}
         </div>
         {action}
       </div>
@@ -68,15 +68,15 @@ function Section({ title, subtitle, action, children }: {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <span className="mb-1.5 block text-[11px] font-bold text-neutral-500">{label}</span>
       {children}
     </label>
   );
 }
 
 const inputCls =
-  'h-10 w-full rounded-lg border border-white/[0.08] bg-black/30 px-3 text-sm text-white outline-none ' +
-  'transition-colors placeholder:text-slate-600 focus:border-indigo-500/60 focus:ring-2 focus:ring-indigo-500/20';
+  'h-10 w-full rounded-lg border border-foreground/[0.08] bg-black/30 px-3 text-sm text-foreground outline-none ' +
+  'transition-colors placeholder:text-neutral-500 focus:border-brand-500/60 focus:ring-2 focus:ring-brand-500/20';
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -86,8 +86,8 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-white">{title}</h3>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-500 transition-colors hover:bg-white/5 hover:text-white">
+          <h3 className="text-sm font-bold text-foreground">{title}</h3>
+          <button onClick={onClose} className="rounded-lg p-1 text-neutral-500 transition-colors hover:bg-foreground/5 hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -102,12 +102,12 @@ function EmptyPanel({ icon: Icon, title, body, action }: {
 }) {
   return (
     <div className="glass-card flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl"
-        style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
-        <Icon className="h-5 w-5 text-indigo-400" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl"
+        style={{ background: 'rgb(var(--brand-500) / 0.08)', border: '1px solid rgb(var(--brand-500) / 0.15)' }}>
+        <Icon className="h-5 w-5 text-brand-400" />
       </div>
-      <p className="text-sm font-semibold text-slate-300">{title}</p>
-      <p className="max-w-sm text-xs leading-relaxed text-slate-500">{body}</p>
+      <p className="text-sm font-semibold text-neutral-300">{title}</p>
+      <p className="max-w-sm text-xs leading-relaxed text-neutral-500">{body}</p>
       {action}
     </div>
   );
@@ -146,15 +146,15 @@ export default function EquityJournalPage() {
     <div className="mx-auto w-full max-w-[1600px] px-5 pb-20 sm:px-8 lg:px-10 animate-fadeIn">
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
-      <header className="border-b border-white/[0.06] py-12 text-center lg:py-16">
+      <header className="border-b border-foreground/[0.06] py-12 text-center lg:py-16">
         <div className="flex items-center justify-center gap-2.5">
-          <Landmark className="h-4 w-4 text-indigo-400" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-400">Workspace</span>
+          <Landmark className="h-4 w-4 text-brand-400" />
+          <span className="text-[11px] font-bold text-brand-400">Workspace</span>
         </div>
 
-        <h1 className="mt-5 text-4xl font-black tracking-tight text-white lg:text-5xl">Equity Journal</h1>
+        <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">Equity Journal</h1>
 
-        <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-slate-400 lg:text-[15px]">
+        <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-neutral-400 lg:text-[15px]">
           Long-term conviction tracking — purchase records, IPO allotments,
           holdings, exits and the reasoning behind each one.
         </p>
@@ -163,21 +163,21 @@ export default function EquityJournalPage() {
           <button
             onClick={() => setShowBuy(true)}
             className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white transition-all hover:scale-[1.03] active:scale-95"
-            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 20px rgba(99,102,241,0.3)' }}
+            style={{ background: 'rgb(var(--brand-600))', boxShadow: 'none' }}
           >
             <Plus className="h-4 w-4" /> Record Buy
           </button>
           <button
             onClick={() => setShowIpo(true)}
-            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-indigo-400 transition-all hover:bg-indigo-400/10"
-            style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)' }}
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-brand-400 transition-all hover:bg-brand-400/10"
+            style={{ background: 'rgb(var(--brand-500) / 0.06)', border: '1px solid rgb(var(--brand-500) / 0.18)' }}
           >
             <Ticket className="h-3.5 w-3.5" /> Log IPO
           </button>
           <button
             onClick={() => setShowNote(true)}
-            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-300 transition-all hover:bg-white/[0.06]"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold text-neutral-300 transition-all hover:bg-foreground/[0.06]"
+            style={{ background: 'rgb(var(--foreground) / 0.03)', border: '1px solid rgb(var(--foreground) / 0.07)' }}
           >
             <FileText className="h-3.5 w-3.5" /> Add Note
           </button>
@@ -185,17 +185,17 @@ export default function EquityJournalPage() {
 
         {/* Glance row */}
         {openHoldings.length > 0 && (
-          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 sm:divide-x sm:divide-white/[0.06]">
+          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 sm:divide-x sm:divide-foreground/[0.06]">
             {[
-              { label: 'Invested', value: inr(totals.invested), sub: `${totals.openPositions} position${totals.openPositions === 1 ? '' : 's'}`, cls: 'text-white' },
-              { label: 'Current Value', value: inr(totals.currentValue), sub: totals.unpricedPositions ? `${totals.unpricedPositions} unpriced` : 'all priced', cls: 'text-white' },
+              { label: 'Invested', value: inr(totals.invested), sub: `${totals.openPositions} position${totals.openPositions === 1 ? '' : 's'}`, cls: 'text-foreground' },
+              { label: 'Current Value', value: inr(totals.currentValue), sub: totals.unpricedPositions ? `${totals.unpricedPositions} unpriced` : 'all priced', cls: 'text-foreground' },
               { label: 'Unrealised', value: inr(totals.unrealisedPnl), sub: pct(totals.unrealisedPct), cls: tone(totals.unrealisedPnl) },
               { label: 'Realised', value: inr(totals.realisedPnl), sub: 'booked to date', cls: tone(totals.realisedPnl) },
             ].map((s) => (
               <div key={s.label} className="px-2 sm:px-4">
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{s.label}</div>
-                <div className={`mt-2 text-xl font-black leading-none tabular-nums ${s.cls}`}>{s.value}</div>
-                <div className="mt-1.5 text-[10px] text-slate-600">{s.sub}</div>
+                <div className="text-[11px] font-bold text-neutral-500">{s.label}</div>
+                <div className={`mt-2 text-xl font-bold leading-none tabular-nums ${s.cls}`}>{s.value}</div>
+                <div className="mt-1.5 text-[11px] text-neutral-500">{s.sub}</div>
               </div>
             ))}
           </div>
@@ -205,7 +205,7 @@ export default function EquityJournalPage() {
       <div className="mt-12 space-y-10">
 
         {/* ── Tabs ───────────────────────────────────────────────── */}
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-white/[0.06] pb-px">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-foreground/[0.06] pb-px">
           {TABS.map(({ id, label, icon: Icon }) => {
             const on = tab === id;
             const count =
@@ -218,14 +218,14 @@ export default function EquityJournalPage() {
                 onClick={() => setTab(id)}
                 className={`flex items-center gap-2 rounded-t-md border-b-2 px-4 py-2.5 text-[13px] font-medium transition-colors duration-200 ${
                   on
-                    ? 'border-indigo-400 bg-indigo-500/[0.08] text-indigo-200'
-                    : 'border-transparent text-slate-500 hover:border-indigo-500/30 hover:bg-indigo-500/[0.05] hover:text-slate-200'
+                    ? 'border-brand-400 bg-brand-500/[0.08] text-brand-200'
+                    : 'border-transparent text-neutral-500 hover:border-brand-500/30 hover:bg-brand-500/[0.05] hover:text-neutral-200'
                 }`}
               >
-                <Icon size={15} strokeWidth={1.75} className={on ? 'text-indigo-300' : 'text-slate-500'} />
+                <Icon size={15} strokeWidth={1.75} className={on ? 'text-brand-300' : 'text-neutral-500'} />
                 {label}
-                <span className={`rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${
-                  on ? 'bg-indigo-500/20 text-indigo-200' : 'bg-white/[0.05] text-slate-500'
+                <span className={`rounded-md px-1.5 py-px text-[11px] font-bold tabular-nums ${
+                  on ? 'bg-brand-500/20 text-brand-200' : 'bg-foreground/[0.05] text-neutral-500'
                 }`}>
                   {count}
                 </span>
@@ -244,7 +244,7 @@ export default function EquityJournalPage() {
                 body="Record your first purchase to start tracking cost basis, allocation and unrealised return over time."
                 action={
                   <button onClick={() => setShowBuy(true)}
-                    className="mt-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500">
+                    className="mt-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-brand-500">
                     Record a Buy
                   </button>
                 }
@@ -259,26 +259,26 @@ export default function EquityJournalPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <h3 className="truncate text-lg font-bold tracking-wide text-white">{h.symbol}</h3>
-                            <span className={`flex-shrink-0 rounded-full border px-2 py-px text-[9px] font-bold uppercase tracking-wide ${CONVICTION_TONE[h.conviction]}`}>
+                            <h3 className="truncate text-lg font-bold tracking-wide text-foreground">{h.symbol}</h3>
+                            <span className={`flex-shrink-0 rounded-md border px-2 py-px text-[11px] font-bold ${CONVICTION_TONE[h.conviction]}`}>
                               {h.conviction}
                             </span>
                           </div>
-                          {h.companyName && <p className="mt-0.5 truncate text-xs text-slate-500">{h.companyName}</p>}
+                          {h.companyName && <p className="mt-0.5 truncate text-xs text-neutral-500">{h.companyName}</p>}
                         </div>
                         <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                           <button onClick={() => setPriceFor(h)} title="Update price"
-                            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-white">
+                            className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-foreground/5 hover:text-foreground">
                             <PencilLine className="h-3.5 w-3.5" />
                           </button>
                           <button onClick={() => setExitFor(h)} title="Record exit"
-                            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-amber-300">
+                            className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-foreground/5 hover:text-warning-300">
                             <LogOut className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => { if (confirm(`Delete ${h.symbol} and all its records?`)) { deleteHolding(h.id); bump(); } }}
                             title="Delete holding"
-                            className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-white/5 hover:text-red-400">
+                            className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-foreground/5 hover:text-negative-400">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -286,9 +286,9 @@ export default function EquityJournalPage() {
 
                       {/* value */}
                       <div>
-                        <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Current Value</div>
+                        <div className="text-[11px] font-bold text-neutral-500">Current Value</div>
                         <div className="mt-1.5 flex items-baseline gap-2.5">
-                          <span className="text-2xl font-black tabular-nums text-white">{inr(m.currentValue)}</span>
+                          <span className="text-2xl font-bold tabular-nums text-foreground">{inr(m.currentValue)}</span>
                           {m.unrealisedPct != null && (
                             <span className={`flex items-center gap-1 text-sm font-bold tabular-nums ${tone(m.unrealisedPnl)}`}>
                               {(m.unrealisedPnl ?? 0) >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
@@ -296,7 +296,7 @@ export default function EquityJournalPage() {
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 text-[11px] text-slate-500">
+                        <div className="mt-1 text-[11px] text-neutral-500">
                           {m.currentValue == null
                             ? 'No price recorded — add one to value this holding'
                             : `${inr(m.unrealisedPnl)} unrealised`}
@@ -304,46 +304,46 @@ export default function EquityJournalPage() {
                       </div>
 
                       {/* facts */}
-                      <div className="grid grid-cols-3 gap-3 rounded-xl border border-white/[0.06] bg-black/20 p-4">
+                      <div className="grid grid-cols-3 gap-3 rounded-xl border border-foreground/[0.06] bg-neutral-950/20 p-4">
                         {[
                           { k: 'Qty', v: String(m.openQty) },
                           { k: 'Avg Cost', v: inr(m.avgCost) },
                           { k: 'Invested', v: inr(m.investedValue) },
                         ].map((f) => (
                           <div key={f.k}>
-                            <div className="text-[9px] uppercase tracking-wide text-slate-500">{f.k}</div>
-                            <div className="mt-0.5 font-mono text-[13px] font-semibold text-slate-200">{f.v}</div>
+                            <div className="text-[11px] text-neutral-500">{f.k}</div>
+                            <div className="mt-0.5 font-mono text-[13px] font-semibold text-neutral-200">{f.v}</div>
                           </div>
                         ))}
                       </div>
 
                       {/* buy record */}
                       <div>
-                        <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                        <div className="mb-2 text-[11px] font-bold text-neutral-500">
                           Buy Record · {h.lots.length} lot{h.lots.length === 1 ? '' : 's'}
                         </div>
                         <div className="space-y-1">
                           {h.lots.map((l) => (
                             <div key={l.id} className="flex items-center justify-between gap-2 text-[11px]">
-                              <span className="text-slate-500">{l.date}</span>
-                              <span className="font-mono text-slate-300">
+                              <span className="text-neutral-500">{l.date}</span>
+                              <span className="font-mono text-neutral-300">
                                 {l.quantity} @ {inr(l.price)}
                               </span>
-                              <span className="rounded border border-white/[0.08] px-1.5 py-px text-[9px] text-slate-500">{l.source}</span>
+                              <span className="rounded border border-foreground/[0.08] px-1.5 py-px text-[11px] text-neutral-500">{l.source}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       {m.realisedPnl !== 0 && (
-                        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px]">
-                          <span className="text-slate-500">Realised so far </span>
+                        <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2 text-[11px]">
+                          <span className="text-neutral-500">Realised so far </span>
                           <span className={`font-mono font-bold ${tone(m.realisedPnl)}`}>{inr(m.realisedPnl)}</span>
                         </div>
                       )}
 
                       {h.thesis && (
-                        <p className="border-t border-white/[0.06] pt-3 text-[11px] leading-relaxed text-slate-400">
+                        <p className="border-t border-foreground/[0.06] pt-3 text-[11px] leading-relaxed text-neutral-400">
                           {h.thesis}
                         </p>
                       )}
@@ -362,7 +362,7 @@ export default function EquityJournalPage() {
             subtitle="Applied, allotted and listing outcomes"
             action={
               <button onClick={() => setShowIpo(true)}
-                className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.08] px-3 py-1.5 text-xs font-semibold text-indigo-300 transition-colors hover:bg-indigo-500/15">
+                className="rounded-lg border border-brand-500/20 bg-brand-500/[0.08] px-3 py-1.5 text-xs font-semibold text-brand-300 transition-colors hover:bg-brand-500/15">
                 + Log IPO
               </button>
             }
@@ -377,7 +377,7 @@ export default function EquityJournalPage() {
               <div className="glass-card overflow-x-auto p-2">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-wider text-slate-500">
+                    <tr className="text-[11px] text-neutral-500">
                       <th className="px-4 py-3 text-left font-bold">Symbol</th>
                       <th className="px-4 py-3 text-left font-bold">Applied</th>
                       <th className="px-4 py-3 text-right font-bold">Lots</th>
@@ -397,33 +397,33 @@ export default function EquityJournalPage() {
                           ? (i.listingPrice - i.pricePerShare) * i.allottedQty
                           : null;
                       return (
-                        <tr key={i.id} className="border-t border-white/[0.05] transition-colors hover:bg-white/[0.02]">
+                        <tr key={i.id} className="border-t border-foreground/[0.05] transition-colors hover:bg-foreground/[0.02]">
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-white">{i.symbol}</div>
-                            {i.companyName && <div className="text-[11px] text-slate-500">{i.companyName}</div>}
+                            <div className="font-semibold text-foreground">{i.symbol}</div>
+                            {i.companyName && <div className="text-[11px] text-neutral-500">{i.companyName}</div>}
                           </td>
-                          <td className="px-4 py-3 text-slate-400">{i.appliedDate}</td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-300">{i.lots}</td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-300">{inr(applied)}</td>
+                          <td className="px-4 py-3 text-neutral-400">{i.appliedDate}</td>
+                          <td className="px-4 py-3 text-right font-mono text-neutral-300">{i.lots}</td>
+                          <td className="px-4 py-3 text-right font-mono text-neutral-300">{inr(applied)}</td>
                           <td className="px-4 py-3 text-center">
                             <select
                               value={i.status}
                               onChange={(e) => { updateIpo(i.id, { status: e.target.value as IpoStatus }); bump(); }}
-                              className={`cursor-pointer rounded-full border bg-transparent px-2 py-1 text-[10px] font-bold uppercase tracking-wide outline-none ${IPO_STATUS_TONE[i.status]}`}
+                              className={`cursor-pointer rounded-md border bg-transparent px-2 py-1 text-[11px] font-bold outline-none ${IPO_STATUS_TONE[i.status]}`}
                             >
                               {(['Applied', 'Allotted', 'Not Allotted', 'Withdrawn'] as IpoStatus[]).map((s) => (
-                                <option key={s} value={s} className="bg-gray-900 text-white">{s}</option>
+                                <option key={s} value={s} className="bg-neutral-900 text-foreground">{s}</option>
                               ))}
                             </select>
                           </td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-300">{i.allottedQty ?? '—'}</td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-300">{i.listingPrice != null ? inr(i.listingPrice) : '—'}</td>
+                          <td className="px-4 py-3 text-right font-mono text-neutral-300">{i.allottedQty ?? '—'}</td>
+                          <td className="px-4 py-3 text-right font-mono text-neutral-300">{i.listingPrice != null ? inr(i.listingPrice) : '—'}</td>
                           <td className={`px-4 py-3 text-right font-mono font-bold ${tone(listingPnl)}`}>
                             {listingPnl == null ? '—' : inr(listingPnl)}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <button onClick={() => { if (confirm(`Delete the ${i.symbol} IPO record?`)) { deleteIpo(i.id); bump(); } }}
-                              className="rounded-lg p-1.5 text-slate-600 transition-colors hover:bg-white/5 hover:text-red-400">
+                              className="rounded-lg p-1.5 text-neutral-500 transition-colors hover:bg-foreground/5 hover:text-negative-400">
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </td>
@@ -459,21 +459,21 @@ export default function EquityJournalPage() {
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-base font-bold text-white">{holding.symbol}</h3>
-                            <span className="text-xs text-slate-500">{exit.date}</span>
+                            <h3 className="text-base font-bold text-foreground">{holding.symbol}</h3>
+                            <span className="text-xs text-neutral-500">{exit.date}</span>
                           </div>
-                          <p className="mt-1 font-mono text-xs text-slate-400">
+                          <p className="mt-1 font-mono text-xs text-neutral-400">
                             Sold {exit.quantity} @ {inr(exit.price)} · cost basis {inr(m.avgCost)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <div className={`text-xl font-black tabular-nums ${tone(pnl)}`}>{inr(pnl)}</div>
+                          <div className={`text-xl font-bold tabular-nums ${tone(pnl)}`}>{inr(pnl)}</div>
                           <div className={`text-xs font-semibold tabular-nums ${tone(pnl)}`}>{pct(pnlPct)}</div>
                         </div>
                       </div>
                       {exit.reason && (
-                        <p className="mt-4 border-t border-white/[0.06] pt-3 text-[12px] leading-relaxed text-slate-400">
-                          <span className="font-semibold text-slate-300">Why: </span>{exit.reason}
+                        <p className="mt-4 border-t border-foreground/[0.06] pt-3 text-[12px] leading-relaxed text-neutral-400">
+                          <span className="font-semibold text-neutral-300">Why: </span>{exit.reason}
                         </p>
                       )}
                     </div>
@@ -491,7 +491,7 @@ export default function EquityJournalPage() {
             subtitle="Thesis, risks and review notes, dated"
             action={
               <button onClick={() => setShowNote(true)}
-                className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.08] px-3 py-1.5 text-xs font-semibold text-indigo-300 transition-colors hover:bg-indigo-500/15">
+                className="rounded-lg border border-brand-500/20 bg-brand-500/[0.08] px-3 py-1.5 text-xs font-semibold text-brand-300 transition-colors hover:bg-brand-500/15">
                 + Add Note
               </button>
             }
@@ -509,24 +509,24 @@ export default function EquityJournalPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex flex-wrap items-center gap-2">
                         {n.symbol && (
-                          <span className="rounded border border-indigo-500/25 bg-indigo-500/10 px-1.5 py-px text-[10px] font-bold text-indigo-300">
+                          <span className="rounded border border-brand-500/25 bg-brand-500/10 px-1.5 py-px text-[11px] font-bold text-brand-300">
                             {n.symbol}
                           </span>
                         )}
                         {n.tag && (
-                          <span className="rounded border border-white/[0.08] px-1.5 py-px text-[10px] font-semibold text-slate-400">
+                          <span className="rounded border border-foreground/[0.08] px-1.5 py-px text-[11px] font-semibold text-neutral-400">
                             {n.tag}
                           </span>
                         )}
-                        <span className="text-[11px] text-slate-600">{n.date}</span>
+                        <span className="text-[11px] text-neutral-500">{n.date}</span>
                       </div>
                       <button onClick={() => { deleteNote(n.id); bump(); }}
-                        className="rounded-lg p-1 text-slate-600 opacity-0 transition-all hover:text-red-400 group-hover:opacity-100">
+                        className="rounded-lg p-1 text-neutral-500 opacity-0 transition-all hover:text-negative-400 group-hover:opacity-100">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
-                    <h3 className="mt-3 text-sm font-bold text-white">{n.title}</h3>
-                    <p className="mt-1.5 whitespace-pre-wrap text-[12px] leading-relaxed text-slate-400">{n.body}</p>
+                    <h3 className="mt-3 text-sm font-bold text-foreground">{n.title}</h3>
+                    <p className="mt-1.5 whitespace-pre-wrap text-[12px] leading-relaxed text-neutral-400">{n.body}</p>
                   </div>
                 ))}
               </div>
@@ -536,22 +536,20 @@ export default function EquityJournalPage() {
 
         {/* ── AI review placeholder ──────────────────────────────── */}
         <Section title="AI Portfolio Review" subtitle="Not yet available">
-          <div className="glass-card relative overflow-hidden p-8" style={{ border: '1px solid rgba(99,102,241,0.12)' }}>
-            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full opacity-[0.08] blur-3xl"
-              style={{ background: 'radial-gradient(circle, #6366f1, transparent 70%)' }} />
+          <div className="glass-card relative overflow-hidden p-8" style={{ border: '1px solid rgb(var(--brand-500) / 0.12)' }}>
             <div className="flex flex-wrap items-start gap-5">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl"
-                style={{ background: 'linear-gradient(135deg, rgba(79,70,229,0.2), rgba(124,58,237,0.15))', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <Sparkles className="h-5 w-5 text-indigo-400" />
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl"
+                style={{ background: 'rgb(var(--brand-600))', border: '1px solid rgb(var(--brand-500) / 0.2)' }}>
+                <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm font-bold text-white">AI Portfolio Review</h3>
-                  <span className="flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+                  <h3 className="text-sm font-bold text-foreground">AI Portfolio Review</h3>
+                  <span className="flex items-center gap-1 rounded-md border border-foreground/[0.08] bg-foreground/[0.03] px-2 py-0.5 text-[11px] font-bold text-neutral-400">
                     <Lock className="h-2.5 w-2.5" /> Coming soon
                   </span>
                 </div>
-                <p className="mt-2 max-w-2xl text-xs leading-relaxed text-slate-400">
+                <p className="mt-2 max-w-2xl text-xs leading-relaxed text-neutral-400">
                   Planned: concentration and sector-overlap warnings, drift from your stated thesis,
                   and a re-read of each holding&apos;s notes against how it has actually performed since you wrote them.
                 </p>
@@ -561,13 +559,13 @@ export default function EquityJournalPage() {
                     { t: 'Thesis Drift', d: 'Where the story has changed since you bought' },
                     { t: 'Exit Discipline', d: 'Whether you sell for the reasons you said you would' },
                   ].map((c) => (
-                    <div key={c.t} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                      <div className="text-[11px] font-bold text-slate-300">{c.t}</div>
-                      <p className="mt-1 text-[10px] leading-relaxed text-slate-500">{c.d}</p>
+                    <div key={c.t} className="rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] p-4">
+                      <div className="text-[11px] font-bold text-neutral-300">{c.t}</div>
+                      <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">{c.d}</p>
                     </div>
                   ))}
                 </div>
-                <p className="mt-4 text-[10px] text-slate-600">
+                <p className="mt-4 text-[11px] text-neutral-500">
                   Nothing here is generated yet — this panel is a placeholder, not a disabled feature.
                 </p>
               </div>
@@ -644,7 +642,7 @@ function BuyModal({ holdings, onClose, onSaved }: { holdings: Holding[]; onClose
         </div>
 
         {existing && (
-          <p className="rounded-lg border border-indigo-500/20 bg-indigo-500/[0.06] px-3 py-2 text-[11px] text-indigo-200">
+          <p className="rounded-lg border border-brand-500/20 bg-brand-500/[0.06] px-3 py-2 text-[11px] text-brand-200">
             Adding a second lot to your existing <strong>{existing.symbol}</strong> holding — average cost will be recalculated.
           </p>
         )}
@@ -668,14 +666,14 @@ function BuyModal({ holdings, onClose, onSaved }: { holdings: Holding[]; onClose
           <Field label="Source">
             <select className={inputCls} value={source} onChange={(e) => setSource(e.target.value as BuySource)}>
               {(['Secondary', 'IPO', 'Bonus', 'Rights', 'Transfer'] as BuySource[]).map((s) => (
-                <option key={s} value={s} className="bg-gray-900">{s}</option>
+                <option key={s} value={s} className="bg-neutral-900">{s}</option>
               ))}
             </select>
           </Field>
           <Field label="Conviction">
             <select className={inputCls} value={conviction} onChange={(e) => setConviction(e.target.value as Conviction)} disabled={!!existing}>
               {(['Core', 'Satellite', 'Tactical'] as Conviction[]).map((c) => (
-                <option key={c} value={c} className="bg-gray-900">{c}</option>
+                <option key={c} value={c} className="bg-neutral-900">{c}</option>
               ))}
             </select>
           </Field>
@@ -691,9 +689,9 @@ function BuyModal({ holdings, onClose, onSaved }: { holdings: Holding[]; onClose
         </Field>
 
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:text-white">Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:text-foreground">Cancel</button>
           <button onClick={submit} disabled={!valid}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40">
+            className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-40">
             Save Buy
           </button>
         </div>
@@ -748,7 +746,7 @@ function IpoModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
           <Field label="Status">
             <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as IpoStatus)}>
               {(['Applied', 'Allotted', 'Not Allotted', 'Withdrawn'] as IpoStatus[]).map((s) => (
-                <option key={s} value={s} className="bg-gray-900">{s}</option>
+                <option key={s} value={s} className="bg-neutral-900">{s}</option>
               ))}
             </select>
           </Field>
@@ -762,9 +760,9 @@ function IpoModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => vo
           </Field>
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:text-white">Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:text-foreground">Cancel</button>
           <button onClick={submit} disabled={!valid}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40">
+            className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-40">
             Save IPO
           </button>
         </div>
@@ -800,9 +798,9 @@ function ExitModal({ holding, onClose, onSaved }: { holding: Holding; onClose: (
   return (
     <Modal title={`Record Exit — ${holding.symbol}`} onClose={onClose}>
       <div className="space-y-4">
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-[11px] text-slate-400">
-          Holding <span className="font-mono font-semibold text-slate-200">{m.openQty}</span> shares
-          at an average cost of <span className="font-mono font-semibold text-slate-200">{inr(m.avgCost)}</span>
+        <div className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2.5 text-[11px] text-neutral-400">
+          Holding <span className="font-mono font-semibold text-neutral-200">{m.openQty}</span> shares
+          at an average cost of <span className="font-mono font-semibold text-neutral-200">{inr(m.avgCost)}</span>
         </div>
         <div className="grid grid-cols-3 gap-4">
           <Field label="Date"><input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
@@ -812,7 +810,7 @@ function ExitModal({ holding, onClose, onSaved }: { holding: Holding; onClose: (
           <Field label="Price ₹"><input type="number" min="0" step="0.01" className={inputCls} value={price} onChange={(e) => setPrice(e.target.value)} /></Field>
         </div>
         {overSold && (
-          <p className="rounded-lg border border-red-500/25 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-300">
+          <p className="rounded-lg border border-negative-500/25 bg-negative-500/[0.08] px-3 py-2 text-[11px] text-negative-300">
             You only hold {m.openQty} shares.
           </p>
         )}
@@ -824,9 +822,9 @@ function ExitModal({ holding, onClose, onSaved }: { holding: Holding; onClose: (
             placeholder="Thesis played out / thesis broke / needed the capital / better opportunity…" />
         </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:text-white">Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:text-foreground">Cancel</button>
           <button onClick={submit} disabled={!valid}
-            className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40">
+            className="rounded-lg bg-warning-700 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-warning-700 disabled:cursor-not-allowed disabled:opacity-40">
             Record Exit
           </button>
         </div>
@@ -851,9 +849,9 @@ function PriceModal({ holding, onClose, onSaved }: { holding: Holding; onClose: 
   return (
     <Modal title={`Update Price — ${holding.symbol}`} onClose={onClose}>
       <div className="space-y-4">
-        <p className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 text-[11px] leading-relaxed text-slate-400">
+        <p className="rounded-lg border border-foreground/[0.06] bg-foreground/[0.02] px-3 py-2.5 text-[11px] leading-relaxed text-neutral-400">
           This page has no live price feed — valuations use the price you record here.
-          {holding.lastPriceAt && <> Last updated <span className="text-slate-300">{holding.lastPriceAt}</span>.</>}
+          {holding.lastPriceAt && <> Last updated <span className="text-neutral-300">{holding.lastPriceAt}</span>.</>}
         </p>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Current Price ₹">
@@ -864,8 +862,8 @@ function PriceModal({ holding, onClose, onSaved }: { holding: Holding; onClose: 
           </Field>
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:text-white">Cancel</button>
-          <button onClick={submit} className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500">
+          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:text-foreground">Cancel</button>
+          <button onClick={submit} className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-brand-500">
             Save
           </button>
         </div>
@@ -896,14 +894,14 @@ function NoteModal({ holdings, onClose, onSaved }: { holdings: Holding[]; onClos
           <Field label="Date"><input type="date" className={inputCls} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
           <Field label="Holding">
             <select className={inputCls} value={symbol} onChange={(e) => setSymbol(e.target.value)}>
-              <option value="" className="bg-gray-900">Portfolio-wide</option>
-              {holdings.map((h) => <option key={h.id} value={h.symbol} className="bg-gray-900">{h.symbol}</option>)}
+              <option value="" className="bg-neutral-900">Portfolio-wide</option>
+              {holdings.map((h) => <option key={h.id} value={h.symbol} className="bg-neutral-900">{h.symbol}</option>)}
             </select>
           </Field>
           <Field label="Tag">
             <select className={inputCls} value={tag} onChange={(e) => setTag(e.target.value as InvestmentNote['tag'])}>
               {(['Thesis', 'Risk', 'Review', 'Event'] as const).map((t) => (
-                <option key={t} value={t} className="bg-gray-900">{t}</option>
+                <option key={t} value={t} className="bg-neutral-900">{t}</option>
               ))}
             </select>
           </Field>
@@ -916,9 +914,9 @@ function NoteModal({ holdings, onClose, onSaved }: { holdings: Holding[]; onClos
             placeholder="What changed, what you expect, and what would make you change your mind." />
         </Field>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:text-white">Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2.5 text-sm font-medium text-neutral-400 transition-colors hover:text-foreground">Cancel</button>
           <button onClick={submit} disabled={!valid}
-            className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40">
+            className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-all hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-40">
             Save Note
           </button>
         </div>

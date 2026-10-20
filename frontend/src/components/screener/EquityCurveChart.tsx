@@ -22,8 +22,8 @@ const PAD = { l: 52, r: 16, t: 14, b: 26 };
 const PLOT_W = W - PAD.l - PAD.r;
 const PLOT_H = H - PAD.t - PAD.b;
 
-const TEAL = "rgb(45 212 191)";
-const RED = "rgb(248 113 113)";
+const TEAL = "rgb(var(--positive-400))";
+const RED = "rgb(var(--negative-400))";
 
 const inr = (v: number) =>
   `₹${Math.round(v).toLocaleString("en-IN")}`;
@@ -142,7 +142,7 @@ export function EquityCurveChart({ curve, startingCapital }: Props) {
             />
             <text
               x={PAD.l - 8} y={t.y + 3} textAnchor="end"
-              fontSize={9} fill="rgb(148 163 184 / 0.7)" className="tabular-nums"
+              fontSize={11} fill="rgb(var(--neutral-500))" className="tabular-nums"
             >
               {axisMoney(t.v)}
             </text>
@@ -154,7 +154,7 @@ export function EquityCurveChart({ curve, startingCapital }: Props) {
           x1={PAD.l} y1={geo.baselineY} x2={W - PAD.r} y2={geo.baselineY}
           stroke="rgb(148 163 184 / 0.35)" strokeWidth={1} strokeDasharray="4 4"
         />
-        <text x={W - PAD.r} y={geo.baselineY - 5} textAnchor="end" fontSize={8.5} fill="rgb(148 163 184 / 0.6)">
+        <text x={W - PAD.r} y={geo.baselineY - 5} textAnchor="end" fontSize={11} fill="rgb(var(--neutral-500))">
           start {axisMoney(startingCapital)}
         </text>
 
@@ -190,7 +190,7 @@ export function EquityCurveChart({ curve, startingCapital }: Props) {
             <text
               x={geo.x(geo.worstIdx)}
               y={geo.y(curve[geo.worstIdx].equity) + 14}
-              textAnchor="middle" fontSize={8.5} fill={RED} className="tabular-nums"
+              textAnchor="middle" fontSize={11} fill={RED} className="tabular-nums"
             >
               worst {geo.worstDd.toFixed(1)}%
             </text>
@@ -198,10 +198,10 @@ export function EquityCurveChart({ curve, startingCapital }: Props) {
         )}
 
         {/* trade-count axis */}
-        <text x={PAD.l} y={H - 8} fontSize={8.5} fill="rgb(148 163 184 / 0.6)">
+        <text x={PAD.l} y={H - 8} fontSize={11} fill="rgb(var(--neutral-500))">
           trade 1
         </text>
-        <text x={W - PAD.r} y={H - 8} textAnchor="end" fontSize={8.5} fill="rgb(148 163 184 / 0.6)">
+        <text x={W - PAD.r} y={H - 8} textAnchor="end" fontSize={11} fill="rgb(var(--neutral-500))">
           {curve.length - 1} trades
         </text>
 
@@ -215,7 +215,7 @@ export function EquityCurveChart({ curve, startingCapital }: Props) {
             <circle
               cx={geo.x(hot)} cy={geo.y(point.equity)} r={3.5}
               fill={geo.dd[hot] < -0.05 ? RED : TEAL}
-              stroke="#0A0E17" strokeWidth={1.5}
+              stroke="rgb(var(--background))" strokeWidth={1.5}
             />
           </g>
         )}
@@ -224,28 +224,28 @@ export function EquityCurveChart({ curve, startingCapital }: Props) {
       {/* hover card — value big, context muted */}
       {hot !== null && point && (
         <div
-          className="pointer-events-none absolute top-2 z-10 rounded-lg border border-gray-700 bg-gray-950/95 px-2.5 py-1.5 shadow-xl"
+          className="pointer-events-none absolute top-2 z-10 rounded-lg border border-neutral-700 bg-neutral-950/95 px-2.5 py-1.5 shadow-xl"
           style={{
             width: CARD_W,
             left: `calc(${cardLeftPct}% + ${flip ? -CARD_W - 10 : 10}px)`,
           }}
         >
-          <div className="font-mono text-[13px] font-bold text-white">{inr(point.equity)}</div>
-          <div className="mt-0.5 text-[10px] text-gray-400">
+          <div className="font-mono text-[13px] font-bold text-foreground">{inr(point.equity)}</div>
+          <div className="mt-0.5 text-[11px] text-neutral-400">
             {point.symbol ? (
               <>
-                after <span className="font-semibold text-gray-200">{point.symbol}</span>
+                after <span className="font-semibold text-neutral-200">{point.symbol}</span>
                 {point.date ? ` · ${point.date}` : ""}
               </>
             ) : (
               "before the first trade"
             )}
           </div>
-          <div className="mt-1 flex items-center justify-between text-[10px] tabular-nums">
-            <span className={pctFromStart >= 0 ? "text-teal-400" : "text-red-400"}>
+          <div className="mt-1 flex items-center justify-between text-[11px] tabular-nums">
+            <span className={pctFromStart >= 0 ? "text-brand-400" : "text-negative-400"}>
               {pctFromStart >= 0 ? "+" : ""}{pctFromStart.toFixed(1)}% vs start
             </span>
-            <span className={geo.dd[hot] < -0.05 ? "text-red-400" : "text-gray-600"}>
+            <span className={geo.dd[hot] < -0.05 ? "text-negative-400" : "text-neutral-500"}>
               {geo.dd[hot] < -0.05 ? `${geo.dd[hot].toFixed(1)}% off peak` : "at peak"}
             </span>
           </div>

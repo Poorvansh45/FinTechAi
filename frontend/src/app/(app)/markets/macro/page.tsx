@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 // @ts-ignore
 import DottedMap from 'dotted-map';
 import Image from 'next/image';
+import { useTheme } from 'next-themes';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES & SCHEMAS
@@ -54,10 +55,10 @@ function GlassCard({ children, className, hover = true, glowColor }: {
 }) {
   return (
     <div className={cn(
-      'rounded-2xl border border-white/[0.07] p-5',
-      'bg-[rgba(7,11,22,0.75)] backdrop-blur-md relative overflow-hidden',
+      'rounded-xl border border-foreground/[0.07] p-5',
+      'bg-neutral-900 relative overflow-hidden',
       'transition-all duration-300',
-      hover && 'hover:-translate-y-[2px] hover:border-purple-500/20 hover:shadow-[0_10px_40px_rgba(124,92,255,0.07)]',
+      hover && 'hover:-translate-y-[2px] hover:border-brand-500/20',
       glowColor && hover && `hover:shadow-[0_10px_40px_${glowColor}]`,
       className
     )}>
@@ -66,7 +67,7 @@ function GlassCard({ children, className, hover = true, glowColor }: {
   );
 }
 
-function SectionHeader({ title, icon: Icon, gradient = 'from-purple-500 to-indigo-600', live }: {
+function SectionHeader({ title, icon: Icon, gradient = 'bg-brand-500', live }: {
   title: string;
   icon: any;
   gradient?: string;
@@ -74,13 +75,13 @@ function SectionHeader({ title, icon: Icon, gradient = 'from-purple-500 to-indig
 }) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <div className={`w-0.5 h-4 rounded-full bg-gradient-to-b ${gradient} flex-shrink-0`} />
-      <Icon className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-      <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">{title}</h2>
-      <div className="flex-1 h-px bg-gradient-to-r from-white/[0.04] to-transparent" />
+      <div className={`w-0.5 h-4 rounded-full ${gradient} flex-shrink-0`} />
+      <Icon className="w-3.5 h-3.5 text-neutral-400 flex-shrink-0" />
+      <h2 className="text-[11px] font-bold text-neutral-400">{title}</h2>
+      <div className="flex-1 h-px bg-gradient-to-r from-foreground/[0.04] to-transparent" />
       {live && (
-        <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 uppercase tracking-wider flex-shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />Live
+        <span className="flex items-center gap-1 text-[11px] font-bold text-positive-400 flex-shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-positive-400" />Live
         </span>
       )}
     </div>
@@ -92,7 +93,7 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
   const min = Math.min(...data), max = Math.max(...data), range = max - min || 1;
   const h = 22, w = 50;
   const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / range) * (h - 2)}`).join(' ');
-  const color = positive ? '#22c55e' : '#ef4444';
+  const color = positive ? 'rgb(var(--positive-400))' : 'rgb(var(--negative-400))';
   const id = `sp-${Math.random().toString(36).substring(2, 6)}`;
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="flex-shrink-0">
@@ -201,14 +202,17 @@ export default function MacroIntel() {
 
   // 6. Generate the Dotted World Map SVG
   const map = useMemo(() => new DottedMap({ height: 95, grid: 'diagonal' }), []);
+  // Rendered through an <img>, where CSS variables do not resolve, so the dot colour
+  // comes from the resolved theme (ink dots on paper, light dots on charcoal).
+  const { resolvedTheme } = useTheme();
   const svgMap = useMemo(() => {
     return map.getSVG({
       radius: 0.20,
-      color: 'rgba(255, 255, 255, 0.06)',
+      color: resolvedTheme === 'light' ? 'rgba(24, 23, 20, 0.2)' : 'rgba(255, 255, 255, 0.08)',
       shape: 'circle',
-      backgroundColor: '#050816',
+      backgroundColor: 'transparent',
     });
-  }, [map]);
+  }, [map, resolvedTheme]);
 
   // Map projection helper to view coordinates (800 x 400 space)
   const projectPoint = (lat: number, lng: number) => {
@@ -286,44 +290,43 @@ export default function MacroIntel() {
   const computedDefcon = useMemo(() => {
     const highCount = activeNodes.filter(n => n.risk === 'high').length;
     const elevatedCount = activeNodes.filter(n => n.risk === 'elevated').length;
-    if (highCount >= 3) return { level: 3, label: 'ELEVATED RISK', color: 'text-red-400 border-red-500/20 bg-red-500/5' };
-    if (highCount >= 1 || elevatedCount >= 2) return { level: 4, label: 'MODERATE RISK', color: 'text-amber-400 border-amber-500/20 bg-amber-500/5' };
-    return { level: 5, label: 'STANDARD OPERATION', color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5' };
+    if (highCount >= 3) return { level: 3, label: 'ELEVATED RISK', color: 'text-negative-400 border-negative-500/20 bg-negative-500/5' };
+    if (highCount >= 1 || elevatedCount >= 2) return { level: 4, label: 'MODERATE RISK', color: 'text-warning-400 border-warning-500/20 bg-warning-500/5' };
+    return { level: 5, label: 'STANDARD OPERATION', color: 'text-positive-400 border-positive-500/20 bg-positive-500/5' };
   }, [activeNodes]);
 
   return (
-    <div className="min-h-screen bg-[#050816] text-white font-sans px-4 md:px-8 py-6 space-y-6 overflow-x-hidden selection:bg-purple-500/30 selection:text-purple-200">
+    <div className="min-h-screen bg-neutral-950 text-foreground font-sans px-4 md:px-8 py-6 space-y-6 overflow-x-hidden selection:bg-brand-500/30 selection:text-brand-200">
       
       {/* ───────────────────────────────────────────────────────────────────────
           HEADER HERO & STATUS BAR
           ─────────────────────────────────────────────────────────────────────── */}
-      <motion.div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-white/[0.06] pb-6" {...fadeUp(0)}>
+      <motion.div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-foreground/[0.06] pb-6" {...fadeUp(0)}>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20">Flagship Intelligence</span>
-            <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-brand-500/10 text-brand-400 border border-brand-500/20">Flagship Intelligence</span>
+            <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
           </div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-200 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-brand-400 ">
             Macro Intel Command
           </h1>
-          <p className="text-slate-400 text-xs md:text-sm max-w-xl">
+          <p className="text-neutral-400 text-xs md:text-sm max-w-xl">
             Situational awareness engine analyzing geopolitics, central banks, commodities, currencies and structural risk events.
           </p>
         </div>
 
         {/* Bloomberg / Palantir style live dashboard status strip */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-[rgba(10,14,25,0.7)] border border-white/[0.06] px-3.5 py-1.5 rounded-xl backdrop-blur-md text-[11px] font-mono shadow-md">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-200 font-bold tabular-nums">{utcTime}</span>
+          <div className="flex items-center gap-2 bg-neutral-900 border border-foreground/[0.06] px-3.5 py-1.5 rounded-xl text-[11px] font-mono shadow-md">
+            <Clock className="w-3.5 h-3.5 text-neutral-400" />
+            <span className="text-neutral-200 font-bold tabular-nums">{utcTime}</span>
           </div>
 
           <div className={cn(
-            'flex items-center gap-2 border px-3.5 py-1.5 rounded-xl backdrop-blur-md text-[11px] font-bold shadow-md transition-colors duration-300',
+            'flex items-center gap-2 border px-3.5 py-1.5 rounded-xl text-[11px] font-bold shadow-md transition-colors duration-300',
             computedDefcon.color
           )}>
             <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-current" />
             </span>
             <span>POSTURE: DEFCON {computedDefcon.level} ({computedDefcon.label})</span>
@@ -343,7 +346,7 @@ export default function MacroIntel() {
               militaryActivity: true,
               shipTraffic: true,
             })}
-            className="flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/20 px-3.5 py-1.5 rounded-xl text-[11px] font-bold text-purple-300 hover:bg-purple-500/20 active:scale-95 transition-all shadow-md"
+            className="flex items-center gap-1.5 bg-brand-500/10 border border-brand-500/20 px-3.5 py-1.5 rounded-xl text-[11px] font-bold text-brand-300 hover:bg-brand-500/20 active:scale-95 transition-all shadow-md"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             RESET GRID
@@ -358,13 +361,13 @@ export default function MacroIntel() {
         
         {/* Global Risk Map (Hero Left, col-span-8) */}
         <motion.div className="lg:col-span-8 space-y-4" {...fadeUp(0.05)}>
-          <GlassCard hover={false} className="p-0 border-white/[0.07] overflow-hidden flex flex-col min-h-[520px]">
+          <GlassCard hover={false} className="p-0 border-foreground/[0.07] overflow-hidden flex flex-col min-h-[520px]">
             {/* Map Header */}
-            <div className="p-5 border-b border-white/[0.06] flex items-center justify-between bg-black/25">
+            <div className="p-5 border-b border-foreground/[0.06] flex items-center justify-between bg-neutral-950/25">
               <SectionHeader title="Global Risk Map (Hero Section)" icon={Globe} live />
               
-              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded bg-purple-500/30" />
+              <div className="text-[11px] text-neutral-500 font-mono flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded bg-brand-500/30" />
                 <span>Geographic Intel Projections</span>
               </div>
             </div>
@@ -373,9 +376,9 @@ export default function MacroIntel() {
             <div className="flex-1 grid grid-cols-1 md:grid-cols-12 relative min-h-[360px]">
               
               {/* Checkbox Sidebar Overlay (col-span-3) */}
-              <div className="md:col-span-3 border-r border-white/[0.06] p-4 space-y-3 bg-black/20 flex flex-col justify-between">
+              <div className="md:col-span-3 border-r border-foreground/[0.06] p-4 space-y-3 bg-neutral-950/20 flex flex-col justify-between">
                 <div className="space-y-2">
-                  <div className="text-[9px] font-extrabold uppercase text-slate-500 tracking-wider mb-2 font-mono">
+                  <div className="text-[11px] font-bold text-neutral-500 mb-2 font-mono">
                     Situation Layers
                   </div>
 
@@ -391,10 +394,10 @@ export default function MacroIntel() {
                         <label
                           key={key}
                           className={cn(
-                            'flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-[10px] font-semibold cursor-pointer select-none transition-all duration-200',
+                            'flex items-center justify-between px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer select-none transition-all duration-200',
                             checked
-                              ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400 shadow-[inset_0_1px_4px_rgba(16,185,129,0.05)]'
-                              : 'bg-white/[0.01] border-white/[0.04] text-slate-400 hover:bg-white/[0.03] hover:text-slate-200'
+                              ? 'bg-positive-500/10 border-positive-500/25 text-positive-400'
+                              : 'bg-foreground/[0.01] border-foreground/[0.04] text-neutral-400 hover:bg-foreground/[0.03] hover:text-neutral-200'
                           )}
                         >
                           <span>{formattedLabel}</span>
@@ -407,7 +410,7 @@ export default function MacroIntel() {
                             />
                             <div className={cn(
                               'w-3.5 h-3.5 rounded flex items-center justify-center border transition-all duration-150',
-                              checked ? 'bg-emerald-500 border-emerald-400 text-black' : 'border-slate-600'
+                              checked ? 'bg-positive-600 border-positive-400 text-white' : 'border-neutral-600'
                             )}>
                               {checked && <Check className="w-2.5 h-2.5 stroke-[4px]" />}
                             </div>
@@ -418,15 +421,15 @@ export default function MacroIntel() {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-white/[0.04] text-[9px] text-slate-500 leading-normal font-mono">
+                <div className="pt-3 border-t border-foreground/[0.04] text-[11px] text-neutral-500 leading-normal font-mono">
                   Toggle overlays to instantly compile and project strategic risk coordinates.
                 </div>
               </div>
 
               {/* Map View Frame (col-span-9) */}
-              <div className="md:col-span-9 relative flex items-center justify-center p-3 bg-slate-950/20">
+              <div className="md:col-span-9 relative flex items-center justify-center p-3 bg-neutral-950/20">
                 {/* SVG Dotted Map Background */}
-                <div className="w-full relative aspect-[2/1] bg-[#050816] rounded-xl overflow-hidden border border-white/[0.03] shadow-inner">
+                <div className="w-full relative aspect-[2/1] bg-neutral-950 rounded-xl overflow-hidden border border-foreground/[0.03] shadow-inner">
                   <Image
                     src={`data:image/svg+xml;utf8,${encodeURIComponent(svgMap)}`}
                     className="h-full w-full [mask-image:linear-gradient(to_bottom,transparent,white_10%,white_90%,transparent)] pointer-events-none select-none object-cover opacity-60"
@@ -462,7 +465,7 @@ export default function MacroIntel() {
 
                     {activeNodes.map((node) => {
                       const { x, y } = projectPoint(node.lat, node.lng);
-                      const color = node.risk === 'high' ? '#EF4444' : node.risk === 'elevated' ? '#F59E0B' : '#10B981';
+                      const color = node.risk === 'high' ? 'rgb(var(--negative-400))' : node.risk === 'elevated' ? 'rgb(var(--warning-400))' : 'rgb(var(--positive-400))';
                       const isSelected = selectedNode?.id === node.id;
 
                       return (
@@ -560,24 +563,24 @@ export default function MacroIntel() {
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: 'easeOut' as const }}
-                        className="absolute bg-[#090e1f]/95 border border-white/[0.1] rounded-xl p-3 shadow-2xl backdrop-blur-md z-30 max-w-[220px] pointer-events-none"
+                        className="absolute bg-neutral-900/95 border border-foreground/[0.1] rounded-xl p-3 shadow-2xl z-30 max-w-[220px] pointer-events-none"
                         style={{
                           left: `${Math.min(projectPoint(hoveredNode.lat, hoveredNode.lng).x / 800 * 100, 75)}%`,
                           top: `${Math.min(projectPoint(hoveredNode.lat, hoveredNode.lng).y / 400 * 100, 70)}%`
                         }}
                       >
-                        <div className="flex items-center justify-between gap-2 border-b border-white/[0.05] pb-1.5 mb-1.5">
-                          <span className="text-[10px] font-bold text-white uppercase truncate">{hoveredNode.label}</span>
+                        <div className="flex items-center justify-between gap-2 border-b border-foreground/[0.05] pb-1.5 mb-1.5">
+                          <span className="text-[11px] font-bold text-foreground truncate">{hoveredNode.label}</span>
                           <span className={cn(
-                            'text-[8px] font-bold px-1.5 py-0.5 rounded border tracking-wide uppercase',
-                            hoveredNode.risk === 'high' ? 'bg-red-500/10 border-red-500/30 text-red-400' :
-                            hoveredNode.risk === 'elevated' ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
-                            'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                            'text-[11px] font-bold px-1.5 py-0.5 rounded border',
+                            hoveredNode.risk === 'high' ? 'bg-negative-500/10 border-negative-500/30 text-negative-400' :
+                            hoveredNode.risk === 'elevated' ? 'bg-warning-500/10 border-warning-500/30 text-warning-400' :
+                            'bg-positive-500/10 border-positive-500/30 text-positive-400'
                           )}>
                             {hoveredNode.risk}
                           </span>
                         </div>
-                        <div className="text-[9px] text-slate-400 font-mono leading-relaxed">
+                        <div className="text-[11px] text-neutral-400 font-mono leading-relaxed">
                           {hoveredNode.name}
                         </div>
                       </motion.div>
@@ -586,30 +589,30 @@ export default function MacroIntel() {
                 </div>
 
                 {/* Floating legend at bottom center of map container */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#090e1a]/90 border border-white/[0.06] rounded-xl px-4 py-2 backdrop-blur-md z-20 flex items-center gap-4 text-[9px] font-mono text-slate-400 select-none shadow-lg">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-max max-w-[calc(100%-1.5rem)] bg-neutral-950/90 border border-foreground/[0.06] rounded-xl px-4 py-2 z-20 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] font-mono text-neutral-400 select-none shadow-lg">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-negative-500" />
                     <span>High Alert</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#F59E0B] animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-warning-500" />
                     <span>Elevated</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-positive-500" />
                     <span>Monitoring</span>
                   </div>
-                  <div className="h-3 w-px bg-white/[0.1]" />
+                  <div className="h-3 w-px bg-foreground/[0.1]" />
                   <div className="flex items-center gap-1.5">
-                    <span className="w-0.5 h-0.5 bg-slate-400" />
+                    <span className="w-0.5 h-0.5 bg-neutral-400" />
                     <span>▲ Base</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-0.5 h-0.5 bg-slate-400" />
+                    <span className="w-0.5 h-0.5 bg-neutral-400" />
                     <span>■ Datacenter</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-0.5 h-0.5 bg-slate-400" />
+                    <span className="w-0.5 h-0.5 bg-neutral-400" />
                     <span>◈ Strategic Sites</span>
                   </div>
                 </div>
@@ -617,30 +620,30 @@ export default function MacroIntel() {
             </div>
 
             {/* Selected Node Details Box (Bloomberg detailed layout bottom) */}
-            <div className="p-4 border-t border-white/[0.06] bg-black/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="p-4 border-t border-foreground/[0.06] bg-neutral-950/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Active Coordinate Focus:</span>
+                  <span className="text-[11px] text-neutral-400 font-bold">Active Coordinate Focus:</span>
                   {selectedNode && (
                     <span className={cn(
-                      'text-[9px] font-extrabold px-2 py-0.5 rounded border uppercase',
-                      selectedNode.risk === 'high' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
-                      selectedNode.risk === 'elevated' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                      'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                      'text-[11px] font-bold px-2 py-0.5 rounded border',
+                      selectedNode.risk === 'high' ? 'bg-negative-500/10 border-negative-500/20 text-negative-400' :
+                      selectedNode.risk === 'elevated' ? 'bg-warning-500/10 border-warning-500/20 text-warning-400' :
+                      'bg-positive-500/10 border-positive-500/20 text-positive-400'
                     )}>
                       {selectedNode.type} — {selectedNode.risk} risk
                     </span>
                   )}
                 </div>
                 {selectedNode ? (
-                  <h3 className="text-[13px] font-bold text-white tracking-wide">{selectedNode.name}</h3>
+                  <h3 className="text-[13px] font-bold text-foreground tracking-wide">{selectedNode.name}</h3>
                 ) : (
-                  <h3 className="text-[13px] font-bold text-slate-500">Select a map coordinate to scope intel</h3>
+                  <h3 className="text-[13px] font-bold text-neutral-500">Select a map coordinate to scope intel</h3>
                 )}
               </div>
 
               {selectedNode && (
-                <div className="text-[10px] text-slate-400 max-w-xl bg-purple-500/5 border border-purple-500/10 rounded-xl p-3 flex-1">
+                <div className="text-[11px] text-neutral-400 max-w-xl bg-brand-500/5 border border-brand-500/10 rounded-xl p-3 flex-1">
                   {selectedNode.desc}
                 </div>
               )}
@@ -655,30 +658,29 @@ export default function MacroIntel() {
               <SectionHeader title="Strategic Posture Engine" icon={ShieldAlert} />
               
               {/* DEFCON military visual mode */}
-              <div className="bg-black/35 border border-white/[0.05] rounded-2xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
+              <div className="bg-neutral-950/35 border border-foreground/[0.05] rounded-xl p-4 flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
                 {/* Background grid visual effect */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(139,92,246,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(139,92,246,0.03)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
 
-                <span className="text-[9px] uppercase font-bold tracking-widest text-purple-400 mb-1.5 font-mono">Capital Regime Threat Matrix</span>
+                <span className="text-[11px] font-bold text-brand-400 mb-1.5 font-mono">Capital Regime Threat Matrix</span>
                 
                 {/* Large regime output badge */}
-                <div className="text-3xl font-black tracking-tighter text-red-500 font-mono text-center flex flex-col items-center gap-1">
+                <div className="text-3xl font-bold tracking-tighter text-negative-400 font-mono text-center flex flex-col items-center gap-1">
                   <span>RISK OFF</span>
-                  <span className="text-[10px] font-semibold text-slate-400 tracking-wide mt-1 uppercase">Confidence Level: 83%</span>
+                  <span className="text-[11px] font-semibold text-neutral-400 mt-1">Confidence Level: 83%</span>
                 </div>
 
                 {/* Animated status ring */}
                 <div className="mt-4 flex items-center justify-center relative">
-                  <div className="w-20 h-20 rounded-full border-2 border-red-500/20 border-t-red-500 animate-spin" />
-                  <div className="absolute inset-2 rounded-full border border-dashed border-red-500/30 flex items-center justify-center">
-                    <span className="text-xs font-mono font-black text-red-400">DEFCON 4</span>
+                  <div className="w-20 h-20 rounded-full border-2 border-negative-500/20 border-t-negative-500 animate-spin" />
+                  <div className="absolute inset-2 rounded-full border border-dashed border-negative-500/30 flex items-center justify-center">
+                    <span className="text-xs font-mono font-bold text-negative-400">DEFCON 4</span>
                   </div>
                 </div>
               </div>
 
               {/* Driver checklists showing how they support the regime */}
               <div className="space-y-2">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Posture Regime Drivers:</div>
+                <div className="text-[11px] font-bold text-neutral-400 mb-2">Posture Regime Drivers:</div>
                 
                 <div className="grid grid-cols-2 gap-2 font-mono">
                   {[
@@ -692,20 +694,20 @@ export default function MacroIntel() {
                     <div
                       key={i}
                       className={cn(
-                        'flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-medium transition-all duration-200',
+                        'flex items-center gap-2 px-3 py-2 rounded-xl border text-[11px] font-medium transition-all duration-200',
                         drv.active
-                          ? 'bg-red-500/5 border-red-500/20 text-red-400'
-                          : 'bg-white/[0.01] border-white/[0.04] text-slate-500'
+                          ? 'bg-negative-500/5 border-negative-500/20 text-negative-400'
+                          : 'bg-foreground/[0.01] border-foreground/[0.04] text-neutral-500'
                       )}
                     >
                       {drv.active ? (
-                        <Check className="w-3.5 h-3.5 stroke-[3px] text-red-500 flex-shrink-0" />
+                        <Check className="w-3.5 h-3.5 stroke-[3px] text-negative-400 flex-shrink-0" />
                       ) : (
-                        <X className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                        <X className="w-3.5 h-3.5 text-neutral-500 flex-shrink-0" />
                       )}
                       <div>
                         <div className="font-bold">{drv.label}</div>
-                        <div className="text-[8px] text-slate-500 mt-0.5">{drv.desc}</div>
+                        <div className="text-[11px] text-neutral-500 mt-0.5">{drv.desc}</div>
                       </div>
                     </div>
                   ))}
@@ -713,10 +715,10 @@ export default function MacroIntel() {
               </div>
             </div>
 
-            <div className="bg-purple-500/5 border border-purple-500/10 rounded-2xl p-3.5 text-[10px] leading-relaxed text-slate-400 flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-purple-400 flex-shrink-0 mt-0.5" />
+            <div className="bg-brand-500/5 border border-brand-500/10 rounded-xl p-3.5 text-[11px] leading-relaxed text-neutral-400 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-brand-400 flex-shrink-0 mt-0.5" />
               <div>
-                <strong className="text-purple-300 font-bold block mb-1">Outlook Regime Transition:</strong>
+                <strong className="text-brand-300 font-bold block mb-1">Outlook Regime Transition:</strong>
                 Capital allocation suggests elevated protective buying in yields and safe-havens, leading to high correlation pressures across equity index assets.
               </div>
             </div>
@@ -733,26 +735,26 @@ export default function MacroIntel() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {[
-            { label: 'Geopolitical Risk', score: 67, trend: '+4%', level: 'Elevated', color: 'text-amber-400', progressColor: 'bg-amber-500' },
-            { label: 'Oil Disruption Risk', score: 42, trend: '-2%', level: 'Moderate', color: 'text-yellow-400', progressColor: 'bg-yellow-500' },
-            { label: 'Inflation Pressure', score: 55, trend: '+1%', level: 'Elevated', color: 'text-amber-400', progressColor: 'bg-amber-500' },
-            { label: 'Liquidity Stress', score: 31, trend: '-0.5%', level: 'Stable', color: 'text-emerald-400', progressColor: 'bg-emerald-500' },
-            { label: 'Currency Stress', score: 48, trend: '+3%', level: 'Moderate', color: 'text-yellow-400', progressColor: 'bg-yellow-500' },
-            { label: 'AI Confidence Index', score: 81, trend: '+5%', level: 'Optimal', color: 'text-purple-400', progressColor: 'bg-purple-500' },
+            { label: 'Geopolitical Risk', score: 67, trend: '+4%', level: 'Elevated', color: 'text-warning-400', progressColor: 'bg-warning-500' },
+            { label: 'Oil Disruption Risk', score: 42, trend: '-2%', level: 'Moderate', color: 'text-warning-400', progressColor: 'bg-warning-500' },
+            { label: 'Inflation Pressure', score: 55, trend: '+1%', level: 'Elevated', color: 'text-warning-400', progressColor: 'bg-warning-500' },
+            { label: 'Liquidity Stress', score: 31, trend: '-0.5%', level: 'Stable', color: 'text-positive-400', progressColor: 'bg-positive-500' },
+            { label: 'Currency Stress', score: 48, trend: '+3%', level: 'Moderate', color: 'text-warning-400', progressColor: 'bg-warning-500' },
+            { label: 'AI Confidence Index', score: 81, trend: '+5%', level: 'Optimal', color: 'text-brand-400', progressColor: 'bg-brand-500' },
           ].map((item, idx) => (
-            <GlassCard key={idx} className="space-y-4 hover:shadow-[0_10px_30px_rgba(139,92,246,0.05)] border-white/[0.06]">
+            <GlassCard key={idx} className="space-y-4 border-foreground/[0.06]">
               <div className="flex items-center justify-between gap-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{item.label}</span>
-                <span className="text-[9px] font-mono text-slate-500">{item.trend}</span>
+                <span className="text-[11px] font-bold text-neutral-400 truncate">{item.label}</span>
+                <span className="text-[11px] font-mono text-neutral-500">{item.trend}</span>
               </div>
 
               <div className="flex items-baseline justify-between">
-                <span className="text-3xl font-black font-mono tracking-tight">{item.score}</span>
-                <span className={cn('text-[9px] font-bold uppercase tracking-wider', item.color)}>{item.level}</span>
+                <span className="text-3xl font-bold font-mono tracking-tight">{item.score}</span>
+                <span className={cn('text-[11px] font-bold', item.color)}>{item.level}</span>
               </div>
 
               {/* Progress bar */}
-              <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden">
+              <div className="h-1.5 w-full bg-foreground/[0.04] rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${item.score}%` }}
@@ -776,10 +778,10 @@ export default function MacroIntel() {
             <div className="space-y-3 flex-1">
               <div className="flex items-center justify-between">
                 <SectionHeader title="AI Macro News Radar" icon={Flame} live />
-                <span className="text-[8px] font-mono text-slate-500 uppercase">Updates via Tavily AI</span>
+                <span className="text-[11px] font-mono text-neutral-500">Updates via Tavily AI</span>
               </div>
 
-              <div className="space-y-3 divide-y divide-white/[0.05]">
+              <div className="space-y-3 divide-y divide-foreground/[0.05]">
                 {[
                   {
                     cat: 'FED',
@@ -813,23 +815,23 @@ export default function MacroIntel() {
                   <div key={i} className={cn('pt-3 first:pt-0 space-y-1.5')}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-bold font-mono tracking-widest text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-bold font-mono tracking-widest text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded">
                           {news.cat}
                         </span>
                         <span className={cn(
-                          'text-[8px] font-extrabold px-1.5 py-0.5 rounded tracking-wide border',
-                          news.impact === 'HIGH' ? 'bg-red-500/15 border-red-500/20 text-red-400' : 'bg-amber-500/15 border-amber-500/20 text-amber-400'
+                          'text-[11px] font-bold px-1.5 py-0.5 rounded tracking-wide border',
+                          news.impact === 'HIGH' ? 'bg-negative-500/15 border-negative-500/20 text-negative-400' : 'bg-warning-500/15 border-warning-500/20 text-warning-400'
                         )}>
                           IMPACT: {news.impact}
                         </span>
                       </div>
-                      <span className="text-[9px] font-mono text-slate-500">Conf: {news.conf}</span>
+                      <span className="text-[11px] font-mono text-neutral-500">Conf: {news.conf}</span>
                     </div>
 
-                    <h4 className="text-[11.5px] font-bold text-white tracking-wide leading-snug">
+                    <h4 className="text-[11.5px] font-bold text-foreground tracking-wide leading-snug">
                       {news.title}
                     </h4>
-                    <p className="text-[10px] text-slate-400 leading-normal">
+                    <p className="text-[11px] text-neutral-400 leading-normal">
                       {news.desc}
                     </p>
                   </div>
@@ -837,9 +839,8 @@ export default function MacroIntel() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-white/[0.06] text-[9.5px] text-purple-300 font-mono flex items-center justify-between">
+            <div className="pt-3 border-t border-foreground/[0.06] text-2xs text-brand-300 font-mono flex items-center justify-between">
               <span>Aggregation cycle active</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
             </div>
           </GlassCard>
         </motion.div>
@@ -852,44 +853,44 @@ export default function MacroIntel() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-white/[0.06] text-[9px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+                  <tr className="border-b border-foreground/[0.06] text-[11px] font-bold text-neutral-500 font-mono">
                     <th className="pb-2">Country</th>
                     <th className="pb-2 text-center">Score</th>
                     <th className="pb-2 text-center">Trend</th>
                     <th className="pb-2 text-right">Stress Sub-scores</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04] text-[11px] font-medium font-mono">
+                <tbody className="divide-y divide-foreground/[0.04] text-[11px] font-medium font-mono">
                   {[
-                    { name: 'Iran', score: 86, trend: '+16', color: 'text-red-400', u: 100, s: 50, i: 80 },
-                    { name: 'Ukraine', score: 82, trend: '+15', color: 'text-red-400', u: 96, s: 50, i: 44 },
-                    { name: 'Russia', score: 73, trend: '+24', color: 'text-red-400', u: 70, s: 50, i: 80 },
-                    { name: 'China', score: 75, trend: '+22', color: 'text-red-400', u: 70, s: 50, i: 90 },
-                    { name: 'Taiwan', score: 68, trend: '+10', color: 'text-amber-400', u: 30, s: 10, i: 20 },
-                    { name: 'South Korea', score: 31, trend: '-2', color: 'text-emerald-400', u: 25, s: 5, i: 15 },
-                    { name: 'Japan', score: 24, trend: '-1', color: 'text-emerald-400', u: 10, s: 0, i: 18 },
-                    { name: 'India', score: 18, trend: '+2', color: 'text-emerald-400', u: 15, s: 0, i: 10 },
-                    { name: 'USA', score: 12, trend: '-3', color: 'text-emerald-400', u: 20, s: 0, i: 8 },
+                    { name: 'Iran', score: 86, trend: '+16', color: 'text-negative-400', u: 100, s: 50, i: 80 },
+                    { name: 'Ukraine', score: 82, trend: '+15', color: 'text-negative-400', u: 96, s: 50, i: 44 },
+                    { name: 'Russia', score: 73, trend: '+24', color: 'text-negative-400', u: 70, s: 50, i: 80 },
+                    { name: 'China', score: 75, trend: '+22', color: 'text-negative-400', u: 70, s: 50, i: 90 },
+                    { name: 'Taiwan', score: 68, trend: '+10', color: 'text-warning-400', u: 30, s: 10, i: 20 },
+                    { name: 'South Korea', score: 31, trend: '-2', color: 'text-positive-400', u: 25, s: 5, i: 15 },
+                    { name: 'Japan', score: 24, trend: '-1', color: 'text-positive-400', u: 10, s: 0, i: 18 },
+                    { name: 'India', score: 18, trend: '+2', color: 'text-positive-400', u: 15, s: 0, i: 10 },
+                    { name: 'USA', score: 12, trend: '-3', color: 'text-positive-400', u: 20, s: 0, i: 8 },
                   ].map((country, idx) => {
                     const isHigh = country.score >= 70;
                     const isElevated = country.score >= 40 && country.score < 70;
                     return (
-                      <tr key={idx} className="group hover:bg-white/[0.02] transition-colors">
-                        <td className="py-2.5 font-bold text-white">{country.name}</td>
+                      <tr key={idx} className="group hover:bg-foreground/[0.02] transition-colors">
+                        <td className="py-2.5 font-bold text-foreground">{country.name}</td>
                         <td className="py-2.5 text-center">
                           <span className={cn(
-                            'font-bold px-1.5 py-0.5 rounded text-[10px]',
-                            isHigh ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                            isElevated ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            'font-bold px-1.5 py-0.5 rounded text-[11px]',
+                            isHigh ? 'bg-negative-500/10 text-negative-400 border border-negative-500/20' :
+                            isElevated ? 'bg-warning-500/10 text-warning-400 border border-warning-500/20' :
+                            'bg-positive-500/10 text-positive-400 border border-positive-500/20'
                           )}>
                             {country.score}
                           </span>
                         </td>
-                        <td className={cn('py-2.5 text-center font-bold text-[10px]', country.trend.startsWith('+') ? 'text-red-400' : 'text-emerald-400')}>
+                        <td className={cn('py-2.5 text-center font-bold text-[11px]', country.trend.startsWith('+') ? 'text-negative-400' : 'text-positive-400')}>
                           {country.trend}
                         </td>
-                        <td className="py-2.5 text-right text-[9px] text-slate-500 group-hover:text-slate-300 transition-colors">
+                        <td className="py-2.5 text-right text-[11px] text-neutral-500 group-hover:text-neutral-300 transition-colors">
                           U:{country.u} S:{country.s} I:{country.i}
                         </td>
                       </tr>
@@ -907,7 +908,7 @@ export default function MacroIntel() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <SectionHeader title="Cross Asset Monitor" icon={Globe} live />
-                <span className="text-[8px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded animate-pulse">TICKS ACTIVE</span>
+                <span className="text-[11px] font-mono text-positive-400 bg-positive-500/10 px-1.5 py-0.5 rounded animate-pulse">TICKS ACTIVE</span>
               </div>
 
               <div className="grid grid-cols-1 gap-2.5 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin">
@@ -916,15 +917,15 @@ export default function MacroIntel() {
                   return (
                     <div
                       key={asset.symbol}
-                      className="flex items-center justify-between p-2.5 rounded-xl border border-white/[0.04] bg-white/[0.01] hover:bg-white/[0.03] hover:border-white/[0.07] transition-all font-mono"
+                      className="flex items-center justify-between p-2.5 rounded-xl border border-foreground/[0.04] bg-foreground/[0.01] hover:bg-foreground/[0.03] hover:border-foreground/[0.07] transition-all font-mono"
                     >
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] font-black text-white">{asset.symbol}</span>
-                          <span className="text-[8px] text-slate-500 truncate max-w-[80px]">{asset.name}</span>
+                          <span className="text-[11px] font-bold text-foreground">{asset.symbol}</span>
+                          <span className="text-[11px] text-neutral-500 truncate max-w-[80px]">{asset.name}</span>
                         </div>
-                        <div className="text-[9px] text-slate-400">
-                          Risk Index: <span className={cn('font-bold', asset.risk > 50 ? 'text-red-400' : 'text-slate-300')}>{asset.risk}</span>
+                        <div className="text-[11px] text-neutral-400">
+                          Risk Index: <span className={cn('font-bold', asset.risk > 50 ? 'text-negative-400' : 'text-neutral-300')}>{asset.risk}</span>
                         </div>
                       </div>
 
@@ -932,10 +933,10 @@ export default function MacroIntel() {
                         <Sparkline data={asset.sparkline} positive={positive} />
 
                         <div className="text-right">
-                          <div className="text-[11.5px] font-bold text-white tabular-nums">
+                          <div className="text-[11.5px] font-bold text-foreground tabular-nums">
                             {asset.price.toLocaleString(undefined, { minimumFractionDigits: asset.symbol === 'US10Y' ? 3 : 2 })}
                           </div>
-                          <div className={cn('text-[9px] font-bold tabular-nums', positive ? 'text-emerald-400' : 'text-red-400')}>
+                          <div className={cn('text-[11px] font-bold tabular-nums', positive ? 'text-positive-400' : 'text-negative-400')}>
                             {positive ? '+' : ''}{asset.changePct.toFixed(2)}%
                           </div>
                         </div>
@@ -946,7 +947,7 @@ export default function MacroIntel() {
               </div>
             </div>
 
-            <div className="pt-2 text-[9px] text-slate-500 leading-normal border-t border-white/[0.06] font-mono">
+            <div className="pt-2 text-[11px] text-neutral-500 leading-normal border-t border-foreground/[0.06] font-mono">
               Frictional fluctuations computed directly from global indices pipelines.
             </div>
           </GlassCard>
@@ -963,87 +964,86 @@ export default function MacroIntel() {
         <motion.div {...fadeUp(0.35)}>
           <GlassCard hover={false} className="space-y-4">
             <SectionHeader title="Macro Heat Engine (Capital Flow)" icon={Activity} />
-            <div className="text-[10px] text-slate-400 leading-relaxed -mt-2">
+            <div className="text-[11px] text-neutral-400 leading-relaxed -mt-2">
               Visualizes real-time rotation directions. Animated particles illustrate current capital velocity between asset groups.
             </div>
 
-            <div className="border border-white/[0.06] rounded-2xl p-5 bg-black/35 relative overflow-hidden flex items-center justify-center min-h-[220px]">
+            <div className="border border-foreground/[0.06] rounded-xl p-5 bg-neutral-950/35 relative overflow-hidden flex items-center justify-center min-h-[220px]">
               
               {/* Grid backdrop */}
-              <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
 
               <svg viewBox="0 0 400 200" className="w-full max-w-[500px] h-auto z-10 overflow-visible">
                 {/* Node Definitions & coordinates mapping */}
-                <g className="font-mono text-[9px] font-bold">
+                <g className="font-mono text-[11px] font-bold">
                   {/* Stocks Node */}
                   <g transform="translate(50, 40)" className="cursor-pointer">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#090E1F" stroke="#8B5CF6" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--card))" stroke="rgb(var(--brand-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">STOCKS</text>
                   </g>
                   {/* Bonds Node */}
                   <g transform="translate(150, 40)">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#090E1F" stroke="#8B5CF6" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--card))" stroke="rgb(var(--brand-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">BONDS</text>
                   </g>
                   {/* Tech Node */}
                   <g transform="translate(250, 40)">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#090E1F" stroke="#EF4444" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--card))" stroke="rgb(var(--negative-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">TECH</text>
                   </g>
                   {/* Energy Node */}
                   <g transform="translate(350, 40)">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#090E1F" stroke="#EF4444" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--card))" stroke="rgb(var(--negative-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">ENERGY</text>
                   </g>
 
                   {/* Gold Node */}
                   <g transform="translate(50, 160)">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#090E1F" stroke="#F59E0B" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--card))" stroke="rgb(var(--warning-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">GOLD</text>
                   </g>
                   {/* Safe Haven Node */}
                   <g transform="translate(150, 160)">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#090E1F" stroke="#F59E0B" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--card))" stroke="rgb(var(--warning-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">SAFE HAVEN</text>
                   </g>
                   {/* Crypto Node */}
                   <g transform="translate(250, 160)">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#10B981" stroke="#10B981" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--positive-400))" stroke="rgb(var(--positive-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">CRYPTO</text>
                   </g>
                   {/* Risk-On Node */}
                   <g transform="translate(350, 160)">
-                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="#10B981" stroke="#10B981" strokeWidth="1.2" />
+                    <rect x="-35" y="-12" width="70" height="24" rx="6" fill="rgb(var(--positive-400))" stroke="rgb(var(--positive-400))" strokeWidth="1.2" />
                     <text x="0" y="3" fill="#FFF" textAnchor="middle">RISK ON</text>
                   </g>
                 </g>
 
                 {/* Flow lines with arrows and running dash arrays */}
                 {/* 1. Stocks to Bonds: M 85 40 H 115 */}
-                <path d="M 85 40 L 115 40" fill="none" stroke="rgba(139, 92, 246, 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-purple)" strokeDasharray="3, 3" />
+                <path d="M 85 40 L 115 40" fill="none" stroke="rgb(var(--brand-500) / 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-purple)" strokeDasharray="3, 3" />
                 
                 {/* 2. Tech to Energy: M 285 40 H 315 */}
-                <path d="M 285 40 L 315 40" fill="none" stroke="rgba(239, 68, 68, 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-red)" strokeDasharray="3, 3" />
+                <path d="M 285 40 L 315 40" fill="none" stroke="rgb(var(--negative-500) / 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-red)" strokeDasharray="3, 3" />
 
                 {/* 3. Gold ← Safe Haven (Reverse direction flow): M 115 160 L 85 160 */}
-                <path d="M 115 160 L 85 160" fill="none" stroke="rgba(245, 158, 11, 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-yellow)" strokeDasharray="3, 3" />
+                <path d="M 115 160 L 85 160" fill="none" stroke="rgb(var(--warning-500) / 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-yellow)" strokeDasharray="3, 3" />
 
                 {/* 4. Crypto ← Risk On: M 315 160 L 285 160 */}
-                <path d="M 315 160 L 285 160" fill="none" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-green)" strokeDasharray="3, 3" />
+                <path d="M 315 160 L 285 160" fill="none" stroke="rgb(var(--positive-500) / 0.4)" strokeWidth="1.75" markerEnd="url(#arrow-green)" strokeDasharray="3, 3" />
 
                 {/* Arrow markers definitions */}
                 <defs>
                   <marker id="arrow-purple" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 2 L 8 5 L 0 8 z" fill="#8B5CF6" />
+                    <path d="M 0 2 L 8 5 L 0 8 z" fill="rgb(var(--brand-400))" />
                   </marker>
                   <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 2 L 8 5 L 0 8 z" fill="#EF4444" />
+                    <path d="M 0 2 L 8 5 L 0 8 z" fill="rgb(var(--negative-400))" />
                   </marker>
                   <marker id="arrow-yellow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 2 L 8 5 L 0 8 z" fill="#F59E0B" />
+                    <path d="M 0 2 L 8 5 L 0 8 z" fill="rgb(var(--warning-400))" />
                   </marker>
                   <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                    <path d="M 0 2 L 8 5 L 0 8 z" fill="#10B981" />
+                    <path d="M 0 2 L 8 5 L 0 8 z" fill="rgb(var(--positive-400))" />
                   </marker>
                 </defs>
 
@@ -1051,41 +1051,41 @@ export default function MacroIntel() {
                 {/* Stocks to Bonds particle */}
                 <motion.circle
                   r="3.5"
-                  fill="#8B5CF6"
+                  fill="rgb(var(--brand-400))"
                   initial={{ offsetDistance: "0%" }}
                   animate={{ offsetDistance: "100%" }}
                   transition={{ duration: 2.2, repeat: Infinity, ease: 'linear' as const }}
-                  style={{ offsetPath: "path('M 85 40 L 115 40')", filter: 'drop-shadow(0 0 4px #8B5CF6)' }}
+                  style={{ offsetPath: "path('M 85 40 L 115 40')", filter: 'drop-shadow(0 0 4px rgb(var(--brand-500)))' }}
                 />
 
                 {/* Tech to Energy particle */}
                 <motion.circle
                   r="3.5"
-                  fill="#EF4444"
+                  fill="rgb(var(--negative-400))"
                   initial={{ offsetDistance: "0%" }}
                   animate={{ offsetDistance: "100%" }}
                   transition={{ duration: 1.8, repeat: Infinity, ease: 'linear' as const }}
-                  style={{ offsetPath: "path('M 285 40 L 315 40')", filter: 'drop-shadow(0 0 4px #EF4444)' }}
+                  style={{ offsetPath: "path('M 285 40 L 315 40')", filter: 'drop-shadow(0 0 4px rgb(var(--negative-500)))' }}
                 />
 
                 {/* Gold ← Safe Haven particle */}
                 <motion.circle
                   r="3.5"
-                  fill="#F59E0B"
+                  fill="rgb(var(--warning-400))"
                   initial={{ offsetDistance: "0%" }}
                   animate={{ offsetDistance: "100%" }}
                   transition={{ duration: 2.8, repeat: Infinity, ease: 'linear' as const }}
-                  style={{ offsetPath: "path('M 115 160 L 85 160')", filter: 'drop-shadow(0 0 4px #F59E0B)' }}
+                  style={{ offsetPath: "path('M 115 160 L 85 160')", filter: 'drop-shadow(0 0 4px rgb(var(--warning-500)))' }}
                 />
 
                 {/* Crypto ← Risk On particle */}
                 <motion.circle
                   r="3.5"
-                  fill="#10B981"
+                  fill="rgb(var(--positive-400))"
                   initial={{ offsetDistance: "0%" }}
                   animate={{ offsetDistance: "100%" }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' as const }}
-                  style={{ offsetPath: "path('M 315 160 L 285 160')", filter: 'drop-shadow(0 0 4px #10B981)' }}
+                  style={{ offsetPath: "path('M 315 160 L 285 160')", filter: 'drop-shadow(0 0 4px rgb(var(--positive-500)))' }}
                 />
 
               </svg>
@@ -1102,22 +1102,22 @@ export default function MacroIntel() {
               
               {/* Today column */}
               <div className="space-y-3">
-                <div className="text-[10px] font-extrabold uppercase text-purple-400 tracking-wider font-mono border-b border-purple-500/20 pb-1 mb-2">
+                <div className="text-[11px] font-bold text-brand-400 font-mono border-b border-brand-500/20 pb-1 mb-2">
                   Today
                 </div>
 
                 <div className="space-y-2.5">
                   {[
-                    { time: '08:30', name: 'CPI Inflation Report', impact: 'HIGH', impactColor: 'bg-red-500 text-black' },
-                    { time: '14:00', name: 'FOMC Press Statement', impact: 'HIGH', impactColor: 'bg-red-500 text-black' },
-                    { time: '16:15', name: 'NVDA Earnings release', impact: 'HIGH', impactColor: 'bg-red-500 text-black' }
+                    { time: '08:30', name: 'CPI Inflation Report', impact: 'HIGH', impactColor: 'bg-negative-600 text-white' },
+                    { time: '14:00', name: 'FOMC Press Statement', impact: 'HIGH', impactColor: 'bg-negative-600 text-white' },
+                    { time: '16:15', name: 'NVDA Earnings release', impact: 'HIGH', impactColor: 'bg-negative-600 text-white' }
                   ].map((evt, idx) => (
-                    <div key={idx} className="p-3.5 rounded-xl border border-white/[0.04] bg-white/[0.01] flex items-start justify-between gap-3 hover:border-white/[0.08] transition-colors">
+                    <div key={idx} className="p-3.5 rounded-xl border border-foreground/[0.04] bg-foreground/[0.01] flex items-start justify-between gap-3 hover:border-foreground/[0.08] transition-colors">
                       <div className="space-y-1 font-mono">
-                        <span className="text-[9px] font-bold text-slate-500">{evt.time}</span>
-                        <div className="text-[11px] font-bold text-slate-100 leading-snug">{evt.name}</div>
+                        <span className="text-[11px] font-bold text-neutral-500">{evt.time}</span>
+                        <div className="text-[11px] font-bold text-neutral-100 leading-snug">{evt.name}</div>
                       </div>
-                      <span className={cn('text-[8px] font-black px-1.5 py-0.5 rounded tracking-wide uppercase', evt.impactColor)}>
+                      <span className={cn('text-[11px] font-bold px-1.5 py-0.5 rounded', evt.impactColor)}>
                         {evt.impact}
                       </span>
                     </div>
@@ -1127,22 +1127,22 @@ export default function MacroIntel() {
 
               {/* Tomorrow column */}
               <div className="space-y-3">
-                <div className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider font-mono border-b border-white/[0.1] pb-1 mb-2">
+                <div className="text-[11px] font-bold text-neutral-400 font-mono border-b border-foreground/[0.1] pb-1 mb-2">
                   Tomorrow
                 </div>
 
                 <div className="space-y-2.5">
                   {[
-                    { time: '04:30', name: 'ECB Speech (Lagarde)', impact: 'MED', impactColor: 'bg-amber-500/10 text-amber-400 border border-amber-500/20' },
-                    { time: '08:30', name: 'Non-Farm Payrolls (Jobs)', impact: 'HIGH', impactColor: 'bg-red-500 text-black' },
-                    { time: '08:30', name: 'PCE Core Inflation Index', impact: 'HIGH', impactColor: 'bg-red-500 text-black' }
+                    { time: '04:30', name: 'ECB Speech (Lagarde)', impact: 'MED', impactColor: 'bg-warning-500/10 text-warning-400 border border-warning-500/20' },
+                    { time: '08:30', name: 'Non-Farm Payrolls (Jobs)', impact: 'HIGH', impactColor: 'bg-negative-600 text-white' },
+                    { time: '08:30', name: 'PCE Core Inflation Index', impact: 'HIGH', impactColor: 'bg-negative-600 text-white' }
                   ].map((evt, idx) => (
-                    <div key={idx} className="p-3.5 rounded-xl border border-white/[0.04] bg-white/[0.01] flex items-start justify-between gap-3 hover:border-white/[0.08] transition-colors">
+                    <div key={idx} className="p-3.5 rounded-xl border border-foreground/[0.04] bg-foreground/[0.01] flex items-start justify-between gap-3 hover:border-foreground/[0.08] transition-colors">
                       <div className="space-y-1 font-mono">
-                        <span className="text-[9px] font-bold text-slate-500">{evt.time}</span>
-                        <div className="text-[11px] font-bold text-slate-100 leading-snug">{evt.name}</div>
+                        <span className="text-[11px] font-bold text-neutral-500">{evt.time}</span>
+                        <div className="text-[11px] font-bold text-neutral-100 leading-snug">{evt.name}</div>
                       </div>
-                      <span className={cn('text-[8px] font-black px-1.5 py-0.5 rounded tracking-wide uppercase', evt.impactColor)}>
+                      <span className={cn('text-[11px] font-bold px-1.5 py-0.5 rounded', evt.impactColor)}>
                         {evt.impact}
                       </span>
                     </div>
@@ -1160,23 +1160,23 @@ export default function MacroIntel() {
           SECTION 9: AI STRATEGIC OUTLOOK (Large bottom card)
           ─────────────────────────────────────────────────────────────────────── */}
       <motion.div {...fadeUp(0.45)}>
-        <GlassCard hover={false} className="border-purple-500/15 bg-gradient-to-br from-purple-500/[0.03] to-indigo-500/[0.02]">
+        <GlassCard hover={false} className="border-brand-500/15 bg-gradient-to-br from-brand-500/[0.03] to-brand-500/[0.02]">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* Left summary details (col-span-4) */}
             <div className="lg:col-span-4 space-y-4">
               <SectionHeader title="AI Strategic Outlook" icon={Sparkles} />
               
-              <div className="bg-[#090e1f] border border-white/[0.06] rounded-2xl p-5 flex flex-col justify-between h-40">
+              <div className="bg-neutral-900 border border-foreground/[0.06] rounded-xl p-5 flex flex-col justify-between h-40">
                 <div>
-                  <span className="text-[9px] font-mono uppercase font-bold tracking-widest text-slate-400">Projected Regime Bias</span>
-                  <div className="text-3xl font-black text-emerald-400 tracking-tight mt-1 flex items-baseline gap-2">
+                  <span className="text-[11px] font-mono font-bold text-neutral-400">Projected Regime Bias</span>
+                  <div className="text-3xl font-bold text-positive-400 tracking-tight mt-1 flex items-baseline gap-2">
                     <span>BULLISH</span>
-                    <span className="text-xs font-mono font-bold text-slate-400">Confidence: 82%</span>
+                    <span className="text-xs font-mono font-bold text-neutral-400">Confidence: 82%</span>
                   </div>
                 </div>
 
-                <div className="text-[9px] font-mono text-slate-500 leading-normal">
+                <div className="text-[11px] font-mono text-neutral-500 leading-normal">
                   Calculated by integrating macroeconomic factors, oil risk weights, and current central bank messaging variables.
                 </div>
               </div>
@@ -1184,7 +1184,7 @@ export default function MacroIntel() {
 
             {/* Right strategic narrative details (col-span-8) */}
             <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
-              <div className="space-y-2 text-xs md:text-sm text-slate-300 leading-relaxed font-medium">
+              <div className="space-y-2 text-xs md:text-sm text-neutral-300 leading-relaxed font-medium">
                 <p>
                   Markets remain structurally risk-on despite elevated regional shipping channel tensions and temporary defensive reallocation. Leading indices maintain their leadership regimes while bond yields show initial consolidation footprints.
                 </p>
@@ -1193,10 +1193,10 @@ export default function MacroIntel() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-white/[0.05]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-foreground/[0.05]">
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Primary Risk Drivers:</span>
-                  <ul className="text-[10px] text-slate-400 space-y-1.5 font-mono list-disc pl-4">
+                  <span className="text-[11px] font-bold text-neutral-400">Primary Risk Drivers:</span>
+                  <ul className="text-[11px] text-neutral-400 space-y-1.5 font-mono list-disc pl-4">
                     <li>Taiwan semiconductor supply chain bottleneck risks.</li>
                     <li>Suez Canal / Red Sea shipping route diversions.</li>
                     <li>Upcoming FOMC CPI and jobs macro metrics.</li>
@@ -1204,8 +1204,8 @@ export default function MacroIntel() {
                 </div>
 
                 <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Expected Regime Forecast:</span>
-                  <div className="p-3.5 rounded-xl border border-purple-500/10 bg-purple-500/5 text-[10px] text-purple-300 font-mono leading-relaxed">
+                  <span className="text-[11px] font-bold text-neutral-400">Expected Regime Forecast:</span>
+                  <div className="p-3.5 rounded-xl border border-brand-500/10 bg-brand-500/5 text-[11px] text-brand-300 font-mono leading-relaxed">
                     <strong>Risk-On Bias</strong> with moderate volatility clusters. Maintain defensive exposure allocations in safe-havens, scaling semiconductor indices on breakouts.
                   </div>
                 </div>

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import AddToWatchlistModal from "../watchlists/AddToWatchlistModal";
-import { ChevronDown, ChevronRight, Plus, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, SearchX, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -110,40 +110,40 @@ const ltp = (row: StockRow): number | null => row.ltp ?? row.price ?? null;
 // ── Badge Helpers ─────────────────────────────────────────────────────────────
 
 const rsiBadge = (rsi?: number | null) => {
-  if (rsi == null) return "bg-gray-700/50 text-gray-400";
-  if (rsi >= 70) return "bg-red-500/20 text-red-300 border border-red-500/30";
-  if (rsi <= 30) return "bg-green-500/20 text-green-300 border border-green-500/30";
-  return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+  if (rsi == null) return "bg-neutral-700/50 text-neutral-400";
+  if (rsi >= 70) return "bg-negative-500/20 text-negative-300 border border-negative-500/30";
+  if (rsi <= 30) return "bg-positive-500/20 text-positive-300 border border-positive-500/30";
+  return "bg-warning-500/20 text-warning-300 border border-warning-500/30";
 };
 
 const distColor = (v?: number | null) => {
-  if (v == null) return "text-gray-500";
-  if (v > 10) return "text-emerald-400 font-semibold";
-  if (v > 0) return "text-emerald-300";
-  if (v < -10) return "text-red-400 font-semibold";
-  return "text-red-300";
+  if (v == null) return "text-neutral-500";
+  if (v > 10) return "text-positive-400 font-semibold";
+  if (v > 0) return "text-positive-300";
+  if (v < -10) return "text-negative-400 font-semibold";
+  return "text-negative-300";
 };
 
 const retColor = (v?: number | null) =>
-  v == null ? "text-gray-500" : v > 0 ? "text-emerald-400" : v < 0 ? "text-red-400" : "text-gray-400";
+  v == null ? "text-neutral-500" : v > 0 ? "text-positive-400" : v < 0 ? "text-negative-400" : "text-neutral-400";
 
 const fvgStrengthBadge = (s: string) => {
-  if (s === "Strong") return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-  if (s === "Medium") return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
-  return "bg-red-500/20 text-red-300 border border-red-500/30";
+  if (s === "Strong") return "bg-positive-500/20 text-positive-300 border border-positive-500/30";
+  if (s === "Medium") return "bg-warning-500/20 text-warning-300 border border-warning-500/30";
+  return "bg-negative-500/20 text-negative-300 border border-negative-500/30";
 };
 
 const scoreBadge = (score?: number | null) => {
-  if (score == null) return "bg-gray-700/50 text-gray-400";
-  if (score >= 70) return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-  if (score >= 45) return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
-  return "bg-red-500/20 text-red-300 border border-red-500/30";
+  if (score == null) return "bg-neutral-700/50 text-neutral-400";
+  if (score >= 70) return "bg-positive-500/20 text-positive-300 border border-positive-500/30";
+  if (score >= 45) return "bg-warning-500/20 text-warning-300 border border-warning-500/30";
+  return "bg-negative-500/20 text-negative-300 border border-negative-500/30";
 };
 
 const zoneBadge = (zone?: string) => {
-  if (zone === "Discount") return "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-  if (zone === "Premium") return "bg-red-500/20 text-red-300 border border-red-500/30";
-  return "bg-gray-700/50 text-gray-400";
+  if (zone === "Discount") return "bg-positive-500/20 text-positive-300 border border-positive-500/30";
+  if (zone === "Premium") return "bg-negative-500/20 text-negative-300 border border-negative-500/30";
+  return "bg-neutral-700/50 text-neutral-400";
 };
 
 // ── Volume Surge Expanded Panel ───────────────────────────────────────────────
@@ -158,8 +158,8 @@ const SurgeHistoryTable = ({ history, stats }: { history: SurgeStat[]; stats: an
         ["Avg 10D", stats?.avg_10d_return],
         ["Avg 20D", stats?.avg_20d_return],
       ].map(([label, val]) => (
-        <div key={label as string} className="bg-gray-900 rounded p-2">
-          <div className="text-gray-500 text-[10px] mb-0.5">{label}</div>
+        <div key={label as string} className="bg-neutral-900 rounded p-2">
+          <div className="text-neutral-500 text-[11px] mb-0.5">{label}</div>
           <div className={`font-semibold ${retColor(val as number)}`}>{fmtPct(val as number)}</div>
         </div>
       ))}
@@ -171,18 +171,18 @@ const SurgeHistoryTable = ({ history, stats }: { history: SurgeStat[]; stats: an
         ["Max Gain", stats?.max_gain_ever],
         ["Max DD", stats?.max_drawdown_ever],
       ].map(([label, val]) => (
-        <div key={label as string} className="bg-gray-900 rounded p-2">
-          <div className="text-gray-500 text-[10px] mb-0.5">{label}</div>
+        <div key={label as string} className="bg-neutral-900 rounded p-2">
+          <div className="text-neutral-500 text-[11px] mb-0.5">{label}</div>
           <div className={`font-semibold ${retColor(val as number)}`}>{fmtPct(val as number)}</div>
         </div>
       ))}
     </div>
 
     {/* Per-surge history */}
-    <div className="overflow-x-auto rounded border border-gray-800">
+    <div className="overflow-x-auto rounded border border-neutral-800">
       <table className="w-full text-xs">
         <thead>
-          <tr className="bg-gray-800/70 text-gray-400">
+          <tr className="bg-neutral-800/70 text-neutral-400">
             {["Date", "Price", "Ratio", "Day%", "1D", "2D", "3D", "5D", "10D", "20D", "Max↑", "Max↓"].map((h) => (
               <th key={h} className="px-2 py-1.5 text-right first:text-left font-medium">{h}</th>
             ))}
@@ -190,10 +190,10 @@ const SurgeHistoryTable = ({ history, stats }: { history: SurgeStat[]; stats: an
         </thead>
         <tbody>
           {history.map((s, i) => (
-            <tr key={i} className="border-t border-gray-800/60 hover:bg-gray-800/30">
-              <td className="px-2 py-1.5 text-gray-300">{s.surge_date}</td>
+            <tr key={i} className="border-t border-neutral-800/60 hover:bg-neutral-800/30">
+              <td className="px-2 py-1.5 text-neutral-300">{s.surge_date}</td>
               <td className={`px-2 py-1.5 text-right font-mono`}>₹{s.surge_price?.toFixed(0)}</td>
-              <td className="px-2 py-1.5 text-right text-blue-300">{s.volume_ratio?.toFixed(1)}x</td>
+              <td className="px-2 py-1.5 text-right text-brand-300">{s.volume_ratio?.toFixed(1)}x</td>
               <td className={`px-2 py-1.5 text-right ${retColor(s.day_return_pct)}`}>{fmtPct(s.day_return_pct)}</td>
               <td className={`px-2 py-1.5 text-right ${retColor(s.return_1d)}`}>{fmtPct(s.return_1d)}</td>
               <td className={`px-2 py-1.5 text-right ${retColor(s.return_2d)}`}>{fmtPct(s.return_2d)}</td>
@@ -201,8 +201,8 @@ const SurgeHistoryTable = ({ history, stats }: { history: SurgeStat[]; stats: an
               <td className={`px-2 py-1.5 text-right ${retColor(s.return_5d)}`}>{fmtPct(s.return_5d)}</td>
               <td className={`px-2 py-1.5 text-right ${retColor(s.return_10d)}`}>{fmtPct(s.return_10d)}</td>
               <td className={`px-2 py-1.5 text-right ${retColor(s.return_20d)}`}>{fmtPct(s.return_20d)}</td>
-              <td className={`px-2 py-1.5 text-right text-emerald-400`}>{fmtPct(s.max_gain_pct)}</td>
-              <td className={`px-2 py-1.5 text-right text-red-400`}>{fmtPct(s.max_drawdown_pct)}</td>
+              <td className={`px-2 py-1.5 text-right text-positive-400`}>{fmtPct(s.max_gain_pct)}</td>
+              <td className={`px-2 py-1.5 text-right text-negative-400`}>{fmtPct(s.max_drawdown_pct)}</td>
             </tr>
           ))}
         </tbody>
@@ -216,15 +216,15 @@ const SurgeHistoryTable = ({ history, stats }: { history: SurgeStat[]; stats: an
 const FVGExpandedPanel = ({ fvgs, ltp }: { fvgs: FVGZone[]; ltp: number | null }) => (
   <div className="mt-3 space-y-2">
     {fvgs.map((fvg, i) => (
-      <div key={i} className="bg-gray-900 rounded-lg p-3 border border-gray-700/50 flex flex-wrap gap-3 items-center text-xs">
-        <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${fvgStrengthBadge(fvg.strength)}`}>{fvg.strength}</span>
-        <span className="text-gray-400">Zone <span className="text-white font-mono">₹{fvg.gap_low?.toFixed(1)} – ₹{fvg.gap_high?.toFixed(1)}</span></span>
-        <span className="text-gray-400">Gap <span className={scoreBadge(fvg.fvg_score).includes("emerald") ? "text-emerald-300" : "text-yellow-300"}>{fmtPct(fvg.gap_size_pct)}</span></span>
-        <span className="text-gray-400">Mitigated <span className="text-white">{fmt(fvg.mitigation_pct)}%</span></span>
-        <span className="text-gray-400">Dist <span className={distColor(-fvg.distance_pct)}>{fmtPct(fvg.distance_pct)}</span></span>
-        <span className="text-gray-400">Age <span className="text-white">{fvg.age_days}d</span></span>
-        <span className="text-gray-400">Touches <span className="text-white">{fvg.touch_count ?? 0}</span></span>
-        <span className={`ml-auto px-2 py-0.5 rounded text-[10px] border ${scoreBadge(fvg.fvg_score)}`}>Score {fvg.fvg_score}</span>
+      <div key={i} className="bg-neutral-900 rounded-lg p-3 border border-neutral-700/50 flex flex-wrap gap-3 items-center text-xs">
+        <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${fvgStrengthBadge(fvg.strength)}`}>{fvg.strength}</span>
+        <span className="text-neutral-400">Zone <span className="text-foreground font-mono">₹{fvg.gap_low?.toFixed(1)} – ₹{fvg.gap_high?.toFixed(1)}</span></span>
+        <span className="text-neutral-400">Gap <span className={scoreBadge(fvg.fvg_score).includes("emerald") ? "text-positive-300" : "text-warning-300"}>{fmtPct(fvg.gap_size_pct)}</span></span>
+        <span className="text-neutral-400">Mitigated <span className="text-foreground">{fmt(fvg.mitigation_pct)}%</span></span>
+        <span className="text-neutral-400">Dist <span className={distColor(-fvg.distance_pct)}>{fmtPct(fvg.distance_pct)}</span></span>
+        <span className="text-neutral-400">Age <span className="text-foreground">{fvg.age_days}d</span></span>
+        <span className="text-neutral-400">Touches <span className="text-foreground">{fvg.touch_count ?? 0}</span></span>
+        <span className={`ml-auto px-2 py-0.5 rounded text-[11px] border ${scoreBadge(fvg.fvg_score)}`}>Score {fvg.fvg_score}</span>
       </div>
     ))}
   </div>
@@ -237,6 +237,10 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState<StockRow | null>(null);
+  // All hooks must run on every render, so the sort state lives up here and the
+  // loading / empty early returns come only after the last hook (useMemo below).
+  const [sortKey, setSortKey] = useState<string>("");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const toggleExpand = (sym: string) => {
     setExpanded((prev) => {
@@ -251,28 +255,6 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
     setIsModalOpen(true);
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-2 px-1">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="h-12 rounded-lg bg-gray-800/50 animate-pulse" style={{ opacity: 1 - i * 0.12 }} />
-        ))}
-      </div>
-    );
-  }
-
-  if (!rows.length) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-        <div className="w-14 h-14 rounded-full bg-gray-800 flex items-center justify-center text-2xl">🔍</div>
-        <p className="text-gray-400 text-sm">No stocks match your filters.<br />Try widening the conditions.</p>
-      </div>
-    );
-  }
-
-  const [sortKey, setSortKey] = useState<string>("");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-
   const handleSort = (key: string) => {
     if (key === sortKey) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -283,7 +265,7 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
   };
 
   const SortIcon = ({ col }: { col: string }) => (
-    <span className="ml-1 text-gray-500 text-[10px] select-none inline-block">
+    <span className="ml-1 text-neutral-500 text-[11px] select-none inline-block">
       {sortKey === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
     </span>
   );
@@ -318,6 +300,27 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
     });
   }, [rows, sortKey, sortDir]);
 
+  if (isLoading) {
+    return (
+      <div className="space-y-2 px-1" role="status" aria-label="Loading results">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-12 rounded-lg bg-neutral-800/50 animate-pulse" style={{ opacity: 1 - i * 0.12 }} />
+        ))}
+      </div>
+    );
+  }
+
+  if (!rows.length) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+        <div className="w-14 h-14 rounded-full bg-neutral-800 flex items-center justify-center text-neutral-400">
+          <SearchX className="h-6 w-6" aria-hidden />
+        </div>
+        <p className="text-neutral-400 text-sm">No stocks match your filters.<br />Try widening the conditions.</p>
+      </div>
+    );
+  }
+
   // ── Column definitions per mode ─────────────────────────────────────────
 
   const isFVG      = mode === "fvg";
@@ -328,38 +331,38 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
 
   return (
     <>
-      <div className="overflow-x-auto rounded-xl border border-gray-800/60">
+      <div className="overflow-x-auto rounded-xl border border-neutral-800/60">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-800 bg-gray-800/40">
+            <tr className="border-b border-neutral-800 bg-neutral-800/40">
               {canExpand && <th className="w-8" />}
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">#</th>
-              <th onClick={() => handleSort("symbol")} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-neutral-400">#</th>
+              <th onClick={() => handleSort("symbol")} className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                 Symbol <SortIcon col="symbol" />
               </th>
-              <th onClick={() => handleSort("company")} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none">
+              <th onClick={() => handleSort("company")} className="px-4 py-3 text-left text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                 Company <SortIcon col="company" />
               </th>
-              <th onClick={() => handleSort("price")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none">
+              <th onClick={() => handleSort("price")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                 LTP <SortIcon col="price" />
               </th>
 
               {/* Technical columns */}
               {!isFVG && !isSurge && !isMomentum && !isSMC && (
                 <>
-                  <th onClick={() => handleSort("volume")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("volume")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Volume <SortIcon col="volume" />
                   </th>
-                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     RSI <SortIcon col="rsi" />
                   </th>
-                  <th onClick={() => handleSort("ema50d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("ema50d")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     EMA50 Dist <SortIcon col="ema50d" />
                   </th>
-                  <th onClick={() => handleSort("ema200d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("ema200d")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     EMA200 Dist <SortIcon col="ema200d" />
                   </th>
-                  <th onClick={() => handleSort("macd")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("macd")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     MACD <SortIcon col="macd" />
                   </th>
                 </>
@@ -368,80 +371,80 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
               {/* FVG columns */}
               {isFVG && (
                 <>
-                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     RSI <SortIcon col="rsi" />
                   </th>
-                  <th onClick={() => handleSort("fvg_score")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("fvg_score")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     FVG Score <SortIcon col="fvg_score" />
                   </th>
-                  <th onClick={() => handleSort("strength")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("strength")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Strength <SortIcon col="strength" />
                   </th>
-                  <th onClick={() => handleSort("gap_zone")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("gap_zone")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Gap Zone <SortIcon col="gap_zone" />
                   </th>
-                  <th onClick={() => handleSort("dist_fvg")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("dist_fvg")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Dist % <SortIcon col="dist_fvg" />
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Mitigated</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">FVGs</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Mitigated</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">FVGs</th>
                 </>
               )}
 
               {/* Volume Surge columns */}
               {isSurge && (
                 <>
-                  <th onClick={() => handleSort("vol_ratio")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("vol_ratio")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Vol Ratio <SortIcon col="vol_ratio" />
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Avg 1D</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Avg 5D</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Win Rate 1D</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Win Rate 5D</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Surges</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Max Gain</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Avg 1D</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Avg 5D</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Win Rate 1D</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Win Rate 5D</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Surges</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Max Gain</th>
                 </>
               )}
 
               {/* Momentum columns */}
               {isMomentum && (
                 <>
-                  <th onClick={() => handleSort("score")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("score")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Score <SortIcon col="score" />
                   </th>
-                  <th className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase">Category</th>
-                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th className="px-4 py-3 text-left  text-xs font-semibold text-neutral-400">Category</th>
+                  <th onClick={() => handleSort("rsi")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     RSI <SortIcon col="rsi" />
                   </th>
-                  <th onClick={() => handleSort("ema50d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("ema50d")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     EMA50 Dist <SortIcon col="ema50d" />
                   </th>
-                  <th onClick={() => handleSort("ema200d")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("ema200d")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     EMA200 Dist <SortIcon col="ema200d" />
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">RS vs Nifty</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">52W High Dist</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">RS vs Nifty</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">52W High Dist</th>
                 </>
               )}
 
               {/* SMC columns */}
               {isSMC && (
                 <>
-                  <th onClick={() => handleSort("score")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("score")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     SMC Score <SortIcon col="score" />
                   </th>
-                  <th onClick={() => handleSort("event")} className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("event")} className="px-4 py-3 text-left  text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Event <SortIcon col="event" />
                   </th>
-                  <th onClick={() => handleSort("dist_zone")} className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase cursor-pointer hover:text-white transition-colors select-none">
+                  <th onClick={() => handleSort("dist_zone")} className="px-4 py-3 text-right text-xs font-semibold text-neutral-400 cursor-pointer hover:text-foreground transition-colors select-none">
                     Dist to Zone <SortIcon col="dist_zone" />
                   </th>
-                  <th className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase">Zone</th>
-                  <th className="px-4 py-3 text-left  text-xs font-semibold text-gray-400 uppercase">PD Zone</th>
+                  <th className="px-4 py-3 text-left  text-xs font-semibold text-neutral-400">Zone</th>
+                  <th className="px-4 py-3 text-left  text-xs font-semibold text-neutral-400">PD Zone</th>
                 </>
               )}
 
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Action</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-neutral-400">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -456,14 +459,14 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
 
               return (
                 <React.Fragment key={sym || idx}>
-                  <tr className="border-b border-gray-800/50 hover:bg-gray-800/25 transition-colors group">
+                  <tr className="border-b border-neutral-800/50 hover:bg-neutral-800/25 transition-colors group">
                     {canExpand && (
                       <td className="pl-3 pr-1 py-3 w-8">
                         {((isFVG && (item.top_bullish_fvgs?.length ?? 0) > 0) ||
                           (isSurge && (item.surge_history?.length ?? 0) > 0)) && (
                           <button
                             onClick={() => toggleExpand(sym)}
-                            className="text-gray-500 hover:text-white transition-colors"
+                            className="text-neutral-500 hover:text-foreground transition-colors"
                           >
                             {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                           </button>
@@ -472,30 +475,30 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
                     )}
 
                     {/* # */}
-                    <td className="px-4 py-3 text-gray-600 text-xs">{idx + 1}</td>
+                    <td className="px-4 py-3 text-neutral-500 text-xs">{idx + 1}</td>
 
                     {/* Symbol */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-blue-400 tracking-wide">{sym}</span>
+                        <span className="font-bold text-brand-400 tracking-wide">{sym}</span>
                         {item.has_current_surge && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] bg-orange-500/20 text-orange-300 border border-orange-500/30 font-semibold">SURGE</span>
+                          <span className="px-1.5 py-0.5 rounded text-[11px] bg-warning-500/20 text-warning-300 border border-warning-500/30 font-semibold">SURGE</span>
                         )}
                       </div>
                     </td>
 
                     {/* Company */}
-                    <td className="px-4 py-3 text-gray-400 text-xs max-w-[160px] truncate">{item.company_name || "—"}</td>
+                    <td className="px-4 py-3 text-neutral-400 text-xs max-w-[160px] truncate">{item.company_name || "—"}</td>
 
                     {/* LTP */}
-                    <td className="px-4 py-3 text-right font-semibold text-white font-mono">
+                    <td className="px-4 py-3 text-right font-semibold text-foreground font-mono">
                       {price != null ? `₹${price.toFixed(2)}` : "—"}
                     </td>
 
                     {/* Technical */}
                     {!isFVG && !isSurge && !isMomentum && !isSMC && (
                       <>
-                        <td className="px-4 py-3 text-right text-gray-300">{fmtVol(item.volume)}</td>
+                        <td className="px-4 py-3 text-right text-neutral-300">{fmtVol(item.volume)}</td>
                         <td className="px-4 py-3 text-right">
                           {ind.rsi_14 != null ? (
                             <span className={`px-2 py-0.5 rounded text-xs ${rsiBadge(ind.rsi_14)}`}>{fmt(ind.rsi_14)}</span>
@@ -507,7 +510,7 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
                         <td className={`px-4 py-3 text-right text-xs ${distColor(ind.ema_200_dist_pct)}`}>
                           {ind.ema_200_dist_pct != null ? fmtPct(ind.ema_200_dist_pct) : "—"}
                         </td>
-                        <td className={`px-4 py-3 text-right text-xs ${ind.macd != null ? (ind.macd >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-500"}`}>
+                        <td className={`px-4 py-3 text-right text-xs ${ind.macd != null ? (ind.macd >= 0 ? "text-positive-400" : "text-negative-400") : "text-neutral-500"}`}>
                           {fmt(ind.macd)}
                         </td>
                       </>
@@ -528,19 +531,19 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
                         </td>
                         <td className="px-4 py-3 text-right">
                           {nearFvg ? (
-                            <span className={`px-2 py-0.5 rounded text-[10px] border ${fvgStrengthBadge(nearFvg.strength)}`}>{nearFvg.strength}</span>
+                            <span className={`px-2 py-0.5 rounded text-[11px] border ${fvgStrengthBadge(nearFvg.strength)}`}>{nearFvg.strength}</span>
                           ) : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right text-xs font-mono text-gray-300">
+                        <td className="px-4 py-3 text-right text-xs font-mono text-neutral-300">
                           {nearFvg ? `₹${nearFvg.gap_low?.toFixed(0)} – ₹${nearFvg.gap_high?.toFixed(0)}` : "—"}
                         </td>
                         <td className={`px-4 py-3 text-right text-xs ${distColor(nearFvg ? -nearFvg.distance_pct : null)}`}>
                           {nearFvg ? fmtPct(nearFvg.distance_pct) : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right text-xs text-gray-300">
+                        <td className="px-4 py-3 text-right text-xs text-neutral-300">
                           {nearFvg ? `${fmt(nearFvg.mitigation_pct)}%` : "—"}
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-400 text-xs">{item.total_fvgs_bullish ?? "—"}</td>
+                        <td className="px-4 py-3 text-right text-neutral-400 text-xs">{item.total_fvgs_bullish ?? "—"}</td>
                       </>
                     )}
 
@@ -549,15 +552,15 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
                       <>
                         <td className="px-4 py-3 text-right">
                           {item.current_volume_ratio != null ? (
-                            <span className="text-orange-300 font-semibold">{item.current_volume_ratio?.toFixed(1)}x</span>
+                            <span className="text-warning-300 font-semibold">{item.current_volume_ratio?.toFixed(1)}x</span>
                           ) : "—"}
                         </td>
                         <td className={`px-4 py-3 text-right text-xs ${retColor(ss.avg_1d_return as number)}`}>{fmtPct(ss.avg_1d_return as number)}</td>
                         <td className={`px-4 py-3 text-right text-xs ${retColor(ss.avg_5d_return as number)}`}>{fmtPct(ss.avg_5d_return as number)}</td>
-                        <td className="px-4 py-3 text-right text-xs text-gray-300">{ss.win_rate_1d != null ? `${fmt(ss.win_rate_1d as number)}%` : "—"}</td>
-                        <td className="px-4 py-3 text-right text-xs text-gray-300">{ss.win_rate_5d != null ? `${fmt(ss.win_rate_5d as number)}%` : "—"}</td>
-                        <td className="px-4 py-3 text-right text-xs text-gray-400">{ss.total_surges ?? "—"}</td>
-                        <td className="px-4 py-3 text-right text-xs text-emerald-400">{fmtPct(ss.max_gain_ever as number)}</td>
+                        <td className="px-4 py-3 text-right text-xs text-neutral-300">{ss.win_rate_1d != null ? `${fmt(ss.win_rate_1d as number)}%` : "—"}</td>
+                        <td className="px-4 py-3 text-right text-xs text-neutral-300">{ss.win_rate_5d != null ? `${fmt(ss.win_rate_5d as number)}%` : "—"}</td>
+                        <td className="px-4 py-3 text-right text-xs text-neutral-400">{ss.total_surges ?? "—"}</td>
+                        <td className="px-4 py-3 text-right text-xs text-positive-400">{fmtPct(ss.max_gain_ever as number)}</td>
                       </>
                     )}
 
@@ -569,7 +572,7 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
                             {item.momentum_score ?? "—"}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-left text-xs text-gray-300">{item.category || "—"}</td>
+                        <td className="px-4 py-3 text-left text-xs text-neutral-300">{item.category || "—"}</td>
                         <td className="px-4 py-3 text-right">
                           {(item.rsi ?? ind.rsi_14) != null ? (
                             <span className={`px-2 py-0.5 rounded text-xs ${rsiBadge(item.rsi ?? ind.rsi_14)}`}>{fmt(item.rsi ?? ind.rsi_14)}</span>
@@ -600,22 +603,22 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
                         </td>
                         <td className="px-4 py-3 text-left text-xs">
                           {item.structure?.last_bullish_event ? (
-                            <span className={`px-2 py-0.5 rounded text-[10px] border ${
+                            <span className={`px-2 py-0.5 rounded text-[11px] border ${
                               item.structure.last_bullish_event === "BOS"
-                                ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                                : "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                                ? "bg-brand-500/20 text-brand-300 border-brand-500/30"
+                                : "bg-brand-500/20 text-brand-300 border-brand-500/30"
                             }`}>{item.structure.last_bullish_event}</span>
                           ) : "—"}
                         </td>
                         <td className={`px-4 py-3 text-right text-xs ${distColor(nearDmd.distance_pct != null ? -nearDmd.distance_pct : null)}`}>
                           {nearDmd.distance_pct != null ? fmtPct(nearDmd.distance_pct) : "—"}
                         </td>
-                        <td className="px-4 py-3 text-left text-xs font-mono text-gray-300">
+                        <td className="px-4 py-3 text-left text-xs font-mono text-neutral-300">
                           {nearDmd.zone_high ? `₹${nearDmd.zone_low?.toFixed(0)}–${nearDmd.zone_high?.toFixed(0)}` : "—"}
                         </td>
                         <td className="px-4 py-3 text-left">
                           {item.current_zone ? (
-                            <span className={`px-2 py-0.5 rounded text-[10px] border ${zoneBadge(item.current_zone)}`}>{item.current_zone}</span>
+                            <span className={`px-2 py-0.5 rounded text-[11px] border ${zoneBadge(item.current_zone)}`}>{item.current_zone}</span>
                           ) : "—"}
                         </td>
                       </>
@@ -625,7 +628,7 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => handleAdd(item)}
-                        className="inline-flex items-center gap-1 text-xs bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/40 hover:text-white px-3 py-1.5 rounded-lg transition-all"
+                        className="inline-flex items-center gap-1 text-xs bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:bg-brand-600/40 hover:text-foreground px-3 py-1.5 rounded-lg transition-all"
                       >
                         <Plus size={11} />
                         <span>Watch</span>
@@ -635,8 +638,8 @@ export default function ScannerTable({ stocks, data, isLoading, sourceModule = "
 
                   {/* Expanded panel */}
                   {isOpen && (
-                    <tr className="border-b border-gray-800/50">
-                      <td colSpan={99} className="px-6 pb-5 pt-1 bg-gray-800/20">
+                    <tr className="border-b border-neutral-800/50">
+                      <td colSpan={99} className="px-6 pb-5 pt-1 bg-neutral-800/20">
                         {isFVG && item.top_bullish_fvgs && (
                           <FVGExpandedPanel fvgs={item.top_bullish_fvgs} ltp={price} />
                         )}

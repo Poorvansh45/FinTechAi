@@ -21,7 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTradeCapture } from "@/hooks/use-trade-capture";
-import { cn } from "@/lib/utils";
+import { cn, withAlpha } from "@/lib/utils";
 import {
   formatDuration,
   formatMoney,
@@ -234,10 +234,10 @@ function ConfidenceSlider({
     value <= 8 ? "High Confidence" :
     "High Conviction";
   const color =
-    value <= 3 ? "#ef4444" :
-    value <= 6 ? "#f59e0b" :
-    value <= 8 ? "#22c55e" :
-    "#818cf8";
+    value <= 3 ? "rgb(var(--negative-400))" :
+    value <= 6 ? "rgb(var(--warning-400))" :
+    value <= 8 ? "rgb(var(--positive-400))" :
+    "rgb(var(--brand-400))";
   const pct = ((value - 1) / 9) * 100;
 
   return (
@@ -351,15 +351,15 @@ function KpiMetric({
   return (
     <div className="kpi-card px-3 py-2.5 flex flex-col gap-0.5 group relative overflow-hidden">
       <div className="absolute inset-x-0 top-0 h-px opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{ background: `linear-gradient(90deg, transparent, ${color}88, transparent)` }} />
+        style={{ background: `linear-gradient(90deg, transparent, ${withAlpha(color, 0.53)}, transparent)` }} />
       <div className="flex items-center justify-between">
-        <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</span>
+        <span className="text-[11px] font-bold text-neutral-500">{label}</span>
         <Icon className="w-3 h-3" style={{ color }} />
       </div>
-      <span className="text-base font-black tabular-nums leading-none font-mono" style={{ color }}>
+      <span className="text-base font-bold tabular-nums leading-none font-mono" style={{ color }}>
         {value}
       </span>
-      {subtext && <span className="text-[9px] text-slate-600">{subtext}</span>}
+      {subtext && <span className="text-[11px] text-neutral-500">{subtext}</span>}
     </div>
   );
 }
@@ -369,7 +369,7 @@ function WarningStrip({ warnings }: { warnings: string[] }) {
   if (warnings.length === 0) return null;
   return (
     <div className="tt-warning-strip">
-      <ShieldAlert className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+      <ShieldAlert className="w-3.5 h-3.5 text-warning-400 flex-shrink-0" />
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         {warnings.map((w) => (
           <span key={w} className="tt-warning-text">
@@ -393,7 +393,7 @@ function TradeDetailsSection({
     <div className="glass-card tt-section">
       <div className="tt-section-header">
         <h2 className="tt-section-title">
-          <Zap className="w-3.5 h-3.5 text-indigo-400" />
+          <Zap className="w-3.5 h-3.5 text-brand-400" />
           Trade Details
         </h2>
       </div>
@@ -461,7 +461,7 @@ function ExitDetailsSection({
     <div className="glass-card tt-section">
       <div className="tt-section-header">
         <h2 className="tt-section-title">
-          <Clock className="w-3.5 h-3.5 text-violet-400" />
+          <Clock className="w-3.5 h-3.5 text-brand-400" />
           Exit Details
         </h2>
         <span className={cn(
@@ -506,7 +506,7 @@ function ExitDetailsSection({
         <div className="tt-exit-metrics">
           <div className="tt-exit-metric">
             <span className="tt-exit-metric-label">P&L</span>
-            <span className={cn("tt-exit-metric-value", pnl != null ? (pnlPositive ? "text-emerald-400" : "text-red-400") : "text-slate-500")}>
+            <span className={cn("tt-exit-metric-value", pnl != null ? (pnlPositive ? "text-positive-400" : "text-negative-400") : "text-neutral-500")}>
               {pnl != null ? `${pnlPositive ? "+" : ""}${formatMoney(pnl)}` : "-"}
             </span>
           </div>
@@ -514,15 +514,15 @@ function ExitDetailsSection({
             <span className="tt-exit-metric-label">RR Achieved</span>
             <span className={cn("tt-exit-metric-value",
               exitMetrics.rrAchieved != null
-                ? (exitMetrics.rrAchieved >= 0 ? "text-emerald-400" : "text-red-400")
-                : "text-slate-500"
+                ? (exitMetrics.rrAchieved >= 0 ? "text-positive-400" : "text-negative-400")
+                : "text-neutral-500"
             )}>
               {exitMetrics.rrAchieved != null ? `${exitMetrics.rrAchieved.toFixed(2)}R` : "-"}
             </span>
           </div>
           <div className="tt-exit-metric">
             <span className="tt-exit-metric-label">Duration</span>
-            <span className="tt-exit-metric-value text-slate-300">
+            <span className="tt-exit-metric-value text-neutral-300">
               {formatDuration(exitMetrics.durationMinutes)}
             </span>
           </div>
@@ -530,8 +530,8 @@ function ExitDetailsSection({
             <span className="tt-exit-metric-label">Profit %</span>
             <span className={cn("tt-exit-metric-value",
               exitMetrics.profitPercent != null
-                ? (exitMetrics.profitPercent >= 0 ? "text-emerald-400" : "text-red-400")
-                : "text-slate-500"
+                ? (exitMetrics.profitPercent >= 0 ? "text-positive-400" : "text-negative-400")
+                : "text-neutral-500"
             )}>
               {exitMetrics.profitPercent != null
                 ? `${exitMetrics.profitPercent >= 0 ? "+" : ""}${exitMetrics.profitPercent.toFixed(2)}%`
@@ -567,7 +567,7 @@ function TradeContextSection({
     <div className="glass-card tt-section">
       <div className="tt-section-header">
         <h2 className="tt-section-title">
-          <Gauge className="w-3.5 h-3.5 text-cyan-400" />
+          <Gauge className="w-3.5 h-3.5 text-brand-400" />
           Trade Context
         </h2>
         <button type="button" onClick={() => setShowNewSetup((v) => !v)}
@@ -676,25 +676,25 @@ function LiveIntelligenceStrip({
 }) {
   const rr = risk.riskRewardRatio;
   const rrStr = rr == null ? "-" : `${rr.toFixed(2)}R`;
-  const rrColor = rr == null ? "#64748b" : rr >= 2 ? "#22c55e" : rr >= 1.5 ? "#f59e0b" : "#ef4444";
+  const rrColor = rr == null ? "rgb(var(--neutral-500))" : rr >= 2 ? "rgb(var(--positive-400))" : rr >= 1.5 ? "rgb(var(--warning-400))" : "rgb(var(--negative-400))";
   const score = validation.qualityScore;
-  const scoreColor = score == null ? "#64748b" : score >= 75 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
+  const scoreColor = score == null ? "rgb(var(--neutral-500))" : score >= 75 ? "rgb(var(--positive-400))" : score >= 50 ? "rgb(var(--warning-400))" : "rgb(var(--negative-400))";
   const confColor =
-    data.confidence <= 3 ? "#ef4444" :
-    data.confidence <= 6 ? "#f59e0b" :
-    data.confidence <= 8 ? "#22c55e" : "#818cf8";
+    data.confidence <= 3 ? "rgb(var(--negative-400))" :
+    data.confidence <= 6 ? "rgb(var(--warning-400))" :
+    data.confidence <= 8 ? "rgb(var(--positive-400))" : "rgb(var(--brand-400))";
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2">
-      <KpiMetric label="Risk Amount" value={formatMoney(risk.riskAmount)} icon={TrendingDown} color="#ef4444" />
-      <KpiMetric label="Reward Amount" value={formatMoney(risk.rewardAmount)} icon={TrendingUp} color="#22c55e" />
+      <KpiMetric label="Risk Amount" value={formatMoney(risk.riskAmount)} icon={TrendingDown} color="rgb(var(--negative-400))" />
+      <KpiMetric label="Reward Amount" value={formatMoney(risk.rewardAmount)} icon={TrendingUp} color="rgb(var(--positive-400))" />
       <KpiMetric label="Risk:Reward" value={rrStr} icon={ArrowUp} color={rrColor} />
-      <KpiMetric label="Position Value" value={formatMoney(risk.positionValue)} icon={Gauge} color="#60a5fa" />
+      <KpiMetric label="Position Value" value={formatMoney(risk.positionValue)} icon={Gauge} color="rgb(var(--brand-400))" />
       <KpiMetric label="Trade Score" value={score == null ? "-" : `${score}`} icon={Zap} color={scoreColor}
         subtext={score != null ? `${score >= 75 ? "Good" : score >= 50 ? "Fair" : "Needs work"}` : undefined} />
       <KpiMetric label="Confidence" value={`${data.confidence}/10`} icon={ShieldAlert} color={confColor} />
       <KpiMetric label="Completion" value={`${validation.completionPercent}%`} icon={CheckCircle2}
-        color={validation.completionPercent >= 80 ? "#22c55e" : validation.completionPercent >= 50 ? "#f59e0b" : "#ef4444"} />
+        color={validation.completionPercent >= 80 ? "rgb(var(--positive-400))" : validation.completionPercent >= 50 ? "rgb(var(--warning-400))" : "rgb(var(--negative-400))"} />
     </div>
   );
 }
@@ -734,7 +734,7 @@ export function TradeTicket({
         {/* ── TOPBAR ── */}
         <div className="tt-topbar">
           <div className="tt-topbar-left">
-            <div className="tt-topbar-icon"><Zap className="w-3.5 h-3.5 text-white" /></div>
+            <div className="tt-topbar-icon"><Zap className="w-3.5 h-3.5 text-foreground" /></div>
             <div>
               <div className="tt-topbar-title">Add Trade</div>
               <div className="tt-topbar-sub">Journal entry · execution ticket</div>
@@ -812,7 +812,7 @@ const scopedCSS = `
 /* ── Overlay ── */
 .tt-overlay {
   position: fixed; inset: 0; z-index: 60;
-  background: rgba(4,7,18,0.97);
+  background: rgb(var(--background) / 0.97);
   backdrop-filter: blur(24px);
   display: flex; flex-direction: column;
   overflow: hidden;
@@ -823,26 +823,26 @@ const scopedCSS = `
   flex-shrink: 0; height: 48px;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  background: rgba(8,12,28,0.9);
+  border-bottom: 1px solid rgb(var(--foreground) / 0.06);
+  background: rgb(var(--background) / 0.9);
 }
 .tt-topbar-left { display: flex; align-items: center; gap: 10px; }
 .tt-topbar-icon {
   width: 28px; height: 28px; border-radius: 8px;
-  background: linear-gradient(135deg,#4f46e5,#7c3aed);
+  background: rgb(var(--brand-600));
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 14px rgba(99,102,241,0.3);
+  box-shadow: 0 0 14px rgb(var(--brand-500) / 0.3);
 }
-.tt-topbar-title { font-size: 13px; font-weight: 800; color: #f1f5f9; }
-.tt-topbar-sub { font-size: 10px; color: #475569; font-weight: 500; }
+.tt-topbar-title { font-size: 13px; font-weight: 800; color: rgb(var(--neutral-100)); }
+.tt-topbar-sub { font-size: 11px; color: rgb(var(--neutral-600)); font-weight: 500; }
 .tt-topbar-right { display: flex; align-items: center; gap: 6px; }
 .tt-close-btn {
   width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
-  border-radius: 8px; border: 1px solid rgba(255,255,255,0.07);
-  background: rgba(255,255,255,0.03); color: #64748b;
+  border-radius: 8px; border: 1px solid rgb(var(--foreground) / 0.07);
+  background: rgb(var(--foreground) / 0.03); color: rgb(var(--neutral-500));
   cursor: pointer; transition: all 0.15s;
 }
-.tt-close-btn:hover { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.25); color: #f87171; }
+.tt-close-btn:hover { background: rgb(var(--negative-500) / 0.1); border-color: rgb(var(--negative-500) / 0.25); color: rgb(var(--negative-400)); }
 
 /* ── Buttons ── */
 .tt-btn-draft, .tt-btn-save, .tt-btn-create {
@@ -851,19 +851,19 @@ const scopedCSS = `
   transition: all 0.15s; white-space: nowrap;
 }
 .tt-btn-draft {
-  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: #64748b;
+  border: 1px solid rgb(var(--foreground) / 0.08); background: rgb(var(--foreground) / 0.04); color: rgb(var(--neutral-500));
 }
-.tt-btn-draft:hover { border-color: rgba(99,102,241,0.3); color: #94a3b8; }
+.tt-btn-draft:hover { border-color: rgb(var(--brand-500) / 0.3); color: rgb(var(--neutral-400)); }
 .tt-btn-save {
-  border: 1px solid rgba(99,102,241,0.25); background: rgba(99,102,241,0.08); color: #a5b4fc;
+  border: 1px solid rgb(var(--brand-500) / 0.25); background: rgb(var(--brand-500) / 0.08); color: rgb(var(--brand-300));
 }
-.tt-btn-save:hover:not(:disabled) { background: rgba(99,102,241,0.14); }
+.tt-btn-save:hover:not(:disabled) { background: rgb(var(--brand-500) / 0.14); }
 .tt-btn-save:disabled, .tt-btn-create:disabled { opacity: 0.4; cursor: not-allowed; }
 .tt-btn-create {
-  border: none; background: linear-gradient(135deg,#4f46e5,#7c3aed);
-  color: #fff; font-weight: 800; box-shadow: 0 0 20px rgba(99,102,241,0.3);
+  border: none; background: rgb(var(--brand-600));
+  color: #fff; font-weight: 800; box-shadow: 0 0 20px rgb(var(--brand-500) / 0.3);
 }
-.tt-btn-create:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,0.4); }
+.tt-btn-create:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgb(var(--brand-500) / 0.4); }
 .tt-btn-create:disabled { box-shadow: none; }
 
 /* ── Scrollable area ── */
@@ -886,89 +886,89 @@ const scopedCSS = `
 .tt-section { overflow: hidden; }
 .tt-section-header {
   padding: 8px 14px; display: flex; align-items: center; justify-content: space-between;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgb(var(--foreground) / 0.04);
 }
 .tt-section-title {
   display: flex; align-items: center; gap: 6px;
   font-size: 11px; font-weight: 800; text-transform: uppercase;
-  letter-spacing: 0.08em; color: #94a3b8;
+  letter-spacing: 0.08em; color: rgb(var(--neutral-400));
 }
 .tt-section-body { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
 
 /* ── Field ── */
 .tt-field { display: flex; flex-direction: column; gap: 3px; }
 .tt-field-label {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.09em; color: #475569;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: rgb(var(--neutral-600));
 }
-.tt-required { color: #818cf8; margin-left: 2px; }
+.tt-required { color: rgb(var(--brand-400)); margin-left: 2px; }
 
 /* ── Inputs ── */
 .tt-input {
   height: 32px; width: 100%; border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.07);
-  background: rgba(255,255,255,0.03); padding: 0 10px;
-  font-size: 12px; font-weight: 600; color: #e2e8f0;
+  border: 1px solid rgb(var(--foreground) / 0.07);
+  background: rgb(var(--foreground) / 0.03); padding: 0 10px;
+  font-size: 12px; font-weight: 600; color: rgb(var(--neutral-200));
   outline: none; transition: all 0.15s;
 }
-.tt-input::placeholder { color: #334155; font-weight: 400; }
-.tt-input:focus { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.05); box-shadow: 0 0 0 2px rgba(99,102,241,0.1); }
+.tt-input::placeholder { color: rgb(var(--neutral-500)); font-weight: 400; }
+.tt-input:focus { border-color: rgb(var(--brand-500) / 0.5); background: rgb(var(--brand-500) / 0.05); box-shadow: 0 0 0 2px rgb(var(--brand-500) / 0.1); }
 .tt-mono { font-family: 'JetBrains Mono','Fira Code',monospace; font-variant-numeric: tabular-nums; }
 
 /* ── Select ── */
 .tt-select-wrap { position: relative; }
 .tt-select {
   height: 32px; width: 100%; border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.07);
-  background: rgba(255,255,255,0.03); padding: 0 28px 0 10px;
-  font-size: 12px; font-weight: 600; color: #e2e8f0;
+  border: 1px solid rgb(var(--foreground) / 0.07);
+  background: rgb(var(--foreground) / 0.03); padding: 0 28px 0 10px;
+  font-size: 12px; font-weight: 600; color: rgb(var(--neutral-200));
   outline: none; cursor: pointer; -webkit-appearance: none; appearance: none;
 }
-.tt-select:focus { border-color: rgba(99,102,241,0.5); box-shadow: 0 0 0 2px rgba(99,102,241,0.1); }
-.tt-select-chevron { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: #475569; pointer-events: none; }
+.tt-select:focus { border-color: rgb(var(--brand-500) / 0.5); box-shadow: 0 0 0 2px rgb(var(--brand-500) / 0.1); }
+.tt-select-chevron { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: rgb(var(--neutral-600)); pointer-events: none; }
 
 /* ── Direction ── */
 .tt-dir-btn {
   height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px;
-  border-radius: 8px; border: 1px solid; font-size: 10px; font-weight: 800;
+  border-radius: 8px; border: 1px solid; font-size: 11px; font-weight: 800;
   letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s;
 }
-.tt-dir-buy { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.12); color: #4ade80; box-shadow: 0 0 16px rgba(34,197,94,0.12); }
-.tt-dir-sell { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.12); color: #f87171; box-shadow: 0 0 16px rgba(239,68,68,0.12); }
-.tt-dir-off { border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); color: #475569; }
-.tt-dir-off:hover { border-color: rgba(255,255,255,0.12); color: #94a3b8; }
+.tt-dir-buy { border-color: rgb(var(--positive-500) / 0.4); background: rgb(var(--positive-500) / 0.12); color: rgb(var(--positive-400)); box-shadow: 0 0 16px rgb(var(--positive-500) / 0.12); }
+.tt-dir-sell { border-color: rgb(var(--negative-500) / 0.4); background: rgb(var(--negative-500) / 0.12); color: rgb(var(--negative-400)); box-shadow: 0 0 16px rgb(var(--negative-500) / 0.12); }
+.tt-dir-off { border-color: rgb(var(--foreground) / 0.06); background: rgb(var(--foreground) / 0.02); color: rgb(var(--neutral-600)); }
+.tt-dir-off:hover { border-color: rgb(var(--foreground) / 0.12); color: rgb(var(--neutral-400)); }
 
 /* ── Pills ── */
 .tt-pill-row { display: flex; flex-wrap: wrap; gap: 4px; }
 .tt-pill {
   padding: 3px 8px; border-radius: 5px; border: 1px solid;
-  font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.15s; line-height: 1.4;
+  font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.15s; line-height: 1.4;
 }
-.tt-pill-on { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.15); color: #a5b4fc; }
-.tt-pill-off { border-color: rgba(255,255,255,0.06); background: transparent; color: #475569; }
-.tt-pill-off:hover { border-color: rgba(99,102,241,0.3); color: #94a3b8; }
+.tt-pill-on { border-color: rgb(var(--brand-500) / 0.5); background: rgb(var(--brand-500) / 0.15); color: rgb(var(--brand-300)); }
+.tt-pill-off { border-color: rgb(var(--foreground) / 0.06); background: transparent; color: rgb(var(--neutral-600)); }
+.tt-pill-off:hover { border-color: rgb(var(--brand-500) / 0.3); color: rgb(var(--neutral-400)); }
 
 /* ── Quick tags ── */
 .tt-qtag {
   padding: 2px 7px; border-radius: 4px; border: 1px solid;
-  font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.12s;
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.12s;
 }
-.tt-qtag-off { border-color: rgba(255,255,255,0.06); color: #475569; }
-.tt-qtag-off:hover { border-color: rgba(255,255,255,0.12); color: #64748b; }
-.tt-qtag-on { border-color: rgba(99,102,241,0.4); color: #818cf8; background: rgba(99,102,241,0.1); }
+.tt-qtag-off { border-color: rgb(var(--foreground) / 0.06); color: rgb(var(--neutral-600)); }
+.tt-qtag-off:hover { border-color: rgb(var(--foreground) / 0.12); color: rgb(var(--neutral-500)); }
+.tt-qtag-on { border-color: rgb(var(--brand-500) / 0.4); color: rgb(var(--brand-400)); background: rgb(var(--brand-500) / 0.1); }
 .tt-sel-tag {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 2px 7px; border-radius: 4px;
-  border: 1px solid rgba(99,102,241,0.3); background: rgba(99,102,241,0.1);
-  color: #a5b4fc; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.12s;
+  border: 1px solid rgb(var(--brand-500) / 0.3); background: rgb(var(--brand-500) / 0.1);
+  color: rgb(var(--brand-300)); font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.12s;
 }
-.tt-sel-tag:hover { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.08); color: #f87171; }
+.tt-sel-tag:hover { border-color: rgb(var(--negative-500) / 0.35); background: rgb(var(--negative-500) / 0.08); color: rgb(var(--negative-400)); }
 .tt-tag-add-btn {
   height: 32px; padding: 0 10px; border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04);
-  font-size: 11px; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.15s;
+  border: 1px solid rgb(var(--foreground) / 0.08); background: rgb(var(--foreground) / 0.04);
+  font-size: 11px; font-weight: 700; color: rgb(var(--neutral-500)); cursor: pointer; transition: all 0.15s;
 }
-.tt-tag-add-btn:hover { border-color: rgba(99,102,241,0.3); color: #94a3b8; }
+.tt-tag-add-btn:hover { border-color: rgb(var(--brand-500) / 0.3); color: rgb(var(--neutral-400)); }
 .tt-tags-section { display: flex; flex-direction: column; gap: 6px; }
 
 /* ── Context grid ── */
@@ -981,19 +981,19 @@ const scopedCSS = `
 .tt-create-setup-btn {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 8px; border-radius: 5px;
-  border: 1px solid rgba(99,102,241,0.25); background: rgba(99,102,241,0.08);
-  font-size: 10px; font-weight: 700; color: #a5b4fc; cursor: pointer; transition: all 0.15s;
+  border: 1px solid rgb(var(--brand-500) / 0.25); background: rgb(var(--brand-500) / 0.08);
+  font-size: 11px; font-weight: 700; color: rgb(var(--brand-300)); cursor: pointer; transition: all 0.15s;
 }
-.tt-create-setup-btn:hover { background: rgba(99,102,241,0.15); }
+.tt-create-setup-btn:hover { background: rgb(var(--brand-500) / 0.15); }
 
 /* ── Status badge ── */
 .tt-status-badge {
-  padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
   border: 1px solid; text-transform: uppercase; letter-spacing: 0.06em;
 }
-.tt-status-open { border-color: rgba(34,197,94,0.3); background: rgba(34,197,94,0.1); color: #4ade80; }
-.tt-status-closed { border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.1); color: #a5b4fc; }
-.tt-status-be { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.1); color: #fbbf24; }
+.tt-status-open { border-color: rgb(var(--positive-500) / 0.3); background: rgb(var(--positive-500) / 0.1); color: rgb(var(--positive-400)); }
+.tt-status-closed { border-color: rgb(var(--brand-500) / 0.3); background: rgb(var(--brand-500) / 0.1); color: rgb(var(--brand-300)); }
+.tt-status-be { border-color: rgb(var(--warning-500) / 0.3); background: rgb(var(--warning-500) / 0.1); color: rgb(var(--warning-400)); }
 
 /* ── Exit metrics ── */
 .tt-exit-metrics {
@@ -1002,12 +1002,12 @@ const scopedCSS = `
 }
 .tt-exit-metric {
   padding: 8px 10px; border-radius: 8px;
-  background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.05);
+  background: rgb(var(--foreground) / 0.03); border: 1px solid rgb(var(--foreground) / 0.05);
   display: flex; flex-direction: column; gap: 3px;
 }
 .tt-exit-metric-label {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.08em; color: #475569;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: rgb(var(--neutral-600));
 }
 .tt-exit-metric-value {
   font-family: 'JetBrains Mono','Fira Code',monospace;
@@ -1020,30 +1020,30 @@ const scopedCSS = `
   position: relative; display: flex; align-items: center;
 }
 .symbol-search-icon {
-  position: absolute; left: 10px; width: 14px; height: 14px; color: #475569; pointer-events: none;
+  position: absolute; left: 10px; width: 14px; height: 14px; color: rgb(var(--neutral-600)); pointer-events: none;
 }
 .symbol-input {
   height: 32px; width: 100%; border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.07);
-  background: rgba(255,255,255,0.03); padding: 0 10px 0 30px;
-  font-size: 12px; font-weight: 700; color: #e2e8f0;
+  border: 1px solid rgb(var(--foreground) / 0.07);
+  background: rgb(var(--foreground) / 0.03); padding: 0 10px 0 30px;
+  font-size: 12px; font-weight: 700; color: rgb(var(--neutral-200));
   outline: none; transition: all 0.15s;
   font-family: 'JetBrains Mono','Fira Code',monospace;
   letter-spacing: 0.03em;
 }
-.symbol-input::placeholder { color: #334155; font-weight: 400; letter-spacing: 0; font-family: 'Inter',sans-serif; }
-.symbol-input:focus { border-color: rgba(99,102,241,0.5); background: rgba(99,102,241,0.05); box-shadow: 0 0 0 2px rgba(99,102,241,0.1); }
+.symbol-input::placeholder { color: rgb(var(--neutral-500)); font-weight: 400; letter-spacing: 0; font-family: 'Inter',sans-serif; }
+.symbol-input:focus { border-color: rgb(var(--brand-500) / 0.5); background: rgb(var(--brand-500) / 0.05); box-shadow: 0 0 0 2px rgb(var(--brand-500) / 0.1); }
 .symbol-dropdown {
   position: absolute; z-index: 100; top: calc(100% + 4px); left: 0; right: 0;
   max-height: 280px; overflow-y: auto;
-  border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(10,13,20,0.97); backdrop-filter: blur(20px);
+  border-radius: 10px; border: 1px solid rgb(var(--foreground) / 0.08);
+  background: rgb(var(--background) / 0.97); backdrop-filter: blur(20px);
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
   padding: 4px;
 }
 .symbol-cat-header {
-  padding: 6px 10px 3px; font-size: 9px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.1em; color: #475569;
+  padding: 6px 10px 3px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em; color: rgb(var(--neutral-600));
 }
 .symbol-option {
   display: flex; align-items: center; justify-content: space-between;
@@ -1051,23 +1051,23 @@ const scopedCSS = `
   font-size: 12px; cursor: pointer; transition: background 0.1s;
   border: none; background: transparent; text-align: left;
 }
-.symbol-option:hover, .symbol-option-hl { background: rgba(99,102,241,0.1); }
-.symbol-option-active { background: rgba(99,102,241,0.15); }
+.symbol-option:hover, .symbol-option-hl { background: rgb(var(--brand-500) / 0.1); }
+.symbol-option-active { background: rgb(var(--brand-500) / 0.15); }
 .symbol-option-ticker {
   font-family: 'JetBrains Mono','Fira Code',monospace;
-  font-weight: 800; color: #e2e8f0; letter-spacing: 0.03em;
+  font-weight: 800; color: rgb(var(--neutral-200)); letter-spacing: 0.03em;
 }
-.symbol-option-label { font-size: 10px; color: #64748b; font-weight: 500; }
+.symbol-option-label { font-size: 11px; color: rgb(var(--neutral-500)); font-weight: 500; }
 
 /* ── Confidence Slider ── */
 .confidence-wrap { display: flex; flex-direction: column; gap: 4px; }
 .confidence-top { display: flex; align-items: center; justify-content: space-between; }
-.confidence-label { font-size: 10px; font-weight: 700; }
+.confidence-label { font-size: 11px; font-weight: 700; }
 .confidence-value { font-family: 'JetBrains Mono','Fira Code',monospace; font-size: 13px; font-weight: 800; }
 .confidence-track-wrap { position: relative; height: 20px; display: flex; align-items: center; }
 .confidence-track {
   position: absolute; left: 0; right: 0; height: 4px;
-  border-radius: 99px; background: rgba(255,255,255,0.08);
+  border-radius: 99px; background: rgb(var(--foreground) / 0.08);
   overflow: hidden; pointer-events: none;
 }
 .confidence-fill {
@@ -1080,33 +1080,33 @@ const scopedCSS = `
 }
 .confidence-range::-webkit-slider-thumb {
   -webkit-appearance: none; width: 16px; height: 16px;
-  border-radius: 50%; background: linear-gradient(135deg,#4f46e5,#7c3aed);
-  box-shadow: 0 0 8px rgba(99,102,241,0.5);
-  cursor: pointer; border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 50%; background: rgb(var(--brand-600));
+  box-shadow: 0 0 8px rgb(var(--brand-500) / 0.5);
+  cursor: pointer; border: 2px solid rgb(var(--foreground) / 0.2);
 }
 
 /* ── Warning strip ── */
 .tt-warning-strip {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 12px; border-radius: 8px;
-  border: 1px solid rgba(245,158,11,0.2); background: rgba(245,158,11,0.06);
+  border: 1px solid rgb(var(--warning-500) / 0.2); background: rgb(var(--warning-500) / 0.06);
 }
 .tt-warning-text {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 600; color: #fbbf24;
+  font-size: 11px; font-weight: 600; color: rgb(var(--warning-400));
 }
 
 /* ── Missing strip ── */
 .tt-missing-strip {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   padding: 6px 12px; border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.02);
+  border: 1px solid rgb(var(--foreground) / 0.06); background: rgb(var(--foreground) / 0.02);
 }
-.tt-missing-label { font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
+.tt-missing-label { font-size: 11px; font-weight: 700; color: rgb(var(--neutral-600)); text-transform: uppercase; letter-spacing: 0.08em; }
 .tt-missing-badge {
   padding: 2px 8px; border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.03);
-  font-size: 10px; font-weight: 600; color: #64748b;
+  border: 1px solid rgb(var(--foreground) / 0.07); background: rgb(var(--foreground) / 0.03);
+  font-size: 11px; font-weight: 600; color: rgb(var(--neutral-500));
 }
 
 /* ── Bottom bar ── */
@@ -1114,9 +1114,9 @@ const scopedCSS = `
   flex-shrink: 0; height: 36px;
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 16px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  background: rgba(6,9,22,0.95);
+  border-top: 1px solid rgb(var(--foreground) / 0.05);
+  background: rgb(var(--background) / 0.95);
 }
-.tt-bottom-status { font-size: 10px; font-weight: 600; color: #334155; }
-.tt-bottom-completion { font-size: 10px; font-weight: 600; color: #475569; }
+.tt-bottom-status { font-size: 11px; font-weight: 600; color: rgb(var(--neutral-500)); }
+.tt-bottom-completion { font-size: 11px; font-weight: 600; color: rgb(var(--neutral-400)); }
 `;

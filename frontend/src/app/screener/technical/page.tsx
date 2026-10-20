@@ -5,7 +5,7 @@ import { screenerService } from "@/services/screenerService";
 import AddToWatchlistModal from "@/components/watchlists/AddToWatchlistModal";
 import SavedFiltersPanel from "@/components/screener/SavedFiltersPanel";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
-import { Download } from "lucide-react";
+import { Download, Search, SearchX, Info } from "lucide-react";
 import { ScannerContext } from "../context";
 import {
   RangeFilter,
@@ -82,17 +82,17 @@ const fmtVol = (n?: number | null) => {
   return String(n);
 };
 const rsiBadge = (rsi?: number | null) => {
-  if (!rsi) return "bg-gray-700 text-gray-400";
-  if (rsi >= 70) return "bg-red-500/20 text-red-300 border border-red-500/30";
-  if (rsi <= 30) return "bg-green-500/20 text-green-300 border border-green-500/30";
-  return "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30";
+  if (!rsi) return "bg-neutral-700 text-neutral-400";
+  if (rsi >= 70) return "bg-negative-500/20 text-negative-300 border border-negative-500/30";
+  if (rsi <= 30) return "bg-positive-500/20 text-positive-300 border border-positive-500/30";
+  return "bg-warning-500/20 text-warning-300 border border-warning-500/30";
 };
 const distColor = (v?: number | null) => {
-  if (v == null) return "text-gray-500";
-  if (v > 10) return "text-emerald-400 font-semibold";
-  if (v > 0)  return "text-emerald-300";
-  if (v < -10) return "text-red-400 font-semibold";
-  return "text-red-300";
+  if (v == null) return "text-neutral-500";
+  if (v > 10) return "text-positive-400 font-semibold";
+  if (v > 0)  return "text-positive-300";
+  if (v < -10) return "text-negative-400 font-semibold";
+  return "text-negative-300";
 };
 const fmtDist = (v?: number | null) =>
   v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(2)}%`;
@@ -193,7 +193,7 @@ export default function ScreenerPage() {
     else { setSortKey(key); setSortDir("desc"); }
   };
   const SortIcon = ({ col }: { col: string }) => (
-    <span className="ml-1 text-gray-600 text-[10px]">
+    <span className="ml-1 text-neutral-500 text-[11px]">
       {sortKey === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
     </span>
   );
@@ -208,17 +208,17 @@ export default function ScreenerPage() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="min-w-0 flex-1">
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Technical Screener</h1>
-          <div className="flex items-center gap-2 sm:gap-4 text-xs text-gray-500 mt-1 flex-wrap">
-            <span>Updated: <span className="text-gray-300 font-semibold">{scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "—"}</span></span>
-            <span className="text-gray-700">•</span>
-            <span>Stocks: <span className="text-gray-300 font-semibold">{scanMeta?.record_count ?? scanMeta?.symbols_processed ?? allStocks.length}</span></span>
-            <span className="text-gray-700">•</span>
-            <span>Status: <span className={`font-semibold font-mono uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded ${
+          <div className="flex items-center gap-2 sm:gap-4 text-xs text-neutral-500 mt-1 flex-wrap">
+            <span>Updated: <span className="text-neutral-300 font-semibold">{scanMeta?.last_ran ? formatISTDate(scanMeta.last_ran) : "—"}</span></span>
+            <span className="text-neutral-500">•</span>
+            <span>Stocks: <span className="text-neutral-300 font-semibold">{scanMeta?.record_count ?? scanMeta?.symbols_processed ?? allStocks.length}</span></span>
+            <span className="text-neutral-500">•</span>
+            <span>Status: <span className={`font-semibold font-mono text-[11px] px-1.5 py-0.5 rounded ${
               scanMeta?.status === "RUNNING"
-                ? "text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 animate-pulse"
+                ? "text-warning-400 bg-warning-500/10 border border-warning-500/20 animate-pulse"
                 : scanMeta?.status === "FAILED"
-                ? "text-red-400 bg-red-500/10 border border-red-500/20"
-                : "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"
+                ? "text-negative-400 bg-negative-500/10 border border-negative-500/20"
+                : "text-positive-400 bg-positive-500/10 border border-positive-500/20"
             }`}>{scanMeta?.status || "Ready"}</span></span>
           </div>
         </div>
@@ -226,7 +226,7 @@ export default function ScreenerPage() {
           {filtered.length > 0 && (
             <button
               onClick={() => exportCSV(filtered, "technical_scan")}
-              className="flex items-center gap-1.5 text-xs border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all"
+              className="flex items-center gap-1.5 text-xs border border-neutral-700 text-neutral-400 hover:text-foreground hover:border-neutral-500 px-2.5 sm:px-3 py-1.5 rounded-lg transition-all"
             >
               <Download size={11} /> <span className="hidden sm:inline">Export CSV</span>
             </button>
@@ -236,23 +236,23 @@ export default function ScreenerPage() {
             currentFilters={filtersToFlat(filters)}
             onLoad={(flat) => { const f = flatToFilters(flat); setFilters(f); fetchStocks(f); }}
           />
-          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl px-3 sm:px-5 py-2 text-center min-w-[60px] sm:min-w-[80px]">
-            <div className="text-xl sm:text-2xl font-bold text-blue-400">{filtered.length.toLocaleString()}</div>
-            <div className="text-gray-500 text-xs">matched</div>
+          <div className="bg-brand-500/10 border border-brand-500/30 rounded-xl px-3 sm:px-5 py-2 text-center min-w-[60px] sm:min-w-[80px]">
+            <div className="text-xl sm:text-2xl font-bold text-brand-400">{filtered.length.toLocaleString()}</div>
+            <div className="text-neutral-500 text-xs">matched</div>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <form onSubmit={handleApply} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <form onSubmit={handleApply} className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-sm text-white">Filter Conditions</h2>
+            <h2 className="font-semibold text-sm text-foreground">Filter Conditions</h2>
             {activeCount > 0 && (
-              <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full">{activeCount} active</span>
+              <span className="bg-brand-600 text-white text-xs px-2 py-0.5 rounded-md">{activeCount} active</span>
             )}
           </div>
-          <button type="button" onClick={handleClear} className="text-xs text-gray-500 hover:text-white transition-colors">
+          <button type="button" onClick={handleClear} className="text-xs text-neutral-500 hover:text-foreground transition-colors">
             Clear all
           </button>
         </div>
@@ -290,78 +290,78 @@ export default function ScreenerPage() {
         </div>
 
         {/* EMA explanation */}
-        <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl px-4 py-2 text-xs text-blue-300/70 mb-4">
-          💡 <strong>EMA Dist %</strong> = (Price − EMA) / EMA × 100 · Positive = above EMA (bullish) · Comparable across all price levels
+        <div className="bg-brand-500/5 border border-brand-500/20 rounded-xl px-4 py-2 text-xs text-neutral-300 mb-4">
+          <Info className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden /> <strong>EMA Dist %</strong> = (Price − EMA) / EMA × 100 · Positive = above EMA (bullish) · Comparable across all price levels
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <div className="relative flex-1 sm:max-w-sm">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" aria-hidden />
             <input
               ref={searchInputRef}
               type="text"
               placeholder="Search symbol or company…"
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-2 bg-neutral-800 border border-neutral-700 rounded-xl text-sm text-foreground placeholder-neutral-500 focus:outline-none focus:border-brand-500"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-6 sm:px-8 py-2 rounded-xl transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+            className="bg-brand-600 hover:bg-brand-500 text-white font-semibold px-6 sm:px-8 py-2 rounded-xl transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
           >
             {loading
-              ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />Scanning…</>
+              ? <><span className="w-3.5 h-3.5 border-2 border-foreground/30 border-t-foreground rounded-full animate-spin" />Scanning…</>
               : "Apply Filters"}
           </button>
         </div>
       </form>
 
       {/* Results table */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-gray-800">
-          <div className="text-sm font-medium text-gray-300">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-neutral-800">
+          <div className="text-sm font-medium text-neutral-300">
             {filtered.length > 0
-              ? <>Showing <span className="text-white font-semibold">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}</span> of <span className="text-white font-semibold">{filtered.length.toLocaleString()}</span></>
+              ? <>Showing <span className="text-foreground font-semibold">{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}</span> of <span className="text-foreground font-semibold">{filtered.length.toLocaleString()}</span></>
               : "No results"}
           </div>
-          <div className="hidden sm:flex items-center gap-4 text-xs text-gray-600">
-            <span><span className="inline-block w-2 h-2 rounded-full bg-green-400 mr-1" />RSI ≤30 Oversold</span>
-            <span><span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-1" />RSI ≥70 Overbought</span>
+          <div className="hidden sm:flex items-center gap-4 text-xs text-neutral-500">
+            <span><span className="inline-block w-2 h-2 rounded-full bg-positive-400 mr-1" />RSI ≤30 Oversold</span>
+            <span><span className="inline-block w-2 h-2 rounded-full bg-negative-400 mr-1" />RSI ≥70 Overbought</span>
           </div>
         </div>
 
         {error ? (
-          <div className="m-6 bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-400 text-sm">
+          <div className="m-6 bg-negative-500/10 border border-negative-500/30 rounded-xl p-4 text-negative-400 text-sm">
             <strong>Error:</strong> {error}
-            <p className="text-red-400/60 text-xs mt-1">Start FastAPI: <code className="bg-gray-800 px-1 rounded">uvicorn main:app --port 8000</code></p>
+            <p className="text-negative-400 text-xs mt-1">Start FastAPI: <code className="bg-neutral-800 px-1 rounded">uvicorn main:app --port 8000</code></p>
           </div>
         ) : loading && allStocks.length === 0 ? (
           <div className="space-y-3 px-5 py-6">
             {[...Array(8)].map((_, i) => (
-              <div key={i} className="h-12 rounded-xl bg-gray-800/40 border border-gray-800/30 animate-pulse flex items-center justify-between px-4" style={{ opacity: 1 - i * 0.1 }}>
-                <div className="w-8 h-4 bg-gray-700/50 rounded" />
-                <div className="w-24 h-4 bg-gray-700/50 rounded" />
-                <div className="w-40 h-4 bg-gray-700/50 rounded" />
-                <div className="w-16 h-4 bg-gray-700/50 rounded" />
-                <div className="w-16 h-4 bg-gray-700/50 rounded" />
-                <div className="w-12 h-4 bg-gray-700/50 rounded" />
-                <div className="w-12 h-4 bg-gray-700/50 rounded" />
+              <div key={i} className="h-12 rounded-xl bg-neutral-800/40 border border-neutral-800/30 animate-pulse flex items-center justify-between px-4" style={{ opacity: 1 - i * 0.1 }}>
+                <div className="w-8 h-4 bg-neutral-700/50 rounded" />
+                <div className="w-24 h-4 bg-neutral-700/50 rounded" />
+                <div className="w-40 h-4 bg-neutral-700/50 rounded" />
+                <div className="w-16 h-4 bg-neutral-700/50 rounded" />
+                <div className="w-16 h-4 bg-neutral-700/50 rounded" />
+                <div className="w-12 h-4 bg-neutral-700/50 rounded" />
+                <div className="w-12 h-4 bg-neutral-700/50 rounded" />
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-20 gap-3 text-center">
-            <div className="text-4xl">🔍</div>
-            <p className="text-gray-400 text-sm">No stocks match your filters.</p>
-            <p className="text-gray-600 text-xs">Try widening the conditions or click Refresh Data in the toolbar above.</p>
+            <SearchX className="h-10 w-10 text-neutral-500" aria-hidden />
+            <p className="text-neutral-400 text-sm">No stocks match your filters.</p>
+            <p className="text-neutral-500 text-xs">Try widening the conditions or click Refresh Data in the toolbar above.</p>
           </div>
         ) : (
           <div className="mobile-table-scroll">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-800/40 border-b border-gray-800 text-xs text-gray-400 uppercase tracking-wider">
+                <tr className="bg-neutral-800/40 border-b border-neutral-800 text-xs text-neutral-400">
                   <th className="px-3 sm:px-4 py-3 text-left w-8 sm:w-10">#</th>
                   {[
                     ["symbol",  "Symbol",       false, ""],
@@ -378,8 +378,8 @@ export default function ScreenerPage() {
                       key={key as string}
                       onClick={() => (sortable as boolean) && handleSort(key as string)}
                       className={`px-2 sm:px-4 py-3 ${key === "company" || key === "action" ? "text-left" : "text-right"} ${
-                        (sortable as boolean) ? "cursor-pointer hover:text-white" : ""
-                      } ${key === "rsi" ? "text-yellow-400/70" : key === "ema50d" ? "text-blue-400/70" : key === "ema200d" ? "text-purple-400/70" : key === "macd" ? "text-green-400/70" : ""} ${extraCls as string}`}
+                        (sortable as boolean) ? "cursor-pointer hover:text-foreground" : ""
+                      } ${key === "rsi" ? "text-warning-400" : key === "ema50d" ? "text-brand-400" : key === "ema200d" ? "text-brand-400" : key === "macd" ? "text-positive-400" : ""} ${extraCls as string}`}
                     >
                       {lbl}
                       {(sortable as boolean) && <SortIcon col={key as string} />}
@@ -392,20 +392,20 @@ export default function ScreenerPage() {
                   const ind    = s.indicators ?? {};
                   const absIdx = (page - 1) * PAGE_SIZE + idx + 1;
                   return (
-                    <tr key={s.symbol || idx} className="border-b border-gray-800/50 hover:bg-gray-800/25 transition-colors">
-                      <td className="px-3 sm:px-4 py-2.5 text-gray-600 text-xs">{absIdx}</td>
+                    <tr key={s.symbol || idx} className="border-b border-neutral-800/50 hover:bg-neutral-800/25 transition-colors">
+                      <td className="px-3 sm:px-4 py-2.5 text-neutral-500 text-xs">{absIdx}</td>
                       <td className="px-3 sm:px-4 py-2.5">
-                        <span className="font-bold text-blue-400 tracking-wide text-xs sm:text-sm">{s.symbol}</span>
+                        <span className="font-bold text-brand-400 tracking-wide text-xs sm:text-sm">{s.symbol}</span>
                       </td>
-                      <td className="hidden sm:table-cell px-4 py-2.5 text-gray-400 text-xs max-w-[180px] truncate">{s.company_name || "—"}</td>
-                      <td className="px-2 sm:px-4 py-2.5 text-right font-semibold text-white font-mono text-xs sm:text-sm">
+                      <td className="hidden sm:table-cell px-4 py-2.5 text-neutral-400 text-xs max-w-[180px] truncate">{s.company_name || "—"}</td>
+                      <td className="px-2 sm:px-4 py-2.5 text-right font-semibold text-foreground font-mono text-xs sm:text-sm">
                         {s.price ? `₹${s.price.toFixed(2)}` : "—"}
                       </td>
-                      <td className="hidden sm:table-cell px-4 py-2.5 text-right text-gray-400 text-xs">{fmtVol(s.volume)}</td>
+                      <td className="hidden sm:table-cell px-4 py-2.5 text-right text-neutral-400 text-xs">{fmtVol(s.volume)}</td>
                       <td className="px-2 sm:px-4 py-2.5 text-right">
                         {ind.rsi_14 != null
                           ? <span className={`px-1.5 sm:px-2 py-0.5 rounded text-xs font-medium ${rsiBadge(ind.rsi_14)}`}>{ind.rsi_14.toFixed(1)}</span>
-                          : <span className="text-gray-600">—</span>}
+                          : <span className="text-neutral-500">—</span>}
                       </td>
                       <td className={`px-2 sm:px-4 py-2.5 text-right text-xs ${distColor(ind.ema_50_dist_pct)}`}>
                         {fmtDist(ind.ema_50_dist_pct)}
@@ -414,14 +414,14 @@ export default function ScreenerPage() {
                         {fmtDist(ind.ema_200_dist_pct)}
                       </td>
                       <td className={`px-2 sm:px-4 py-2.5 text-right text-xs font-medium ${
-                        ind.macd != null ? (ind.macd >= 0 ? "text-emerald-400" : "text-red-400") : "text-gray-600"
+                        ind.macd != null ? (ind.macd >= 0 ? "text-positive-400" : "text-negative-400") : "text-neutral-500"
                       }`}>
                         {ind.macd != null ? ind.macd.toFixed(2) : "—"}
                       </td>
                       <td className="px-2 sm:px-4 py-2.5 text-right">
                         <button
                           onClick={() => { setSelectedStock(s); setIsModalOpen(true); }}
-                          className="text-xs bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/40 hover:text-white px-2 sm:px-3 py-1.5 rounded-lg transition-all"
+                          className="text-xs bg-brand-600/20 text-brand-400 border border-brand-500/30 hover:bg-brand-600/40 hover:text-foreground px-2 sm:px-3 py-1.5 rounded-lg transition-all"
                         >
                           <span className="hidden sm:inline">+ Watch</span>
                           <span className="sm:hidden">+</span>
@@ -437,11 +437,11 @@ export default function ScreenerPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-t border-gray-800">
+          <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 border-t border-neutral-800">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30"
+              className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 disabled:opacity-30"
             >← Prev</button>
             <div className="flex items-center gap-0.5 sm:gap-1">
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -452,7 +452,7 @@ export default function ScreenerPage() {
                 else                             p = page - 2 + i;
                 return (
                   <button key={p} onClick={() => setPage(p)}
-                    className={`w-7 h-7 sm:w-8 sm:h-8 text-xs rounded-lg ${p === page ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"}`}>
+                    className={`w-7 h-7 sm:w-8 sm:h-8 text-xs rounded-lg ${p === page ? "bg-brand-600 text-white" : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"}`}>
                     {p}
                   </button>
                 );
@@ -461,7 +461,7 @@ export default function ScreenerPage() {
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30"
+              className="px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-lg bg-neutral-800 text-neutral-300 hover:bg-neutral-700 disabled:opacity-30"
             >Next →</button>
           </div>
         )}

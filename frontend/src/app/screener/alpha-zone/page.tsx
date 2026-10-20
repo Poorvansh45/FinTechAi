@@ -165,9 +165,9 @@ export default function AlphaZonePage() {
   });
 
   const getScoreBadgeColor = (score: number) => {
-    if (score >= 85) return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
-    if (score >= 75) return "bg-sky-500/20 text-sky-300 border-sky-500/30";
-    return "bg-teal-500/20 text-teal-300 border-teal-500/30";
+    if (score >= 85) return "bg-brand-500/20 text-brand-300 border-brand-500/30";
+    if (score >= 75) return "bg-brand-500/20 text-brand-300 border-brand-500/30";
+    return "bg-brand-500/20 text-brand-300 border-brand-500/30";
   };
 
   return (
@@ -176,35 +176,35 @@ export default function AlphaZonePage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-cyan-500/10 border border-cyan-500/25 text-cyan-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-brand-500/10 border border-brand-500/25 text-brand-400">
               <Shield size={12} />
             </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">Proprietary Strategy</span>
+            <span className="text-xs font-bold text-brand-400">Proprietary Strategy</span>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">🔷 Alpha Zone Institutional Scanner</h1>
-          <p className="text-sm text-gray-400">
+          <h1 className="text-title text-foreground">Alpha Zone Institutional Scanner</h1>
+          <p className="text-sm text-neutral-400">
             Identifying institutional demand zones in fresh order blocks for premium medium-term swing investing.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="bg-cyan-950/20 border border-cyan-500/20 rounded-2xl px-5 py-2.5 text-center min-w-[100px]">
-            <div className="text-2xl font-black text-cyan-400 font-mono">
+          <div className="bg-brand-950/20 border border-brand-500/20 rounded-xl px-5 py-2.5 text-center min-w-[100px]">
+            <div className="text-2xl font-bold text-brand-400 font-mono">
               {loading ? "..." : filteredStocks.length}
             </div>
-            <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Stocks Found</div>
+            <div className="text-neutral-500 text-[11px] font-bold">Stocks Found</div>
           </div>
         </div>
       </div>
 
       {/* ── Scan-in-progress banner ─────────────────────────────────── */}
       {scanRunning && (
-        <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-3 text-amber-300 text-sm">
+        <div className="flex items-center gap-3 bg-warning-500/10 border border-warning-500/30 rounded-xl px-5 py-3 text-warning-300 text-sm">
           <Loader2 size={15} className="animate-spin flex-shrink-0" />
           <span>
             A full scan is currently running — these results are from the last completed scan and will
             refresh automatically once it finishes.
           </span>
-          <Link href="/screener" className="ml-auto flex-shrink-0 text-amber-200 underline hover:text-white transition-colors">
+          <Link href="/screener" className="ml-auto flex-shrink-0 text-warning-200 underline hover:text-foreground transition-colors">
             View progress
           </Link>
         </div>
@@ -219,7 +219,7 @@ export default function AlphaZonePage() {
         footer={
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
             <div className="relative w-full sm:max-w-xs">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
                 <Search size={14} />
               </span>
               <input
@@ -227,13 +227,13 @@ export default function AlphaZonePage() {
                 placeholder="Search symbol or company..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-cyan-500 focus:outline-none"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 pl-9 pr-3 text-sm text-foreground placeholder-neutral-600 transition-colors focus:border-brand-500 focus:outline-none"
               />
             </div>
             <button
               onClick={runScan}
               disabled={loading}
-              className="w-full rounded-lg bg-cyan-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-cyan-500 active:scale-98 sm:w-auto"
+              className="w-full rounded-lg bg-brand-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-brand-500 active:scale-98 sm:w-auto"
             >
               {loading ? "Scanning Institutional Blocks…" : "Apply Filters"}
             </button>
@@ -329,7 +329,7 @@ export default function AlphaZonePage() {
 
       {/* ── Error state ───────────────────────────────────────────── */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3 text-red-400 text-sm">
+        <div className="bg-negative-500/10 border border-negative-500/30 rounded-xl p-4 flex items-start gap-3 text-negative-400 text-sm">
           <AlertCircle className="flex-shrink-0 mt-0.5" size={16} />
           <div>
             <h4 className="font-semibold">Scanner Error</h4>
@@ -342,40 +342,40 @@ export default function AlphaZonePage() {
       {loading && filteredStocks.length === 0 ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-64 rounded-3xl bg-gray-900/30 border border-gray-800/40 animate-pulse p-6 space-y-4">
+            <div key={i} className="h-64 rounded-xl bg-neutral-900/30 border border-neutral-800/40 animate-pulse p-6 space-y-4">
               <div className="flex justify-between items-center">
-                <div className="h-5 w-20 bg-gray-800/80 rounded" />
-                <div className="h-4 w-12 bg-gray-800/80 rounded" />
+                <div className="h-5 w-20 bg-neutral-800/80 rounded" />
+                <div className="h-4 w-12 bg-neutral-800/80 rounded" />
               </div>
-              <div className="h-4 w-32 bg-gray-800/80 rounded" />
-              <div className="h-10 bg-gray-800/40 rounded-xl" />
+              <div className="h-4 w-32 bg-neutral-800/80 rounded" />
+              <div className="h-10 bg-neutral-800/40 rounded-xl" />
               <div className="grid grid-cols-3 gap-2">
-                <div className="h-8 bg-gray-800/80 rounded" />
-                <div className="h-8 bg-gray-800/80 rounded" />
-                <div className="h-8 bg-gray-800/80 rounded" />
+                <div className="h-8 bg-neutral-800/80 rounded" />
+                <div className="h-8 bg-neutral-800/80 rounded" />
+                <div className="h-8 bg-neutral-800/80 rounded" />
               </div>
             </div>
           ))}
         </div>
       ) : filteredStocks.length === 0 && cacheEmpty ? (
-        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">
-          <Shield size={40} className="text-gray-650" />
-          <p className="text-gray-400 font-semibold text-base">No scan yet</p>
-          <p className="text-gray-600 text-xs max-w-sm">
+        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-neutral-900/20 border border-neutral-800/60 rounded-xl">
+          <Shield size={40} className="text-neutral-600" />
+          <p className="text-neutral-400 font-semibold text-base">No scan yet</p>
+          <p className="text-neutral-500 text-xs max-w-sm">
             Alpha Zone setups are built by a full scan — run one to see results here.
           </p>
           <Link
             href="/screener"
-            className="mt-2 inline-flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
+            className="mt-2 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
           >
             Go to Overview &amp; Run Full Scan
           </Link>
         </div>
       ) : filteredStocks.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">
-          <Shield size={40} className="text-gray-650" />
-          <p className="text-gray-400 font-semibold text-base">No Alpha Zone setups found</p>
-          <p className="text-gray-600 text-xs max-w-sm">
+        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-neutral-900/20 border border-neutral-800/60 rounded-xl">
+          <Shield size={40} className="text-neutral-600" />
+          <p className="text-neutral-400 font-semibold text-base">No Alpha Zone setups found</p>
+          <p className="text-neutral-500 text-xs max-w-sm">
             Try adjusting your zone distance or freshness filters to broaden your search parameters.
           </p>
         </div>
@@ -384,18 +384,17 @@ export default function AlphaZonePage() {
           {filteredStocks.map((s) => (
             <div 
               key={s.symbol}
-              className="group relative overflow-hidden rounded-3xl border border-gray-800 hover:border-cyan-500/40 bg-gradient-to-b from-gray-900/40 to-gray-950/80 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
+              className="group relative overflow-hidden rounded-xl border border-neutral-800 hover:border-brand-500/40 bg-neutral-900 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
             >
-              <div className="absolute top-0 right-0 -z-10 h-24 w-24 rounded-full bg-cyan-500/5 blur-2xl opacity-50" />
               
               {/* Header */}
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-xl font-bold text-white tracking-wide">{s.symbol}</h3>
-                  <p className="text-xs text-gray-500 truncate max-w-[160px]">{s.company_name}</p>
+                  <h3 className="text-xl font-bold text-foreground tracking-wide">{s.symbol}</h3>
+                  <p className="text-xs text-neutral-500 truncate max-w-[160px]">{s.company_name}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getScoreBadgeColor(s.institutional_score)}`}>
+                  <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${getScoreBadgeColor(s.institutional_score)}`}>
                     Score: {s.institutional_score}
                   </span>
                   <SignalBadge label={s.zone_strength} />
@@ -403,18 +402,18 @@ export default function AlphaZonePage() {
               </div>
 
               {/* Metrics Grid */}
-              <div className="mt-5 grid grid-cols-3 gap-3 bg-gray-900/40 border border-gray-850 rounded-2xl p-4 text-xs">
+              <div className="mt-5 grid grid-cols-3 gap-3 bg-neutral-900/40 border border-neutral-850 rounded-xl p-4 text-xs">
                 <div>
-                  <span className="text-gray-500 text-[10px] block">Proj. Return</span>
-                  <span className="font-bold text-cyan-400 text-sm font-mono">+{s.projected_return}%</span>
+                  <span className="text-neutral-500 text-[11px] block">Proj. Return</span>
+                  <span className="font-bold text-brand-400 text-sm font-mono">+{s.projected_return}%</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-[10px] block">Hold ≈</span>
-                  <span className="font-semibold text-gray-250 text-sm">{s.expected_holding}d</span>
+                  <span className="text-neutral-500 text-[11px] block">Hold ≈</span>
+                  <span className="font-semibold text-neutral-250 text-sm">{s.expected_holding}d</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-[10px] block">Zone</span>
-                  <span className={`font-semibold text-sm ${s.zone_type === "Fresh" ? "text-emerald-400" : "text-sky-400"}`}>
+                  <span className="text-neutral-500 text-[11px] block">Zone</span>
+                  <span className={`font-semibold text-sm ${s.zone_type === "Fresh" ? "text-positive-400" : "text-brand-400"}`}>
                     {s.zone_type}
                   </span>
                 </div>
@@ -447,7 +446,7 @@ export default function AlphaZonePage() {
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <button
                   onClick={() => window.open(`https://in.tradingview.com/chart/?symbol=NSE:${s.symbol}`, "_blank")}
-                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-850 px-2 py-2 rounded-xl transition-all"
+                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-foreground hover:bg-neutral-850 px-2 py-2 rounded-xl transition-all"
                   title="Open chart on TradingView"
                 >
                   <ExternalLink size={11} /> Chart
@@ -455,14 +454,14 @@ export default function AlphaZonePage() {
                 
                 <button
                   onClick={(e) => handleOpenWatchlist(s, e)}
-                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-850 px-2 py-2 rounded-xl transition-all"
+                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-foreground hover:bg-neutral-850 px-2 py-2 rounded-xl transition-all"
                 >
                   <Bookmark size={11} /> +Watch
                 </button>
 
                 <Link
                   href={`/ai-copilot?prompt=Analyze+the+Alpha+Zone+demand+setup+for+${s.symbol}+with+entry+trigger+at+${s.entry}+and+projected+return+of+${s.projected_return}%25.`}
-                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-cyan-600/10 border border-cyan-500/20 text-cyan-300 hover:bg-cyan-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
+                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-brand-600/10 border border-brand-500/20 text-brand-300 hover:bg-brand-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
                 >
                   <Sparkles size={11} /> AI Anal.
                 </Link>

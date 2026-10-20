@@ -59,19 +59,19 @@ function HeroStat({
 }) {
   return (
     <div className="px-2 sm:px-4">
-      <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{label}</div>
+      <div className="text-[11px] font-bold text-neutral-500">{label}</div>
       {loading ? (
         <div className="mx-auto mt-2 h-6 w-16 skeleton rounded" />
       ) : (
         <div
-          className={`mt-2 text-xl font-black tabular-nums leading-none ${
-            tone === 'pos' ? 'text-emerald-400' : tone === 'neg' ? 'text-red-400' : 'text-white'
+          className={`mt-2 text-xl font-bold tabular-nums leading-none ${
+            tone === 'pos' ? 'text-positive-400' : tone === 'neg' ? 'text-negative-400' : 'text-foreground'
           }`}
         >
           {value}
         </div>
       )}
-      <div className="mt-1.5 text-[10px] text-slate-600">{sub}</div>
+      <div className="mt-1.5 text-[11px] text-neutral-500">{sub}</div>
     </div>
   );
 }
@@ -89,8 +89,8 @@ function Section({
   return (
     <section>
       <div className="mb-4">
-        <h2 className="text-base font-bold tracking-tight text-white">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>}
+        <h2 className="text-base font-bold tracking-tight text-foreground">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-xs text-neutral-500">{subtitle}</p>}
       </div>
       {children}
     </section>
@@ -187,20 +187,20 @@ export default function JournalDashboardPage() {
       {/* ═══════════════════════════════════════════════════════════════
           HERO — centred, with room to breathe
       ═══════════════════════════════════════════════════════════════ */}
-      <header className="border-b border-white/[0.06] py-12 lg:py-16 text-center">
+      <header className="border-b border-foreground/[0.06] py-12 lg:py-16 text-center">
         <div className="flex items-center justify-center gap-2.5">
-          <BookOpen className="w-4 h-4 text-indigo-400" />
-          <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-400">
+          <BookOpen className="w-4 h-4 text-brand-400" />
+          <span className="text-[11px] font-bold text-brand-400">
             Workspace
           </span>
           <LiveIndicator />
         </div>
 
-        <h1 className="mt-5 text-4xl lg:text-5xl font-black tracking-tight text-white">
+        <h1 className="mt-5 text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
           Trading Journal
         </h1>
 
-        <p className="mx-auto mt-4 max-w-xl text-sm lg:text-[15px] leading-relaxed text-slate-400">
+        <p className="mx-auto mt-4 max-w-xl text-sm lg:text-[15px] leading-relaxed text-neutral-400">
           Professional trade analytics, AI reviews, execution tracking
           and performance insights.
         </p>
@@ -210,21 +210,21 @@ export default function JournalDashboardPage() {
           <button
             onClick={() => setShowCapture(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white hover:scale-[1.03] active:scale-95 transition-all"
-            style={{ background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', boxShadow: '0 0 20px rgba(99,102,241,0.3)' }}
+            style={{ background: 'rgb(var(--brand-600))', boxShadow: 'none' }}
           >
             <Plus className="w-4 h-4" /> Add Trade
           </button>
           <button
             onClick={() => setShowAnalyzer((v) => !v)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-indigo-400 transition-all hover:bg-indigo-400/10"
-            style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.18)' }}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-brand-400 transition-all hover:bg-brand-400/10"
+            style={{ background: 'rgb(var(--brand-500) / 0.06)', border: '1px solid rgb(var(--brand-500) / 0.18)' }}
           >
             <Sparkles className="w-3.5 h-3.5" /> AI Review
           </button>
           <button
             disabled title="CSV import coming soon"
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-500 opacity-50 cursor-not-allowed"
-            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-neutral-500 opacity-50 cursor-not-allowed"
+            style={{ background: 'rgb(var(--foreground) / 0.03)', border: '1px solid rgb(var(--foreground) / 0.06)' }}
           >
             <Upload className="w-3.5 h-3.5" /> Import
           </button>
@@ -232,7 +232,7 @@ export default function JournalDashboardPage() {
 
         {/* Glance stats — the four things you check before anything else */}
         {!hasNoTrades && (
-          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 sm:divide-x sm:divide-white/[0.06]">
+          <div className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 sm:divide-x sm:divide-foreground/[0.06]">
             <HeroStat
               label="Last Trade"
               value={lastTrade ? lastTrade.instrument : '—'}
@@ -267,7 +267,7 @@ export default function JournalDashboardPage() {
         <div className="glass-card p-6 mt-10 animate-fadeUp">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-indigo-400" /> AI Journal Analyzer
+              <Sparkles className="w-4 h-4 text-brand-400" /> AI Journal Analyzer
             </h2>
             <button onClick={() => setShowAnalyzer(false)} className="text-muted-foreground hover:text-foreground text-xs">Close ×</button>
           </div>
@@ -355,13 +355,13 @@ export default function JournalDashboardPage() {
           <div>
             <button
               onClick={() => setShowTradeList((v) => !v)}
-              className="flex items-center gap-2 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors w-full justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3"
+              className="flex items-center gap-2 text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors w-full justify-between rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] px-4 py-3"
             >
               <span className="flex items-center gap-2">
                 <BookOpen className="w-3.5 h-3.5" />
                 Full Trade Log
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8' }}>
+                <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+                  style={{ background: 'rgb(var(--brand-500) / 0.12)', color: 'rgb(var(--brand-400))' }}>
                   {allTrades.length}
                 </span>
               </span>
@@ -391,9 +391,9 @@ export default function JournalDashboardPage() {
                     />
                   ) : (
                     <div className="glass-card h-full min-h-[400px] flex flex-col items-center justify-center gap-3 py-12 text-center px-4">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                        style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}>
-                        <Sparkles className="w-5 h-5 text-indigo-400" />
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                        style={{ background: 'rgb(var(--brand-500) / 0.08)', border: '1px solid rgb(var(--brand-500) / 0.15)' }}>
+                        <Sparkles className="w-5 h-5 text-brand-400" />
                       </div>
                       <p className="text-sm font-medium">AI Trade Insight Panel</p>
                       <p className="text-[11px] text-muted-foreground max-w-[200px] leading-relaxed">

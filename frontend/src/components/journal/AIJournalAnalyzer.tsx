@@ -87,9 +87,9 @@ function useWinLoss(trades: Trade[]) {
       else flat++;
     });
     return [
-      { name: "Wins", value: win, color: "#16a34a" },
-      { name: "Losses", value: loss, color: "#ef4444" },
-      { name: "Breakeven", value: flat, color: "#64748b" },
+      { name: "Wins", value: win, color: "rgb(var(--positive-400))" },
+      { name: "Losses", value: loss, color: "rgb(var(--negative-400))" },
+      { name: "Breakeven", value: flat, color: "rgb(var(--neutral-500))" },
     ];
   }, [trades]);
 }
@@ -163,12 +163,12 @@ export function AIJournalAnalyzer({ trades, setupName }: { trades: Trade[]; setu
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             <CardTitle>AI Journal Analyzer</CardTitle>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select className="h-9 rounded-md border bg-background px-2 text-sm" value={range} onChange={(e) => (setRange(e.target.value as AnalyzerRange))}>
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
@@ -222,7 +222,7 @@ export function AIJournalAnalyzer({ trades, setupName }: { trades: Trade[]; setu
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="value" stroke="rgb(var(--brand-400))" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -237,7 +237,7 @@ export function AIJournalAnalyzer({ trades, setupName }: { trades: Trade[]; setu
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="value" fill="rgb(var(--positive-400))" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -252,7 +252,7 @@ export function AIJournalAnalyzer({ trades, setupName }: { trades: Trade[]; setu
                     <XAxis dataKey="name" hide={false} />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#0ea5e9" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="value" fill="rgb(var(--brand-400))" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -266,7 +266,7 @@ export function AIJournalAnalyzer({ trades, setupName }: { trades: Trade[]; setu
 
         {tab === "ai" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted-foreground">Let AI review your journal and suggest improvements.</p>
               <Button onClick={fetchAI} disabled={loadingAI} className="gap-2">
                 {loadingAI ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -275,10 +275,10 @@ export function AIJournalAnalyzer({ trades, setupName }: { trades: Trade[]; setu
             </div>
             <Card className="p-4">
               <div className="space-y-3">
-                <Section title="Pros ✅" text={aiText} marker="PROS:" />
-                <Section title="Cons ❌" text={aiText} marker="CONS:" />
-                <Section title="Suggestions 💡" text={aiText} marker="SUGGESTIONS:" />
-                <Section title="AI View 🔮" text={aiText} marker="VIEW:" />
+                <Section title="Pros" text={aiText} marker="PROS:" />
+                <Section title="Cons" text={aiText} marker="CONS:" />
+                <Section title="Suggestions" text={aiText} marker="SUGGESTIONS:" />
+                <Section title="AI view" text={aiText} marker="VIEW:" />
               </div>
             </Card>
           </div>
@@ -301,7 +301,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+      className={`text-sm px-3 py-1.5 rounded-md border transition-colors ${active ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
     >
       {children}
     </button>
@@ -314,7 +314,7 @@ function Summary({ trades, setupName }: { trades: Trade[]; setupName: (id: strin
   const weekly = useTrend(trades, "weekly");
   const last = weekly[weekly.length - 1];
   const lastVal = last?.value || 0;
-  const lastCls = lastVal >= 0 ? "text-emerald-600" : "text-red-600";
+  const lastCls = lastVal >= 0 ? "text-positive-400" : "text-negative-400";
 
   // most successful instrument by avg pnl
   const avgByInstrument = useMemo(() => {

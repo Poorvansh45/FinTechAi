@@ -189,7 +189,7 @@ export function DualRangeSlider({
         style={{ touchAction: "none" }}
       >
         {/* rail */}
-        <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-gray-800" />
+        <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-neutral-800" />
         {/* selected span */}
         <div
           className={`absolute top-1/2 h-1 -translate-y-1/2 rounded-full ${a.fill}`}
@@ -257,12 +257,12 @@ function Thumb({
       onBlur={onBlur}
       onPointerDown={onPointerDown}
       className={`absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border shadow-sm outline-none transition-transform duration-100 focus-visible:ring-2 active:cursor-grabbing ${accentThumb} ${accentRing} ${
-        dragging ? "scale-125" : "hover:scale-110"
+        dragging ? "scale-125" : ""
       } ${unset ? "opacity-70" : ""}`}
       style={{ left: `${percent}%`, touchAction: "none" }}
     >
       <span
-        className={`pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-gray-700 bg-gray-900 px-1.5 py-0.5 font-mono text-[10px] text-gray-100 shadow-lg transition-all duration-100 ${
+        className={`pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-neutral-700 bg-neutral-900 px-1.5 py-0.5 font-mono text-[11px] text-neutral-100 shadow-lg transition-all duration-100 ${
           showTooltip ? "opacity-100" : "scale-95 opacity-0"
         }`}
       >

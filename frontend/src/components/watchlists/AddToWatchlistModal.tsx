@@ -96,7 +96,7 @@ export default function AddToWatchlistModal({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" />
+          <div className="fixed inset-0 bg-neutral-950/80 backdrop-blur-sm" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
@@ -110,28 +110,28 @@ export default function AddToWatchlistModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-slate-900 border border-slate-800 p-6 text-left align-middle shadow-xl transition-all">
+              <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-xl bg-neutral-900 border border-neutral-800 p-6 text-left align-middle shadow-xl transition-all">
                 <div className="flex justify-between items-start mb-4">
-                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-white">
+                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-foreground">
                     Add to Watchlist
                   </Dialog.Title>
-                  <button onClick={onClose} className="text-slate-400 hover:text-white">
+                  <button onClick={onClose} className="text-neutral-400 hover:text-foreground">
                     <XMarkIcon className="w-5 h-5" />
                   </button>
                 </div>
                 
-                <div className="mb-4 text-sm text-slate-400">
-                  Select a watchlist to add <span className="font-semibold text-white">{symbol}</span>
+                <div className="mb-4 text-sm text-neutral-400">
+                  Select a watchlist to add <span className="font-semibold text-foreground">{symbol}</span>
                 </div>
 
                 {error && (
-                  <div className="mb-4 p-3 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm">
+                  <div className="mb-4 p-3 rounded bg-negative-500/10 border border-negative-500/20 text-negative-400 text-sm">
                     {error}
                   </div>
                 )}
 
                 {loading ? (
-                  <div className="py-8 text-center text-slate-500">Loading watchlists...</div>
+                  <div className="py-8 text-center text-neutral-500">Loading watchlists...</div>
                 ) : (
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                     {watchlists.map(wl => (
@@ -139,17 +139,17 @@ export default function AddToWatchlistModal({
                         key={wl.id}
                         onClick={() => handleAdd(wl.id)}
                         disabled={addingTo !== null}
-                        className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all text-left"
+                        className="w-full flex items-center justify-between p-3 rounded-xl bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700 hover:border-neutral-600 transition-all text-left"
                       >
                         <div>
-                          <div className="text-white font-medium">{wl.name}</div>
-                          <div className="text-xs text-slate-400">{wl.stock_count} stocks</div>
+                          <div className="text-foreground font-medium">{wl.name}</div>
+                          <div className="text-xs text-neutral-400">{wl.stock_count} stocks</div>
                         </div>
-                        {addingTo === wl.id && <div className="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
+                        {addingTo === wl.id && <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />}
                       </button>
                     ))}
                     {watchlists.length === 0 && !isCreatingNew && (
-                      <div className="text-center py-4 text-slate-500 text-sm">
+                      <div className="text-center py-4 text-neutral-500 text-sm">
                         No watchlists found. Create one to get started!
                       </div>
                     )}
@@ -159,7 +159,7 @@ export default function AddToWatchlistModal({
                 {!isCreatingNew ? (
                   <button
                     onClick={() => setIsCreatingNew(true)}
-                    className="mt-4 w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-slate-700 hover:border-slate-500 text-slate-400 hover:text-white transition-colors"
+                    className="mt-4 w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-neutral-700 hover:border-neutral-500 text-neutral-400 hover:text-foreground transition-colors"
                   >
                     <PlusIcon className="w-4 h-4" />
                     Create New Watchlist
@@ -172,23 +172,23 @@ export default function AddToWatchlistModal({
                       placeholder="e.g. Swing Trades"
                       value={newWatchlistName}
                       onChange={e => setNewWatchlistName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-indigo-500 outline-none"
+                      className="w-full bg-neutral-950 border border-neutral-700 rounded-xl px-4 py-2 text-foreground focus:ring-1 focus:ring-brand-500 outline-none"
                     />
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setIsCreatingNew(false)}
-                        className="flex-1 py-2 px-4 rounded-xl bg-slate-800 text-white hover:bg-slate-700 transition-colors"
+                        className="flex-1 py-2 px-4 rounded-xl bg-neutral-800 text-foreground hover:bg-neutral-700 transition-colors"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={!newWatchlistName.trim() || addingTo !== null}
-                        className="flex-1 py-2 px-4 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+                        className="flex-1 py-2 px-4 rounded-xl bg-brand-600 text-white hover:bg-brand-500 transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
                       >
                         {addingTo === 'new' ? (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
                         ) : 'Create & Add'}
                       </button>
                     </div>

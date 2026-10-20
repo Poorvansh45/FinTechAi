@@ -13,15 +13,15 @@ function LoginRedirect() {
   }, [router, searchParams]);
 
   return (
-    <div className="fixed inset-0 bg-[#080C14] flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+    <div className="fixed inset-0 bg-neutral-950 flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-brand-500/30 border-t-brand-500 rounded-full animate-spin" />
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="fixed inset-0 bg-[#080C14]" />}>
+    <Suspense fallback={<div className="fixed inset-0 bg-neutral-950" />}>
       <LoginRedirect />
     </Suspense>
   );

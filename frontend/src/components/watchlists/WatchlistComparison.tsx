@@ -1,4 +1,5 @@
 "use client";
+import { withAlpha } from "@/lib/utils";
 
 interface Stock {
   symbol: string;
@@ -17,20 +18,20 @@ const fmtPct = (v?: number | null) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 
 const retColor = (v?: number | null) =>
-  v == null ? "text-gray-500" : v > 0 ? "text-emerald-400" : v < 0 ? "text-red-400" : "text-gray-400";
+  v == null ? "text-neutral-500" : v > 0 ? "text-positive-400" : v < 0 ? "text-negative-400" : "text-neutral-400";
 
 const SOURCE_COLORS: Record<string, string> = {
-  "SMC Scanner":        "#a78bfa",
-  "FVG Scanner":        "#60a5fa",
-  "Volume Scanner":     "#fb923c",
-  "Momentum Scanner":   "#34d399",
-  "Technical Screener": "#fbbf24",
+  "SMC Scanner":        "rgb(var(--brand-400))",
+  "FVG Scanner":        "rgb(var(--brand-400))",
+  "Volume Scanner":     "rgb(var(--warning-400))",
+  "Momentum Scanner":   "rgb(var(--positive-400))",
+  "Technical Screener": "rgb(var(--warning-400))",
 };
 
 export default function WatchlistComparison({ stocks }: Props) {
   if (!stocks.length) {
     return (
-      <div className="py-16 text-center text-gray-600 text-sm">
+      <div className="py-16 text-center text-neutral-500 text-sm">
         No holdings to compare.
       </div>
     );
@@ -63,12 +64,12 @@ export default function WatchlistComparison({ stocks }: Props) {
   return (
     <div className="space-y-5">
       {/* Scanner ranking */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-gray-300 mb-4">Scanner Comparison</h3>
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-neutral-300 mb-4">Scanner Comparison</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-xs text-gray-500 border-b border-gray-800">
+              <tr className="text-xs text-neutral-500 border-b border-neutral-800">
                 <th className="pb-2 text-left">Source</th>
                 <th className="pb-2 text-right">Picks</th>
                 <th className="pb-2 text-right">Avg Return</th>
@@ -81,24 +82,24 @@ export default function WatchlistComparison({ stocks }: Props) {
             </thead>
             <tbody>
               {metrics.map(({ src, n, avgReturn, winRate, maxGain, maxDD, avgDays, avgAlpha }) => (
-                <tr key={src} className="border-b border-gray-800/50 hover:bg-gray-800/25">
+                <tr key={src} className="border-b border-neutral-800/50 hover:bg-neutral-800/25">
                   <td className="py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full"
-                        style={{ background: SOURCE_COLORS[src] || "#6b7280" }} />
-                      <span className="text-gray-300 text-xs">{src}</span>
+                        style={{ background: SOURCE_COLORS[src] || "rgb(var(--neutral-500))" }} />
+                      <span className="text-neutral-300 text-xs">{src}</span>
                       {src === best.src && (
-                        <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Best</span>
+                        <span className="px-1.5 py-0.5 rounded text-[11px] bg-positive-500/20 text-positive-300 border border-positive-500/30">Best</span>
                       )}
                     </div>
                   </td>
-                  <td className="py-3 text-right text-gray-400 text-xs">{n}</td>
+                  <td className="py-3 text-right text-neutral-400 text-xs">{n}</td>
                   <td className={`py-3 text-right font-bold text-sm ${retColor(avgReturn)}`}>{fmtPct(avgReturn)}</td>
-                  <td className="py-3 text-right text-xs text-gray-300">{winRate.toFixed(0)}%</td>
-                  <td className="py-3 text-right text-xs text-emerald-400">{fmtPct(maxGain)}</td>
-                  <td className="py-3 text-right text-xs text-red-400">{fmtPct(maxDD)}</td>
+                  <td className="py-3 text-right text-xs text-neutral-300">{winRate.toFixed(0)}%</td>
+                  <td className="py-3 text-right text-xs text-positive-400">{fmtPct(maxGain)}</td>
+                  <td className="py-3 text-right text-xs text-negative-400">{fmtPct(maxDD)}</td>
                   <td className={`py-3 text-right text-xs ${retColor(avgAlpha)}`}>{fmtPct(avgAlpha)}</td>
-                  <td className="py-3 text-right text-xs text-gray-500">{avgDays.toFixed(0)}d</td>
+                  <td className="py-3 text-right text-xs text-neutral-500">{avgDays.toFixed(0)}d</td>
                 </tr>
               ))}
             </tbody>
@@ -107,25 +108,25 @@ export default function WatchlistComparison({ stocks }: Props) {
       </div>
 
       {/* Visual bar comparison */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-        <h3 className="text-sm font-semibold text-gray-300 mb-4">Average Return by Source</h3>
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+        <h3 className="text-sm font-semibold text-neutral-300 mb-4">Average Return by Source</h3>
         <div className="space-y-3">
           {metrics.map(({ src, avgReturn }) => {
             const pct    = Math.abs(avgReturn);
             const maxPct = Math.max(...metrics.map((m) => Math.abs(m.avgReturn)), 1);
             const barW   = (pct / maxPct) * 100;
-            const color  = SOURCE_COLORS[src] || "#6b7280";
+            const color  = SOURCE_COLORS[src] || "rgb(var(--neutral-500))";
             return (
               <div key={src} className="flex items-center gap-3">
-                <div className="w-36 text-xs text-gray-400 text-right truncate">{src}</div>
-                <div className="flex-1 h-7 bg-gray-800 rounded-lg overflow-hidden relative">
+                <div className="w-36 text-xs text-neutral-400 text-right truncate">{src}</div>
+                <div className="flex-1 h-7 bg-neutral-800 rounded-lg overflow-hidden relative">
                   <div
                     className="h-full rounded-lg transition-all duration-700"
-                    style={{ width: `${barW}%`, background: `${color}40` }}
+                    style={{ width: `${barW}%`, background: `${withAlpha(color, 0.25)}` }}
                   />
                   <div
                     className="absolute inset-y-0 left-0 rounded-lg transition-all duration-700"
-                    style={{ width: `${barW}%`, background: `${color}20`, border: `1px solid ${color}40` }}
+                    style={{ width: `${barW}%`, background: `${withAlpha(color, 0.13)}`, border: `1px solid ${withAlpha(color, 0.25)}` }}
                   />
                   <span className={`absolute inset-0 flex items-center px-3 text-xs font-bold ${retColor(avgReturn)}`}>
                     {fmtPct(avgReturn)}

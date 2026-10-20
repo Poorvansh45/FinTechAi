@@ -176,46 +176,41 @@ export default function LaunchPadPage() {
   });
 
   const getConfidenceBadgeColor = (conf: number) => {
-    if (conf >= 90) return "bg-blue-500/20 text-blue-300 border-blue-500/30";
-    if (conf >= 80) return "bg-sky-500/20 text-sky-300 border-sky-500/30";
-    return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
+    if (conf >= 90) return "bg-brand-500/20 text-brand-300 border-brand-500/30";
+    if (conf >= 80) return "bg-brand-500/20 text-brand-300 border-brand-500/30";
+    return "bg-brand-500/20 text-brand-300 border-brand-500/30";
   };
 
   return (
-    <div className="space-y-8">
-      {/* ── Header ────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-blue-500/10 border border-blue-500/25 text-blue-400">
-              <Rocket size={12} />
-            </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Proprietary Strategy</span>
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">🚀 LaunchPad Swing Scanner</h1>
-          <p className="text-sm text-gray-400">
+    <div className="space-y-4">
+      {/* ── Scanner header ─────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-subheading text-foreground">
+            <Rocket size={16} className="text-brand-400" aria-hidden />
+            LaunchPad Swing Scanner
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-neutral-400">
             Scanning for high-probability momentum breakout setups using FVG overlaps with the 200 EMA support.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-950/20 border border-blue-500/20 rounded-2xl px-5 py-2.5 text-center min-w-[100px]">
-            <div className="text-2xl font-black text-blue-400 font-mono">
-              {loading ? "..." : filteredStocks.length}
-            </div>
-            <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">Stocks Found</div>
-          </div>
+        <div className="flex shrink-0 items-baseline gap-2 border-neutral-800 sm:border-l sm:pl-4" aria-live="polite">
+          <span className="text-label text-neutral-400">Stocks found</span>
+          <span className="font-mono text-heading tabular-nums text-foreground">
+            {loading ? "…" : filteredStocks.length}
+          </span>
         </div>
       </div>
 
       {/* ── Scan-in-progress banner ─────────────────────────────────── */}
       {scanRunning && (
-        <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-3 text-amber-300 text-sm">
+        <div className="flex items-center gap-3 bg-warning-500/10 border border-warning-500/30 rounded-xl px-5 py-3 text-warning-300 text-sm">
           <Loader2 size={15} className="animate-spin flex-shrink-0" />
           <span>
             A full scan is currently running — these results are from the last completed scan and will
             refresh automatically once it finishes.
           </span>
-          <Link href="/screener" className="ml-auto flex-shrink-0 text-amber-200 underline hover:text-white transition-colors">
+          <Link href="/screener" className="ml-auto flex-shrink-0 text-warning-200 underline hover:text-foreground transition-colors">
             View progress
           </Link>
         </div>
@@ -228,9 +223,9 @@ export default function LaunchPadPage() {
         accent="blue"
         columns={3}
         footer={
-          <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-            <div className="relative w-full sm:max-w-xs">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-sm">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
                 <Search size={14} />
               </span>
               <input
@@ -238,13 +233,13 @@ export default function LaunchPadPage() {
                 placeholder="Search symbol or company..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 transition-colors focus:border-blue-500 focus:outline-none"
+                className="h-9 w-full rounded-lg border border-neutral-800 bg-neutral-950 pl-9 pr-3 text-sm text-foreground placeholder-neutral-600 transition-colors focus:border-brand-500 focus:outline-none"
               />
             </div>
             <button
               onClick={runScan}
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-500 active:scale-98 sm:w-auto"
+              className="h-9 w-full rounded-lg bg-brand-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-500 disabled:opacity-60 sm:w-auto"
             >
               {loading ? "Scanning Universe…" : "Re-Run Scanner"}
             </button>
@@ -334,7 +329,7 @@ export default function LaunchPadPage() {
 
       {/* ── Error state ───────────────────────────────────────────── */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3 text-red-400 text-sm">
+        <div className="bg-negative-500/10 border border-negative-500/30 rounded-xl p-4 flex items-start gap-3 text-negative-400 text-sm">
           <AlertCircle className="flex-shrink-0 mt-0.5" size={16} />
           <div>
             <h4 className="font-semibold">Scanner Error</h4>
@@ -347,40 +342,40 @@ export default function LaunchPadPage() {
       {loading && filteredStocks.length === 0 ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-64 rounded-3xl bg-gray-900/30 border border-gray-800/40 animate-pulse p-6 space-y-4">
+            <div key={i} className="h-64 rounded-xl bg-neutral-900/30 border border-neutral-800/40 animate-pulse p-6 space-y-4">
               <div className="flex justify-between items-center">
-                <div className="h-5 w-20 bg-gray-800/80 rounded" />
-                <div className="h-4 w-12 bg-gray-800/80 rounded" />
+                <div className="h-5 w-20 bg-neutral-800/80 rounded" />
+                <div className="h-4 w-12 bg-neutral-800/80 rounded" />
               </div>
-              <div className="h-4 w-32 bg-gray-800/80 rounded" />
-              <div className="h-10 bg-gray-800/40 rounded-xl" />
+              <div className="h-4 w-32 bg-neutral-800/80 rounded" />
+              <div className="h-10 bg-neutral-800/40 rounded-xl" />
               <div className="grid grid-cols-3 gap-2">
-                <div className="h-8 bg-gray-800/80 rounded" />
-                <div className="h-8 bg-gray-800/80 rounded" />
-                <div className="h-8 bg-gray-800/80 rounded" />
+                <div className="h-8 bg-neutral-800/80 rounded" />
+                <div className="h-8 bg-neutral-800/80 rounded" />
+                <div className="h-8 bg-neutral-800/80 rounded" />
               </div>
             </div>
           ))}
         </div>
       ) : filteredStocks.length === 0 && cacheEmpty ? (
-        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">
-          <Rocket size={40} className="text-gray-650" />
-          <p className="text-gray-400 font-semibold text-base">No scan yet</p>
-          <p className="text-gray-600 text-xs max-w-sm">
+        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-neutral-900/20 border border-neutral-800/60 rounded-xl">
+          <Rocket size={40} className="text-neutral-600" />
+          <p className="text-neutral-400 font-semibold text-base">No scan yet</p>
+          <p className="text-neutral-500 text-xs max-w-sm">
             LaunchPad setups are built by a full scan — run one to see results here.
           </p>
           <Link
             href="/screener"
-            className="mt-2 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
+            className="mt-2 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all"
           >
             Go to Overview &amp; Run Full Scan
           </Link>
         </div>
       ) : filteredStocks.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">
-          <Rocket size={40} className="text-gray-650" />
-          <p className="text-gray-400 font-semibold text-base">No LaunchPad setups found</p>
-          <p className="text-gray-600 text-xs max-w-sm">
+        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-neutral-900/20 border border-neutral-800/60 rounded-xl">
+          <Rocket size={40} className="text-neutral-600" />
+          <p className="text-neutral-400 font-semibold text-base">No LaunchPad setups found</p>
+          <p className="text-neutral-500 text-xs max-w-sm">
             No setups fall inside these ranges — try widening a slider (or hit Reset to clear them all).
           </p>
         </div>
@@ -389,18 +384,17 @@ export default function LaunchPadPage() {
           {filteredStocks.map((s) => (
             <div 
               key={s.symbol}
-              className="group relative overflow-hidden rounded-3xl border border-gray-800 hover:border-blue-500/40 bg-gradient-to-b from-gray-900/40 to-gray-950/80 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
+              className="group relative overflow-hidden rounded-xl border border-neutral-800 hover:border-brand-500/40 bg-neutral-900 p-6 shadow-md transition-all duration-300 hover:scale-[1.01]"
             >
-              <div className="absolute top-0 right-0 -z-10 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl opacity-50" />
               
               {/* Header */}
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-xl font-bold text-white tracking-wide">{s.symbol}</h3>
-                  <p className="text-xs text-gray-500 truncate max-w-[160px]">{s.company_name}</p>
+                  <h3 className="text-xl font-bold text-foreground tracking-wide">{s.symbol}</h3>
+                  <p className="text-xs text-neutral-500 truncate max-w-[160px]">{s.company_name}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getConfidenceBadgeColor(s.confidence)}`}>
+                  <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${getConfidenceBadgeColor(s.confidence)}`}>
                     Conf. {s.confidence}%
                   </span>
                   <SignalBadge label={s.signal_strength} />
@@ -408,18 +402,18 @@ export default function LaunchPadPage() {
               </div>
 
               {/* Metrics Grid */}
-              <div className="mt-5 grid grid-cols-3 gap-3 bg-gray-900/40 border border-gray-850 rounded-2xl p-4 text-xs">
+              <div className="mt-5 grid grid-cols-3 gap-3 bg-neutral-900/40 border border-neutral-850 rounded-xl p-4 text-xs">
                 <div>
-                  <span className="text-gray-500 text-[10px] block">Exp. Return</span>
-                  <span className="font-bold text-blue-400 text-sm font-mono">+{s.expected_return}%</span>
+                  <span className="text-neutral-500 text-[11px] block">Exp. Return</span>
+                  <span className="font-bold text-brand-400 text-sm font-mono">+{s.expected_return}%</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-[10px] block">Hold</span>
-                  <span className="font-semibold text-gray-250 text-sm">{s.holding_period}d</span>
+                  <span className="text-neutral-500 text-[11px] block">Hold</span>
+                  <span className="font-semibold text-neutral-250 text-sm">{s.holding_period}d</span>
                 </div>
                 <div>
-                  <span className="text-gray-500 text-[10px] block">Risk</span>
-                  <span className={`font-semibold text-sm ${s.risk === "Low" ? "text-emerald-400" : s.risk === "High" ? "text-red-400" : "text-amber-400"}`}>
+                  <span className="text-neutral-500 text-[11px] block">Risk</span>
+                  <span className={`font-semibold text-sm ${s.risk === "Low" ? "text-positive-400" : s.risk === "High" ? "text-negative-400" : "text-warning-400"}`}>
                     {s.risk}
                   </span>
                 </div>
@@ -438,33 +432,33 @@ export default function LaunchPadPage() {
               {/* Historical bullish-FVG track record for THIS stock: how often
                   its past FVGs continued up, and the avg win vs avg loss. */}
               {s.fvg_sample > 0 && (
-                <div className="mt-4 rounded-2xl border border-blue-500/15 bg-blue-500/[0.04] p-3">
+                <div className="mt-4 rounded-xl border border-brand-500/15 bg-brand-500/[0.04] p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-300">
+                    <span className="text-[11px] font-bold text-brand-300">
                       FVG Track Record
                     </span>
-                    <span className="text-[10px] text-gray-500" title="Historical bullish FVGs tested">
+                    <span className="text-[11px] text-neutral-500" title="Historical bullish FVGs tested">
                       {s.fvg_sample} past gap{s.fvg_sample === 1 ? "" : "s"}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
-                      <span className="block font-mono text-sm font-bold text-white">
+                      <span className="block font-mono text-sm font-bold text-foreground">
                         {s.fvg_win_rate ?? "—"}%
                       </span>
-                      <span className="text-[9px] uppercase text-gray-500">Win Rate</span>
+                      <span className="text-[11px] text-neutral-500">Win Rate</span>
                     </div>
                     <div>
-                      <span className="block font-mono text-sm font-bold text-emerald-400">
+                      <span className="block font-mono text-sm font-bold text-positive-400">
                         {s.fvg_avg_win != null ? `+${s.fvg_avg_win}%` : "—"}
                       </span>
-                      <span className="text-[9px] uppercase text-gray-500">Avg Win</span>
+                      <span className="text-[11px] text-neutral-500">Avg Win</span>
                     </div>
                     <div>
-                      <span className="block font-mono text-sm font-bold text-red-400">
+                      <span className="block font-mono text-sm font-bold text-negative-400">
                         {s.fvg_avg_loss != null ? `${s.fvg_avg_loss}%` : "—"}
                       </span>
-                      <span className="text-[9px] uppercase text-gray-500">Avg Loss</span>
+                      <span className="text-[11px] text-neutral-500">Avg Loss</span>
                     </div>
                   </div>
                 </div>
@@ -489,7 +483,7 @@ export default function LaunchPadPage() {
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <button
                   onClick={() => window.open(`https://in.tradingview.com/chart/?symbol=NSE:${s.symbol}`, "_blank")}
-                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-850 px-2 py-2 rounded-xl transition-all"
+                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-foreground hover:bg-neutral-850 px-2 py-2 rounded-xl transition-all"
                   title="Open chart on TradingView"
                 >
                   <ExternalLink size={11} /> Chart
@@ -497,14 +491,14 @@ export default function LaunchPadPage() {
                 
                 <button
                   onClick={(e) => handleOpenWatchlist(s, e)}
-                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-850 px-2 py-2 rounded-xl transition-all"
+                  className="flex items-center justify-center gap-1 text-[11px] font-medium bg-neutral-900 border border-neutral-800 text-neutral-400 hover:text-foreground hover:bg-neutral-850 px-2 py-2 rounded-xl transition-all"
                 >
                   <Bookmark size={11} /> +Watch
                 </button>
 
                 <Link
                   href={`/ai-copilot?prompt=Analyze+the+LaunchPad+momentum+setup+for+${s.symbol}+with+entry+at+${s.entry}+and+expected+return+of+${s.expected_return}%25.`}
-                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-blue-600/10 border border-blue-500/20 text-blue-300 hover:bg-blue-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
+                  className="flex items-center justify-center gap-1 text-[11px] font-bold bg-brand-600/10 border border-brand-500/20 text-brand-300 hover:bg-brand-600 hover:text-white px-2 py-2 rounded-xl transition-all text-center"
                 >
                   <Sparkles size={11} /> AI Anal.
                 </Link>

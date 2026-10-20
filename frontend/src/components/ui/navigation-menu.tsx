@@ -114,7 +114,7 @@ function NavigationMenuViewport({
 			<NavigationMenuPrimitive.Viewport
 				data-slot="navigation-menu-viewport"
 				className={cn(
-					'origin-top-center bg-background/95 supports-[backdrop-filter]:bg-background/60 text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-90 relative mt-1.5 h-[var(--radix-navigation-menu-viewport-height)] w-full overflow-hidden rounded-md border shadow backdrop-blur-xl md:w-[var(--radix-navigation-menu-viewport-width)]',
+					'origin-top-center bg-background/95 supports-[backdrop-filter]:bg-background/60 text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-90 relative mt-1.5 h-[var(--radix-navigation-menu-viewport-height)] w-full overflow-hidden rounded-md border shadow md:w-[var(--radix-navigation-menu-viewport-width)]',
 					className,
 				)}
 				{...props}
@@ -169,23 +169,23 @@ function NavGridCard({
 			<div
 				className={cn(
 					"w-full md:w-[280px] h-[130px] p-5 flex flex-col justify-between rounded-xl border cursor-pointer text-left select-none relative z-10 transition-all duration-300 ease-out",
-					"bg-[#0A0E19]/95 border-white/[0.08]",
-					"hover:border-purple-500/30 hover:bg-white/[0.03] hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)]",
+					"bg-neutral-950/95 border-foreground/[0.08]",
+					"hover:border-brand-500/30 hover:bg-foreground/[0.03]",
 					className
 				)}
 				{...props}
 			>
 				<div className="flex items-center justify-between w-full">
 					{link.icon && (
-						<link.icon className="text-purple-400 size-5" />
+						<link.icon className="text-brand-400 size-5" />
 					)}
 				</div>
 				<div className="space-y-1">
-					<span className="text-white text-sm font-semibold block leading-tight">
+					<span className="text-foreground text-sm font-semibold block leading-tight">
 						{link.title}
 					</span>
 					{link.description && (
-						<p className="text-zinc-400 text-xs leading-normal line-clamp-2">
+						<p className="text-neutral-400 text-xs leading-normal line-clamp-2">
 							{link.description}
 						</p>
 					)}
@@ -206,15 +206,15 @@ function NavSmallItem({
 		<NavigationMenuLink
 			className={cn(
 				'group relative flex h-max flex-row items-center gap-x-3 px-3 py-2 rounded-lg transition-all duration-200',
-				'text-zinc-400 hover:text-white hover:bg-white/[0.03]',
+				'text-neutral-400 hover:text-foreground hover:bg-foreground/[0.03]',
 				className,
 			)}
 			{...props}
 		>
-			{item.icon && <item.icon className="text-purple-400 size-4 flex-shrink-0" />}
+			{item.icon && <item.icon className="text-brand-400 size-4 flex-shrink-0" />}
 			<p className="text-xs font-medium">{item.title}</p>
 			<div className="relative ml-auto flex h-full w-4 items-center">
-				<ArrowRightIcon className="size-3 -translate-x-2 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 text-purple-400" />
+				<ArrowRightIcon className="size-3 -translate-x-2 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 text-brand-400" />
 			</div>
 		</NavigationMenuLink>
 	);
@@ -231,21 +231,21 @@ function NavLargeItem({
 		<NavigationMenuLink
 			className={cn(
 				"w-full md:w-[280px] h-[130px] p-5 flex flex-col justify-between rounded-xl border cursor-pointer text-left select-none relative z-10 transition-all duration-300 ease-out border p-0",
-				"bg-[#0A0E19]/95 border-white/[0.08]",
-				"hover:border-purple-500/30 hover:bg-white/[0.03] hover:-translate-y-1 hover:shadow-[0_0_40px_rgba(109,93,251,0.12)]",
+				"bg-neutral-950/95 border-foreground/[0.08]",
+				"hover:border-brand-500/30 hover:bg-foreground/[0.03]",
 				className
 			)}
 			{...props}
 		>
 			<div className="flex items-start justify-between w-full px-5 pt-4">
 				{link.icon && (
-					<link.icon className="text-purple-400 size-5" />
+					<link.icon className="text-brand-400 size-5" />
 				)}
 			</div>
 			<div className="space-y-1 text-left px-5 pb-4">
-				<span className="text-white text-sm font-semibold block leading-tight">{link.title}</span>
+				<span className="text-foreground text-sm font-semibold block leading-tight">{link.title}</span>
 				{link.description && (
-					<p className="text-zinc-400 text-xs leading-normal line-clamp-1">
+					<p className="text-neutral-400 text-xs leading-normal line-clamp-1">
 						{link.description}
 					</p>
 				)}

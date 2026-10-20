@@ -9,40 +9,21 @@ import {
 } from "lucide-react";
 import { useScreenerExport } from "@/hooks/useScreenerUtils";
 
-/**
- * Nav is monochrome at rest, blue on hover (generic "interactive" cue), and
- * reveals its own category color only when active (identity cue) — so at most
- * one accent is ever visible at a time. Tailwind needs literal class strings
- * per key (no `text-${x}-400` interpolation), same pattern as
- * components/screener/filters/types.ts's ACCENT map.
- */
-type Category = "neutral" | "blue" | "cyan" | "orange" | "emerald" | "indigo";
-
-const CATEGORY_STYLES: Record<Category, { text: string; bg: string; border: string; icon: string }> = {
-  neutral: { text: "text-gray-200",   bg: "bg-gray-500/[0.08]",    border: "border-gray-400",   icon: "text-gray-300" },
-  blue:    { text: "text-blue-200",   bg: "bg-blue-500/[0.08]",    border: "border-blue-400",   icon: "text-blue-300" },
-  cyan:    { text: "text-cyan-200",   bg: "bg-cyan-500/[0.08]",    border: "border-cyan-400",   icon: "text-cyan-300" },
-  orange:  { text: "text-orange-200", bg: "bg-orange-500/[0.08]",  border: "border-orange-400", icon: "text-orange-300" },
-  emerald: { text: "text-emerald-200",bg: "bg-emerald-500/[0.08]", border: "border-emerald-400",icon: "text-emerald-300" },
-  indigo:  { text: "text-indigo-200", bg: "bg-indigo-500/[0.08]",  border: "border-indigo-400", icon: "text-indigo-300" },
-};
-
 type ScannerTab = {
   href: string;
   label: string;
   icon: any;
-  category: Category;
   badge?: string;
 };
 
 const SCANNER_TABS: ScannerTab[] = [
-  { href: "/screener",             label: "Overview",           icon: LayoutDashboard,  category: "neutral" },
-  { href: "/screener/launchpad",   label: "LaunchPad",          icon: Rocket,           category: "blue" },
-  { href: "/screener/alpha-zone",  label: "Alpha Zone",         icon: Target,           category: "cyan" },
-  { href: "/screener/ipo-vintage", label: "IPO Vintage",        icon: Landmark,         category: "indigo" },
-  { href: "/screener/technical",   label: "Technical Scanner",  icon: CandlestickChart, category: "orange" },
-  { href: "/screener/volume",      label: "Volume Scanner",     icon: BarChart3,        category: "emerald" },
-  { href: "/screener/watchlists",  label: "Watchlists",         icon: Bookmark,         category: "neutral" },
+  { href: "/screener",             label: "Overview",           icon: LayoutDashboard },
+  { href: "/screener/launchpad",   label: "LaunchPad",          icon: Rocket },
+  { href: "/screener/alpha-zone",  label: "Alpha Zone",         icon: Target },
+  { href: "/screener/ipo-vintage", label: "IPO Vintage",        icon: Landmark },
+  { href: "/screener/technical",   label: "Technical",          icon: CandlestickChart },
+  { href: "/screener/volume",      label: "Volume",             icon: BarChart3 },
+  { href: "/screener/watchlists",  label: "Watchlists",         icon: Bookmark },
 ];
 
 // ── Keyboard Shortcut Help ────────────────────────────────────────────────────
@@ -58,16 +39,16 @@ const SHORTCUTS = [
 function ShortcutHelp({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" className="bg-neutral-900 border border-neutral-700 rounded-xl p-6 max-w-sm w-full shadow-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-white flex items-center gap-2"><Keyboard size={16} /> Keyboard Shortcuts</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white"><X size={16} /></button>
+          <h3 className="font-semibold text-foreground flex items-center gap-2"><Keyboard size={16} /> Keyboard Shortcuts</h3>
+          <button onClick={onClose} aria-label="Close keyboard shortcuts" className="text-neutral-500 hover:text-foreground"><X size={16} aria-hidden /></button>
         </div>
         <div className="space-y-2">
           {SHORTCUTS.map(({ key, desc }) => (
-            <div key={key} className="flex items-center justify-between py-1.5 border-b border-gray-800 last:border-0">
-              <span className="text-gray-400 text-sm">{desc}</span>
-              <kbd className="bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-xs text-gray-300 font-mono">{key}</kbd>
+            <div key={key} className="flex items-center justify-between py-1.5 border-b border-neutral-800 last:border-0">
+              <span className="text-neutral-400 text-sm">{desc}</span>
+              <kbd className="bg-neutral-800 border border-neutral-600 rounded px-2 py-0.5 text-xs text-neutral-300 font-mono">{key}</kbd>
             </div>
           ))}
         </div>
@@ -135,62 +116,66 @@ export default function ScreenerLayout({ children }: { children: React.ReactNode
 
   return (
     <ScannerContext.Provider value={contextValue}>
-      <div className="min-h-screen bg-gray-950 text-white">
+      <div className="min-h-screen bg-neutral-950 text-foreground">
         {showShortcuts && <ShortcutHelp onClose={() => setShowShortcuts(false)} />}
 
-        {/* ── Export bar ───────────────────────────────────────────── */}
-        {scanData.length > 0 && (
-          <div className="border-b border-gray-800/60 bg-gray-900/40 px-3 sm:px-6 py-2">
-            <div className="max-w-[1600px] mx-auto flex items-center justify-end">
+        {/* ── Page header + scanner tabs (one connected block) ─────── */}
+        <div className="border-b border-neutral-800/70 bg-neutral-900/30">
+          <div className="mx-auto max-w-[1600px] px-4 sm:px-6">
+            <div className="flex items-center justify-between gap-4 pb-3 pt-4 sm:pt-5">
+              <div className="min-w-0">
+                <p className="text-heading text-foreground">Market Screener</p>
+                <p className="mt-0.5 text-sm text-neutral-400">Discover and analyze trading setups.</p>
+              </div>
               <button
+                type="button"
                 onClick={() => exportCSV(scanData, scannerName.toLowerCase().replace(" ", "_"))}
-                className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 px-3 py-1.5 rounded-lg transition-all"
+                disabled={scanData.length === 0}
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-neutral-700 px-3 text-sm font-medium text-neutral-300 transition-colors hover:border-neutral-500 hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                 title="Export CSV (E)"
               >
-                <Download size={11} /> Export CSV
+                <Download size={14} aria-hidden /> <span className="hidden sm:inline">Export CSV</span>
+                <span className="sr-only sm:hidden">Export CSV</span>
               </button>
             </div>
-          </div>
-        )}
 
-        {/* ── Scanner tab strip ────────────────────────────────────── */}
-        <div className="border-b border-gray-800/60 bg-gray-900/20 px-2 sm:px-6">
-          <div className="max-w-[1600px] mx-auto flex items-center gap-0.5 sm:gap-1 overflow-x-auto py-1 sm:py-1.5 scrollbar-none">
-            {SCANNER_TABS.map(({ href, label, icon: Icon, category, badge }) => {
-              const active = isActive(href);
-              const style = CATEGORY_STYLES[category];
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={`group relative flex items-center gap-1.5 px-2 sm:px-3.5 py-2 sm:py-2.5 rounded-t-md border-b-2 text-[11px] sm:text-[13px] font-medium whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
-                    active
-                      ? `${style.border} ${style.text} ${style.bg}`
-                      : "border-transparent text-gray-500 hover:text-gray-200 hover:bg-blue-500/[0.06] hover:border-blue-500/30"
-                  }`}
-                >
-                  <Icon
-                    size={14}
-                    strokeWidth={1.75}
-                    className={active ? style.icon : "text-gray-500 group-hover:text-blue-300 transition-colors duration-200"}
-                  />
-                  {/* Hide label text on very small screens — icon conveys context */}
-                  <span className="hidden xs:inline sm:inline">{label}</span>
-                  {/* Always show label on sm+ but shorten on xs if needed */}
-                  <span className="xs:hidden sm:hidden">{label.split(" ")[0]}</span>
-                  {badge && !active && (
-                    <span className="hidden sm:inline px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
-                      {badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+            <nav aria-label="Scanners" className="-mx-4 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0">
+              <div className="flex min-w-max items-center gap-1">
+                {SCANNER_TABS.map(({ href, label, icon: Icon, badge }) => {
+                  const active = isActive(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      aria-current={active ? "page" : undefined}
+                      className={`group relative flex h-10 items-center gap-1.5 whitespace-nowrap rounded-t-md px-3 text-label font-medium transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full ${
+                        active
+                          ? "bg-brand-500/10 text-foreground after:bg-brand-500"
+                          : "text-neutral-400 after:bg-transparent hover:bg-foreground/5 hover:text-foreground"
+                      }`}
+                    >
+                      <Icon
+                        size={14}
+                        strokeWidth={1.75}
+                        aria-hidden
+                        className={active ? "text-brand-400" : "text-neutral-500 transition-colors group-hover:text-neutral-300"}
+                      />
+                      <span>{label}</span>
+                      {badge && !active && (
+                        <span className="hidden rounded border border-positive-500/30 bg-positive-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-positive-300 sm:inline">
+                          {badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </nav>
           </div>
         </div>
 
         {/* ── Page content ─────────────────────────────────────────── */}
-        <div className="max-w-[1600px] mx-auto px-3 py-4 sm:px-6 sm:py-8">
+        <div className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 sm:py-5">
           {children}
         </div>
       </div>

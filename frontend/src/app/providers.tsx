@@ -13,12 +13,20 @@ const AppLayout = dynamic(
 );
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Dark is the only theme now that the toggle is gone. `forcedTheme` rather
-  // than `defaultTheme` + `enableSystem={false}`: next-themes persists the last
-  // choice to localStorage, so anyone who had already switched to light would
-  // otherwise stay stuck there with no control left to switch back.
+  // Light and dark are both first-class. First visit follows the operating
+  // system; an explicit choice is persisted under `nivro-theme`. next-themes
+  // injects a blocking script that sets the class before first paint, so there
+  // is no flash of the wrong theme. (The storage key is new on purpose — the
+  // previous build forced dark, and a stale `theme` value must not override
+  // the OS preference.)
   return (
-    <ThemeProvider attribute="class" forcedTheme="dark" disableTransitionOnChange>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      storageKey="nivro-theme"
+      disableTransitionOnChange
+    >
       <AuthProvider>
         <SessionGate>
           <AppLayout>{children}</AppLayout>

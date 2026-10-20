@@ -18,23 +18,18 @@ export function EmptyState({ onAddTrade }: Props) {
     <div className="flex flex-col items-center text-center py-12 px-4 animate-fadeIn">
       {/* Hero icon */}
       <div
-        className="relative w-16 h-16 rounded-3xl flex items-center justify-center mb-5"
+        className="relative w-16 h-16 rounded-xl flex items-center justify-center mb-5"
         style={{
-          background: 'linear-gradient(135deg, rgba(79,70,229,0.15), rgba(124,58,237,0.1))',
-          border: '1px solid rgba(99,102,241,0.2)',
-          boxShadow: '0 0 40px rgba(99,102,241,0.12)',
+          background: 'rgb(var(--brand-600))',
+          border: '1px solid rgb(var(--brand-500) / 0.2)',
+          boxShadow: 'none',
         }}
       >
-        <BookOpen className="w-7 h-7 text-indigo-400" />
-        {/* Pulse ring */}
-        <span
-          className="absolute inset-0 rounded-3xl animate-ping opacity-30"
-          style={{ background: 'rgba(99,102,241,0.15)', animationDuration: '2s' }}
-        />
+        <BookOpen className="w-7 h-7 text-brand-400" />
       </div>
 
       {/* Headline */}
-      <h2 className="text-xl font-black mb-2">Start your trading journal</h2>
+      <h2 className="text-xl font-bold mb-2">Start your trading journal</h2>
       <p className="text-sm text-muted-foreground max-w-sm leading-relaxed mb-6">
         Start journaling your trades to unlock analytics, equity tracking, and AI coaching insights.
       </p>
@@ -42,10 +37,10 @@ export function EmptyState({ onAddTrade }: Props) {
       {/* CTA */}
       <button
         onClick={onAddTrade}
-        className="flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold text-white transition-all hover:scale-105 active:scale-95 mb-10"
+        className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all active:scale-95 mb-10"
         style={{
-          background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-          boxShadow: '0 0 24px rgba(99,102,241,0.35)',
+          background: 'rgb(var(--brand-600))',
+          boxShadow: 'none',
         }}
       >
         <Plus className="w-4 h-4" />
@@ -63,12 +58,12 @@ export function EmptyState({ onAddTrade }: Props) {
             >
               <span
                 className="flex w-9 h-9 items-center justify-center rounded-xl"
-                style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}
+                style={{ background: 'rgb(var(--brand-500) / 0.1)', color: 'rgb(var(--brand-400))' }}
               >
                 <IconComp className="w-4 h-4" />
               </span>
               <div className="text-[11px] font-bold">{tip.label}</div>
-              <div className="text-[10px] text-muted-foreground leading-snug">{tip.desc}</div>
+              <div className="text-[11px] text-muted-foreground leading-snug">{tip.desc}</div>
             </div>
           );
         })}

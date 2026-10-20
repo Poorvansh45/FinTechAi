@@ -10,7 +10,7 @@ export function AgentBadge({ agent }: { agent?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-semibold tracking-wide",
+        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-[11px] font-semibold tracking-wide",
         meta.border,
         meta.color,
       )}

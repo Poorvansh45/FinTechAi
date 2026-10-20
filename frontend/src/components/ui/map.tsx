@@ -22,14 +22,14 @@ interface MapProps {
 
 export function WorldMap({ 
   dots = [], 
-  lineColor = "#0ea5e9",
+  lineColor = "rgb(var(--brand-500))",
   showLabels = true,
   animationDuration = 2.5,
   loop = true
 }: MapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredLocation, setHoveredLocation] = useState<string | null>(null);
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
 
   // Create the dotted map background
   const map = useMemo(
@@ -37,14 +37,16 @@ export function WorldMap({
     []
   );
 
+  // The dots are rendered as an <img>, so CSS variables cannot reach them: pick
+  // the dot colour from the resolved theme instead (ink on paper / white on charcoal).
   const svgMap = useMemo(
     () => map.getSVG({
       radius: 0.22,
-      color: "rgba(255, 255, 255, 0.08)",
+      color: resolvedTheme === "light" ? "rgba(24, 23, 20, 0.22)" : "rgba(255, 255, 255, 0.08)",
       shape: "circle",
-      backgroundColor: "black",
+      backgroundColor: "transparent",
     }),
-    [map]
+    [map, resolvedTheme]
   );
 
   // Projection helper to convert Lat/Lng coordinates into SVG viewBox coordinate space
@@ -69,7 +71,7 @@ export function WorldMap({
   const fullCycleDuration = totalAnimationTime + pauseTime;
 
   return (
-    <div className="w-full aspect-[2/1] md:aspect-[2.3/1] bg-[#060A13] border border-white/[0.04] rounded-2xl relative font-sans overflow-hidden shadow-[inset_0_0_40px_rgba(0,0,0,0.85)]">
+    <div className="w-full aspect-[2/1] md:aspect-[2.3/1] bg-neutral-950 border border-foreground/[0.04] rounded-xl relative font-sans overflow-hidden">
       {/* Render the dotted map SVG background */}
       <Image
         src={`data:image/svg+xml;utf8,${encodeURIComponent(svgMap)}`}
@@ -236,7 +238,7 @@ export function WorldMap({
                       height="20"
                     >
                       <div className="flex items-center justify-center h-full">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/90 text-slate-300 border border-white/[0.08] shadow-md uppercase tracking-wider select-none leading-none">
+                        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-300 border border-foreground/[0.08] shadow-md select-none leading-none">
                           {dot.start.label}
                         </span>
                       </div>
@@ -301,7 +303,7 @@ export function WorldMap({
                       height="20"
                     >
                       <div className="flex items-center justify-center h-full">
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/90 text-slate-300 border border-white/[0.08] shadow-md uppercase tracking-wider select-none leading-none">
+                        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-300 border border-foreground/[0.08] shadow-md select-none leading-none">
                           {dot.end.label}
                         </span>
                       </div>
@@ -315,8 +317,8 @@ export function WorldMap({
       </svg>
 
       {/* Floating status */}
-      <div className="absolute bottom-3 left-3 bg-[#0A0F1D]/85 border border-white/[0.06] rounded-xl px-3 py-1.5 backdrop-blur-md z-20 text-[9px] font-mono text-slate-400 flex items-center gap-2 select-none shadow-md">
-        <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-ping" />
+      <div className="absolute bottom-3 left-3 bg-neutral-900/85 border border-foreground/[0.06] rounded-xl px-3 py-1.5 backdrop-blur-md z-20 text-[11px] font-mono text-neutral-400 flex items-center gap-2 select-none shadow-md">
+        <span className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-ping" />
         Scoping capital arcs in real-time
       </div>
     </div>

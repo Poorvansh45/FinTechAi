@@ -239,18 +239,18 @@ export default function AICopilotPage() {
   // ── Unauthenticated state ────────────────────────────────────────────────────
   if (status === "unauthenticated" || authError) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] rounded-3xl border border-white/[0.06] bg-[#070B14] text-center px-6">
-        <div className="w-12 h-12 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-4">
-          <LogIn className="w-5 h-5 text-violet-400" />
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] rounded-xl border border-foreground/[0.06] bg-neutral-950 text-center px-6">
+        <div className="w-12 h-12 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center mb-4">
+          <LogIn className="w-5 h-5 text-brand-400" />
         </div>
-        <h2 className="text-lg font-bold text-white">Sign in to use the Copilot</h2>
-        <p className="text-sm text-slate-400 max-w-sm mt-2">
+        <h2 className="text-lg font-bold text-foreground">Sign in to use the Copilot</h2>
+        <p className="text-sm text-neutral-400 max-w-sm mt-2">
           The AI Copilot analyses your own portfolio and remembers your preferences, so it needs an
           authenticated session.
         </p>
         <Link
           href="/auth"
-          className="mt-5 px-5 py-2.5 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-sm font-semibold transition-colors"
+          className="mt-5 px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold transition-colors"
         >
           Sign in
         </Link>
@@ -259,7 +259,7 @@ export default function AICopilotPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-100px)] rounded-3xl border border-white/[0.06] bg-[#070B14] relative z-10 overflow-hidden">
+    <div className="flex min-h-[calc(100vh-100px)] rounded-xl border border-foreground/[0.06] bg-neutral-950 relative z-10 overflow-hidden">
       <ChatSidebar
         sessions={sessions}
         currentSessionId={currentSessionId}
@@ -274,11 +274,11 @@ export default function AICopilotPage() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Toolbar */}
-        <div className="flex items-center justify-between px-4 md:px-6 py-2.5 border-b border-white/[0.04] bg-[#090D1A]/60 backdrop-blur-md">
+        <div className="flex items-center justify-between px-4 md:px-6 py-2.5 border-b border-foreground/[0.04] bg-neutral-950/60">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+              className="lg:hidden p-1.5 rounded-lg text-neutral-400 hover:text-foreground hover:bg-foreground/5 transition-colors"
               title="Chats"
             >
               <PanelLeft className="w-4 h-4" />
@@ -286,15 +286,15 @@ export default function AICopilotPage() {
             {!isWelcome && (
               <button
                 onClick={handleNewChat}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] text-xs font-semibold text-slate-400 hover:text-white transition-all hover:bg-white/[0.04]"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-foreground/[0.06] bg-foreground/[0.02] text-xs font-semibold text-neutral-400 hover:text-foreground transition-all hover:bg-foreground/[0.04]"
               >
                 <Plus className="w-3.5 h-3.5" /> New Chat
               </button>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Agentic Copilot</span>
+            <span className="w-2 h-2 rounded-full bg-positive-400" />
+            <span className="text-[11px] font-mono text-neutral-500">Agentic Copilot</span>
           </div>
         </div>
 
@@ -312,7 +312,7 @@ export default function AICopilotPage() {
               onRegenerate={handleRegenerate}
               onPickFollowUp={handleSend}
             />
-            <div className="p-4 md:p-6 border-t border-white/[0.04] bg-[#070B14]/80 backdrop-blur-md">
+            <div className="p-4 md:p-6 border-t border-foreground/[0.04] bg-neutral-950/80">
               <ChatInput value={input} onChange={setInput} onSend={() => handleSend(input)} onStop={handleStop} loading={busy} />
             </div>
           </div>

@@ -10,24 +10,24 @@ interface Props {
 }
 
 export function TradesBreakdownCard({ data, loading }: Props) {
-  if (loading) return <div className="glass-card p-4 h-52 skeleton rounded-2xl" />;
+  if (loading) return <div className="glass-card p-4 h-52 skeleton rounded-xl" />;
 
   if (!data) return (
     <div className="glass-card p-4 flex flex-col items-center justify-center gap-2 h-52">
-      <PieIcon className="w-6 h-6 text-slate-600" />
-      <p className="text-[11px] text-slate-500">No closed trades yet</p>
+      <PieIcon className="w-6 h-6 text-neutral-500" />
+      <p className="text-[11px] text-neutral-500">No closed trades yet</p>
     </div>
   );
 
   const chartData = [
-    { name: 'Wins',   value: data.wins,      fill: '#22c55e' },
-    { name: 'Losses', value: data.losses,     fill: '#ef4444' },
-    ...(data.breakeven > 0 ? [{ name: 'BE', value: data.breakeven, fill: '#64748b' }] : []),
+    { name: 'Wins',   value: data.wins,      fill: 'rgb(var(--positive-400))' },
+    { name: 'Losses', value: data.losses,     fill: 'rgb(var(--negative-400))' },
+    ...(data.breakeven > 0 ? [{ name: 'BE', value: data.breakeven, fill: 'rgb(var(--neutral-500))' }] : []),
   ];
 
   return (
     <div className="glass-card p-4 flex flex-col">
-      <h3 className="text-xs font-black mb-3">Trades Breakdown</h3>
+      <h3 className="text-xs font-bold mb-3">Trades Breakdown</h3>
       <div className="flex items-center gap-4 flex-1">
         {/* Donut */}
         <div className="relative w-24 h-24 flex-shrink-0">
@@ -39,17 +39,17 @@ export function TradesBreakdownCard({ data, loading }: Props) {
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-lg font-black tabular-nums">{data.total}</span>
-            <span className="text-[8px] text-muted-foreground">Total</span>
+            <span className="text-lg font-bold tabular-nums">{data.total}</span>
+            <span className="text-[11px] text-muted-foreground">Total</span>
           </div>
         </div>
 
         {/* Legend */}
         <div className="space-y-2 flex-1">
           {[
-            { label: 'Wins',   v: data.wins,      pct: data.winRate,  color: '#22c55e' },
-            { label: 'Losses', v: data.losses,     pct: data.lossRate, color: '#ef4444' },
-            { label: 'BE',     v: data.breakeven,  pct: data.beRate,   color: '#64748b' },
+            { label: 'Wins',   v: data.wins,      pct: data.winRate,  color: 'rgb(var(--positive-400))' },
+            { label: 'Losses', v: data.losses,     pct: data.lossRate, color: 'rgb(var(--negative-400))' },
+            { label: 'BE',     v: data.breakeven,  pct: data.beRate,   color: 'rgb(var(--neutral-500))' },
           ].map(r => (
             <div key={r.label} className="flex items-center justify-between">
               <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -58,7 +58,7 @@ export function TradesBreakdownCard({ data, loading }: Props) {
               </span>
               <span className="text-[11px] font-bold tabular-nums">
                 <span style={{ color: r.color }}>{r.v}</span>
-                <span className="text-slate-500 font-normal ml-1">({r.pct}%)</span>
+                <span className="text-neutral-500 font-normal ml-1">({r.pct}%)</span>
               </span>
             </div>
           ))}

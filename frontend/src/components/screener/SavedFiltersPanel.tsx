@@ -54,24 +54,24 @@ export default function SavedFiltersPanel({ scanner, currentFilters, onLoad }: P
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center gap-1.5 text-xs border px-3 py-1.5 rounded-lg transition-all ${
           open
-            ? "bg-gray-700 border-gray-500 text-white"
-            : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white"
+            ? "bg-neutral-700 border-neutral-500 text-foreground"
+            : "border-neutral-700 text-neutral-400 hover:border-neutral-500 hover:text-foreground"
         }`}
         title="Saved Presets (S)"
       >
         <FolderOpen size={11} />
         <span>Presets</span>
         {presets.length > 0 && (
-          <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">{presets.length}</span>
+          <span className="bg-brand-600 text-white text-[11px] px-1.5 py-0.5 rounded-md">{presets.length}</span>
         )}
         {open ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
       </button>
 
       {open && (
-        <div className="absolute top-full mt-2 right-0 w-72 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl z-40 p-4 space-y-3">
+        <div className="absolute top-full mt-2 right-0 w-72 bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl z-40 p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-semibold text-gray-300">Saved Filter Presets</h4>
-            <button onClick={() => setOpen(false)} className="text-gray-600 hover:text-white">
+            <h4 className="text-xs font-semibold text-neutral-300">Saved Filter Presets</h4>
+            <button onClick={() => setOpen(false)} className="text-neutral-500 hover:text-foreground">
               <X size={12} />
             </button>
           </div>
@@ -85,12 +85,12 @@ export default function SavedFiltersPanel({ scanner, currentFilters, onLoad }: P
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSave()}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1.5 text-xs text-foreground placeholder-neutral-600 focus:outline-none focus:border-brand-500"
               />
               <button
                 onClick={handleSave}
                 disabled={!newName.trim() || saving}
-                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                className="flex items-center gap-1 bg-brand-600 hover:bg-brand-700 text-white text-xs px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
               >
                 <Save size={10} />
                 {savedMsg ? "Saved!" : "Save"}
@@ -100,7 +100,7 @@ export default function SavedFiltersPanel({ scanner, currentFilters, onLoad }: P
 
           {/* Preset list */}
           {presets.length === 0 ? (
-            <p className="text-gray-600 text-xs text-center py-4">
+            <p className="text-neutral-500 text-xs text-center py-4">
               No saved presets yet.{hasFilters ? " Apply filters above and save." : ""}
             </p>
           ) : (
@@ -109,17 +109,17 @@ export default function SavedFiltersPanel({ scanner, currentFilters, onLoad }: P
                 <div
                   key={p.name}
                   onClick={() => handleLoad(p)}
-                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-800/50 hover:bg-gray-800 cursor-pointer border border-transparent hover:border-gray-700 transition-all group"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg bg-neutral-800/50 hover:bg-neutral-800 cursor-pointer border border-transparent hover:border-neutral-700 transition-all group"
                 >
                   <div>
-                    <div className="text-xs font-medium text-white">{p.name}</div>
-                    <div className="text-[10px] text-gray-500">
+                    <div className="text-xs font-medium text-foreground">{p.name}</div>
+                    <div className="text-[11px] text-neutral-500">
                       {new Date(p.createdAt).toLocaleDateString()}
                     </div>
                   </div>
                   <button
                     onClick={(e) => handleDelete(p.name, e)}
-                    className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all"
+                    className="opacity-0 group-hover:opacity-100 text-neutral-500 hover:text-negative-400 transition-all"
                   >
                     <Trash2 size={12} />
                   </button>

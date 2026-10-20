@@ -1,10 +1,6 @@
 import {
-  LayoutDashboard, Activity, Globe, TrendingUp, ShieldAlert, Zap, BarChart2,
-  ScanLine, Filter, Gauge, Waves, BookMarked, Layers,
-  FlaskConical, RotateCcw, GitCompare, PieChart, Sigma, AreaChart,
-  BookOpen, History, LineChart, Brain, PlayCircle, Landmark,
-  Sparkles, MessageSquare, Eye, AlertTriangle, Lightbulb, Bot, Briefcase,
-  Radar,
+  LayoutDashboard, Activity, Globe, TrendingUp, ScanLine, Filter, Waves, BookMarked, Layers,
+  RotateCcw, PieChart, BookOpen, History, LineChart, Brain, Landmark, Sparkles, Briefcase, Radar,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -23,8 +19,8 @@ export interface NavModule {
   id: string;
   label: string;
   href: string;
-  color: string;
-  glowColor: string;
+  /** Small status tag shown beside the label in the top bar (e.g. "Beta"). */
+  badge?: string;
   items?: NavItem[];
 }
 
@@ -33,8 +29,6 @@ export const NAV_MODULES: NavModule[] = [
     id: 'markets',
     label: 'Markets',
     href: '/markets',
-    color: 'text-blue-400',
-    glowColor: 'rgba(59,130,246,0.15)',
     items: [
       { href: '/markets',          label: 'Mission Control', icon: Radar,          desc: 'Institutional market overview', badge: 'Live', section: 'Live Overview' },
       { href: '/markets/pulse',    label: 'Market Pulse',    icon: Activity,       desc: 'AI narrative and sentiment engine', section: 'Live Overview' },
@@ -47,8 +41,6 @@ export const NAV_MODULES: NavModule[] = [
     id: 'screener',
     label: 'Screener',
     href: '/screener',
-    color: 'text-emerald-400',
-    glowColor: 'rgba(52,211,153,0.15)',
     items: [
       { href: '/screener',              label: 'Technical Screener', icon: Filter,     desc: 'RSI, EMA %, MACD distance'     },
       { href: '/screener/smc',          label: 'SMC Scanner',        icon: Layers,     desc: 'BOS, CHoCH, demand zones'      },
@@ -61,8 +53,7 @@ export const NAV_MODULES: NavModule[] = [
     id: 'sector-xpert',
     label: 'Sector Xpert',
     href: '/sector-xpert',
-    color: 'text-cyan-400',
-    glowColor: 'rgba(6,182,212,0.15)',
+    badge: 'Beta',
     items: [
       { href: '/sector-xpert', label: 'Sector Xpert', icon: PieChart, desc: 'Explore India\'s market sectors & leadership', badge: 'Beta' },
     ],
@@ -71,8 +62,6 @@ export const NAV_MODULES: NavModule[] = [
     id: 'portfolio',
     label: 'Portfolio',
     href: '/portfolio',
-    color: 'text-violet-400',
-    glowColor: 'rgba(139,92,246,0.15)',
     items: [
       { href: '/portfolio', label: 'Portfolio Optimizer', icon: Briefcase, desc: 'Analyze or build your portfolio', badge: 'New' },
     ],
@@ -81,8 +70,6 @@ export const NAV_MODULES: NavModule[] = [
     id: 'workspace',
     label: 'Workspace',
     href: '/workspace',
-    color: 'text-amber-400',
-    glowColor: 'rgba(251,191,36,0.12)',
     items: [
       { href: '/journal',             label: 'Trading Journal',       icon: BookOpen,  desc: 'Log and review all trades'       },
       { href: '/journal/equity',      label: 'Equity Journal',        icon: Landmark,  desc: 'Long-term holdings, IPOs & notes' },
@@ -94,8 +81,6 @@ export const NAV_MODULES: NavModule[] = [
     id: 'ai-copilot',
     label: 'Nivro Copilot',
     href: '/ai-copilot',
-    color: 'text-pink-400',
-    glowColor: 'rgba(236,72,153,0.15)',
     items: [
       { href: '/ai-copilot', label: 'Nivro Copilot', icon: Brain, desc: 'Your all-in-one AI financial analyst', badge: 'AI' }
     ],
@@ -109,3 +94,29 @@ export const MOBILE_TABS = [
   { href: '/ai-copilot',  label: 'AI',        icon: Sparkles        },
   { href: '/journal',     label: 'Journal',   icon: BookOpen        },
 ];
+
+/** Groups items by `section`, preserving first-seen order for both the
+ * sections themselves and the items inside each. Items without a `section`
+ * collect under a single unlabeled group, so a module with 1-2 flat items
+ * renders as a plain list — grouping is opt-in per item. */
+export function groupBySection(items: NavItem[]): { section: string | null; items: NavItem[] }[] {
+  const order: (string | null)[] = [];
+  const buckets = new Map<string | null, NavItem[]>();
+  for (const item of items) {
+    const key = item.section ?? null;
+    if (!buckets.has(key)) { buckets.set(key, []); order.push(key); }
+    buckets.get(key)!.push(item);
+  }
+  return order.map((section) => ({ section, items: buckets.get(section)! }));
+}
+
+/** Tone for each nav badge, keyed by what the badge MEANS — "Live" is green
+ * everywhere and nothing else competes with it. */
+export const NAV_BADGE_TONE: Record<string, string> = {
+  Live:    'border-positive-500/30 bg-positive-500/10 text-positive-400',
+  New:     'border-brand-500/30 bg-brand-500/10 text-brand-400',
+  AI:      'border-brand-500/30 bg-brand-500/10 text-brand-400',
+  Beta:    'border-border bg-muted text-muted-foreground',
+  Popular: 'border-warning-500/30 bg-warning-500/10 text-warning-400',
+};
+export const NAV_BADGE_FALLBACK = 'border-border bg-muted text-muted-foreground';

@@ -1,5 +1,6 @@
 'use client';
 
+import { withAlpha } from '@/lib/utils';
 import { Compass, Trophy, XCircle, Zap, Clock, TrendingUp, Hash, Flame } from 'lucide-react';
 import type { PerformanceSnapshot } from '@/lib/api/journalApi';
 
@@ -42,30 +43,30 @@ export function ImprovementCenter({ snapshot, loading }: Props) {
     : s.currentStreak > 0 ? `${s.currentStreak}W Streak`
     : `${Math.abs(s.currentStreak)}L Streak`;
 
-  const streakColor = !s ? '#64748b'
-    : s.currentStreak > 0 ? '#22c55e'
-    : s.currentStreak < 0 ? '#ef4444'
-    : '#64748b';
+  const streakColor = !s ? 'rgb(var(--neutral-500))'
+    : s.currentStreak > 0 ? 'rgb(var(--positive-400))'
+    : s.currentStreak < 0 ? 'rgb(var(--negative-400))'
+    : 'rgb(var(--neutral-500))';
 
   const rows: Row[] = [
-    { icon: Trophy,     label: 'Best Setup',          value: s?.bestSetup ?? '—',                                color: '#22c55e', detail: 'Highest P&L setup' },
-    { icon: XCircle,    label: 'Worst Setup',         value: s?.worstSetup ?? '—',                               color: '#ef4444', detail: 'Lowest P&L setup' },
-    { icon: Zap,        label: 'Best Session',        value: s?.bestSession ?? '—',                              color: '#a78bfa', detail: 'Most profitable session' },
-    { icon: Zap,        label: 'Weakest Session',     value: s?.worstSession ?? '—',                             color: '#fb923c', detail: 'Least profitable session' },
+    { icon: Trophy,     label: 'Best Setup',          value: s?.bestSetup ?? '—',                                color: 'rgb(var(--positive-400))', detail: 'Highest P&L setup' },
+    { icon: XCircle,    label: 'Worst Setup',         value: s?.worstSetup ?? '—',                               color: 'rgb(var(--negative-400))', detail: 'Lowest P&L setup' },
+    { icon: Zap,        label: 'Best Session',        value: s?.bestSession ?? '—',                              color: 'rgb(var(--brand-400))', detail: 'Most profitable session' },
+    { icon: Zap,        label: 'Weakest Session',     value: s?.worstSession ?? '—',                             color: 'rgb(var(--warning-400))', detail: 'Least profitable session' },
     { icon: Flame,      label: 'Current Streak',      value: streakVal,                                          color: streakColor },
-    { icon: Clock,      label: 'Avg Hold Time',       value: formatHold(s?.avgHoldMinutes ?? null),              color: '#38bdf8' },
-    { icon: TrendingUp, label: 'Average RR',          value: s?.avgRR != null ? `${s.avgRR}R` : '—',            color: '#a78bfa' },
-    { icon: Hash,       label: 'Top Instrument',      value: s?.mostTradedInstrument ?? '—',                    color: '#fbbf24' },
+    { icon: Clock,      label: 'Avg Hold Time',       value: formatHold(s?.avgHoldMinutes ?? null),              color: 'rgb(var(--brand-400))' },
+    { icon: TrendingUp, label: 'Average RR',          value: s?.avgRR != null ? `${s.avgRR}R` : '—',            color: 'rgb(var(--brand-400))' },
+    { icon: Hash,       label: 'Top Instrument',      value: s?.mostTradedInstrument ?? '—',                    color: 'rgb(var(--warning-400))' },
   ];
 
   return (
     <div className="glass-card p-5">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <Compass className="w-4 h-4 text-indigo-400" />
-        <h3 className="text-sm font-black">Trading Improvement Center</h3>
+        <Compass className="w-4 h-4 text-brand-400" />
+        <h3 className="text-sm font-bold">Trading Improvement Center</h3>
         {!snapshot && (
-          <span className="text-[10px] text-muted-foreground ml-1">· close a trade to populate</span>
+          <span className="text-[11px] text-muted-foreground ml-1">· close a trade to populate</span>
         )}
       </div>
 
@@ -77,15 +78,15 @@ export function ImprovementCenter({ snapshot, loading }: Props) {
           return (
             <div key={r.label} className="flex items-start gap-2.5">
               <span className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 mt-0.5"
-                style={{ background: `${r.color}12`, color: r.color }}>
+                style={{ background: `${withAlpha(r.color, 0.07)}`, color: r.color }}>
                 <Icon className="w-3.5 h-3.5" />
               </span>
               <div className="min-w-0">
-                <div className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-500 mb-0.5">{r.label}</div>
-                <div className={`text-[12px] font-black truncate ${isEmpty ? 'text-slate-600' : ''}`} style={!isEmpty ? { color: r.color } : {}}>
+                <div className="text-[11px] font-bold text-neutral-500 mb-0.5">{r.label}</div>
+                <div className={`text-[12px] font-bold truncate ${isEmpty ? 'text-neutral-500' : ''}`} style={!isEmpty ? { color: r.color } : {}}>
                   {r.value}
                 </div>
-                {r.detail && <div className="text-[8px] text-slate-600 mt-0.5">{r.detail}</div>}
+                {r.detail && <div className="text-[11px] text-neutral-500 mt-0.5">{r.detail}</div>}
               </div>
             </div>
           );

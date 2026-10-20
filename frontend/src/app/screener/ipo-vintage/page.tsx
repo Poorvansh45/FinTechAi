@@ -56,32 +56,32 @@ const fmtPct = (v?: number | null, sign = true) =>
 /** Risk is the number most likely to hurt someone sizing a position, so it is
  *  colour-scaled rather than rendered as plain text. */
 const riskTone = (r?: number | null) => {
-  if (r == null) return "text-gray-500";
-  if (r <= 10) return "text-emerald-400";
-  if (r <= 20) return "text-amber-400";
-  return "text-red-400 font-bold";
+  if (r == null) return "text-neutral-500";
+  if (r <= 10) return "text-positive-400";
+  if (r <= 20) return "text-warning-400";
+  return "text-negative-400 font-bold";
 };
 
 const statusTone = (s?: string) =>
-  s === "stopped" ? "bg-red-500/15 text-red-300 border-red-500/30"
-    : s === "expired" ? "bg-gray-700/40 text-gray-400 border-gray-600/40"
-      : "bg-teal-500/15 text-teal-300 border-teal-500/30";
+  s === "stopped" ? "bg-negative-500/15 text-negative-300 border-negative-500/30"
+    : s === "expired" ? "bg-neutral-700/40 text-neutral-400 border-neutral-600/40"
+      : "bg-brand-500/15 text-brand-300 border-brand-500/30";
 
 /** Freshness of a live trigger — today reads strongest, fading toward the edge
  *  of the 30-session window. */
 const freshTone = (d?: number | null) => {
-  if (d == null) return "text-gray-500";
-  if (d <= 1) return "text-emerald-400 font-bold";
-  if (d <= 5) return "text-teal-300";
-  if (d <= 15) return "text-gray-300";
-  return "text-amber-400/80";
+  if (d == null) return "text-neutral-500";
+  if (d <= 1) return "text-positive-400 font-bold";
+  if (d <= 5) return "text-brand-300";
+  if (d <= 15) return "text-neutral-300";
+  return "text-warning-400";
 };
 
 const freshLabel = (d?: number | null) =>
   d == null ? "—" : d === 0 ? "today" : d === 1 ? "1d ago" : `${d}d ago`;
 
 const returnTone = (v?: number | null) =>
-  v == null ? "text-gray-600" : v >= 0 ? "text-emerald-400" : "text-red-400";
+  v == null ? "text-neutral-500" : v >= 0 ? "text-positive-400" : "text-negative-400";
 
 function buildRationale(s: any): string {
   return (
@@ -97,7 +97,7 @@ function buildRationale(s: any): string {
 function MiniBar({ pct, tone }: { pct: number | null | undefined; tone: string }) {
   const w = Math.max(0, Math.min(100, Number(pct) || 0));
   return (
-    <div className="mt-0.5 h-[3px] w-full overflow-hidden rounded-full bg-gray-800">
+    <div className="mt-0.5 h-[3px] w-full overflow-hidden rounded-full bg-neutral-800">
       <div className={`h-full rounded-full ${tone}`} style={{ width: `${w}%` }} />
     </div>
   );
@@ -110,54 +110,54 @@ function StudyPanel({ study }: { study: any }) {
   const headline = study.by_horizon?.find((r: any) => r.horizon === study.headline_horizon);
 
   return (
-    <div className="rounded-2xl border border-gray-800/80 bg-gray-900/40 overflow-hidden">
+    <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/40 overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center gap-2 px-4 py-3 text-left"
       >
-        <TrendingUp size={14} className="text-teal-400 flex-shrink-0" />
-        <span className="text-[11px] font-bold uppercase tracking-wider text-gray-300">
+        <TrendingUp size={14} className="text-brand-400 flex-shrink-0" />
+        <span className="text-[11px] font-bold text-neutral-300">
           Historical Study — {study.triggered} trades since {study.sample_start}
         </span>
-        <ChevronDown size={14} className={`ml-auto text-gray-500 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={14} className={`ml-auto text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="border-t border-gray-800/60 p-4 space-y-5">
+        <div className="border-t border-neutral-800/60 p-4 space-y-5">
           {/* Headline row — every figure below is a historical outcome, not a forecast */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <span className="block text-[10px] uppercase text-gray-500">₹1,00,000 became</span>
-              <span className="block font-mono text-lg font-bold text-white">
+              <span className="block text-[11px] text-neutral-500">₹1,00,000 became</span>
+              <span className="block font-mono text-lg font-bold text-foreground">
                 ₹{Number(e.final_equity ?? 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}
               </span>
-              <span className="block text-[10px] text-gray-600">
+              <span className="block text-[11px] text-neutral-500">
                 {fmtPct(e.total_return_pct)} over the whole sample
               </span>
             </div>
             <div>
-              <span className="block text-[10px] uppercase text-gray-500">Trades won</span>
-              <span className="block font-mono text-lg font-bold text-white">{headline?.win_rate ?? "—"}%</span>
-              <span className="block text-[10px] text-gray-600">{e.trades} trades @ {study.headline_horizon} sessions</span>
+              <span className="block text-[11px] text-neutral-500">Trades won</span>
+              <span className="block font-mono text-lg font-bold text-foreground">{headline?.win_rate ?? "—"}%</span>
+              <span className="block text-[11px] text-neutral-500">{e.trades} trades @ {study.headline_horizon} sessions</span>
             </div>
             <div>
-              <span className="block text-[10px] uppercase text-gray-500">Median trade</span>
+              <span className="block text-[11px] text-neutral-500">Median trade</span>
               <span className={`block font-mono text-lg font-bold ${returnTone(headline?.median_return_pct)}`}>
                 {fmtPct(headline?.median_return_pct)}
               </span>
-              <span className="block text-[10px] text-gray-600">mean {fmtPct(headline?.mean_return_pct)}</span>
+              <span className="block text-[11px] text-neutral-500">mean {fmtPct(headline?.mean_return_pct)}</span>
             </div>
             <div>
-              <span className="block text-[10px] uppercase text-gray-500">Worst fall</span>
-              <span className="block font-mono text-lg font-bold text-red-400">{e.max_drawdown_pct}%</span>
-              <span className="block text-[10px] text-gray-600">from a previous high</span>
+              <span className="block text-[11px] text-neutral-500">Worst fall</span>
+              <span className="block font-mono text-lg font-bold text-negative-400">{e.max_drawdown_pct}%</span>
+              <span className="block text-[11px] text-neutral-500">from a previous high</span>
             </div>
           </div>
 
           {/* The single most important caveat — stated, not buried */}
           {headline && headline.median_return_pct != null && headline.median_return_pct < 0 && (
-            <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 text-[11px] text-amber-200">
+            <div className="rounded-xl border border-warning-500/25 bg-warning-500/[0.06] px-3 py-2 text-[11px] text-warning-200">
               The <strong>median trade loses money</strong> ({fmtPct(headline.median_return_pct)}) while the mean is
               positive ({fmtPct(headline.mean_return_pct)}) — the total above comes from a minority of large winners,
               not from the typical trade. Skipping signals would likely miss them.
@@ -166,10 +166,10 @@ function StudyPanel({ study }: { study: any }) {
 
           <div>
             <div className="mb-1 flex items-baseline justify-between gap-3">
-              <span className="text-[10px] uppercase tracking-wider text-gray-500">
+              <span className="text-[11px] text-neutral-500">
                 Account value — ₹{Number(e.position_size ?? 0).toLocaleString("en-IN")} per trade, {e.slots} positions, no compounding
               </span>
-              <span className="flex-shrink-0 text-[9px] text-gray-600">hover to inspect a trade</span>
+              <span className="flex-shrink-0 text-[11px] text-neutral-500">hover to inspect a trade</span>
             </div>
             <EquityCurveChart
               curve={e.curve || []}
@@ -180,7 +180,7 @@ function StudyPanel({ study }: { study: any }) {
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
               <thead>
-                <tr className="text-gray-500">
+                <tr className="text-neutral-500">
                   <th className="py-1 text-left font-medium">Hold</th>
                   <th className="py-1 text-right font-medium">Trades</th>
                   <th className="py-1 text-right font-medium">Won</th>
@@ -198,30 +198,30 @@ function StudyPanel({ study }: { study: any }) {
                   return (
                     <tr
                       key={r.horizon}
-                      className={`border-t border-gray-850 transition-colors hover:bg-white/[0.03] ${
-                        isHeadline ? "bg-teal-500/[0.06]" : ""
+                      className={`border-t border-neutral-850 transition-colors hover:bg-foreground/[0.03] ${
+                        isHeadline ? "bg-brand-500/[0.06]" : ""
                       }`}
                     >
                       <td className="py-1 text-left">
-                        <span className={isHeadline ? "font-bold text-teal-300" : "text-gray-300"}>
+                        <span className={isHeadline ? "font-bold text-brand-300" : "text-neutral-300"}>
                           {r.horizon}d
                         </span>
                         {isHeadline && (
-                          <span className="ml-1.5 rounded border border-teal-500/30 bg-teal-500/10 px-1 py-px text-[8px] font-sans font-bold uppercase tracking-wide text-teal-300">
+                          <span className="ml-1.5 rounded border border-brand-500/30 bg-brand-500/10 px-1 py-px text-[11px] font-sans font-bold text-brand-300">
                             shown above
                           </span>
                         )}
                       </td>
-                      <td className="py-1 text-right text-gray-400">{r.trades}</td>
-                      <td className="w-[70px] py-1 text-right text-gray-300">
+                      <td className="py-1 text-right text-neutral-400">{r.trades}</td>
+                      <td className="w-[70px] py-1 text-right text-neutral-300">
                         {r.win_rate}%
-                        <MiniBar pct={r.win_rate} tone="bg-teal-500/60" />
+                        <MiniBar pct={r.win_rate} tone="bg-brand-500/60" />
                       </td>
                       <td className={`py-1 text-right ${returnTone(r.median_return_pct)}`}>{fmtPct(r.median_return_pct)}</td>
                       <td className={`py-1 text-right ${returnTone(r.mean_return_pct)}`}>{fmtPct(r.mean_return_pct)}</td>
-                      <td className="w-[70px] py-1 text-right text-red-400/80">
+                      <td className="w-[70px] py-1 text-right text-negative-400">
                         {r.stopped_pct}%
-                        <MiniBar pct={r.stopped_pct} tone="bg-red-500/50" />
+                        <MiniBar pct={r.stopped_pct} tone="bg-negative-500/50" />
                       </td>
                     </tr>
                   );
@@ -233,29 +233,29 @@ function StudyPanel({ study }: { study: any }) {
           {/* Per-year rows ship WITH the headline on purpose — they are what show
               how much the aggregate moves depending on when you sample. */}
           <div>
-            <span className="mb-1 block text-[10px] uppercase tracking-wider text-gray-500">
+            <span className="mb-1 block text-[11px] text-neutral-500">
               By year (at {study.headline_horizon} sessions) — the aggregate is not stable
             </span>
             <div className="flex flex-wrap gap-2">
               {(study.per_year || []).map((y: any) => (
                 <div
                   key={y.year}
-                  className="min-w-[104px] rounded-lg border border-gray-800 bg-gray-950 px-2.5 py-1.5 transition-colors hover:border-gray-700 hover:bg-gray-900"
+                  className="min-w-[104px] rounded-lg border border-neutral-800 bg-neutral-950 px-2.5 py-1.5 transition-colors hover:border-neutral-700 hover:bg-neutral-900"
                   title={`${y.year}: ${y.trades} trades, ${y.win_rate}% won, median ${fmtPct(y.median_return_pct)}`}
                 >
-                  <span className="block text-[10px] text-gray-500">{y.year} · {y.trades}t</span>
-                  <span className="block font-mono text-xs text-gray-300">
+                  <span className="block text-[11px] text-neutral-500">{y.year} · {y.trades}t</span>
+                  <span className="block font-mono text-xs text-neutral-300">
                     {y.win_rate}% won · <span className={returnTone(y.median_return_pct)}>{fmtPct(y.median_return_pct)}</span>
                   </span>
-                  <MiniBar pct={y.win_rate} tone="bg-teal-500/60" />
+                  <MiniBar pct={y.win_rate} tone="bg-brand-500/60" />
                 </div>
               ))}
             </div>
           </div>
 
-          <ul className="space-y-1 border-t border-gray-800/60 pt-3">
+          <ul className="space-y-1 border-t border-neutral-800/60 pt-3">
             {(study.caveats || []).map((c: string, i: number) => (
-              <li key={i} className="text-[10px] leading-relaxed text-gray-500">• {c}</li>
+              <li key={i} className="text-[11px] leading-relaxed text-neutral-500">• {c}</li>
             ))}
           </ul>
         </div>
@@ -394,7 +394,7 @@ export default function IPOVintagePage() {
   };
 
   const SortIcon = ({ col }: { col: string }) => (
-    <span className="ml-1 text-gray-500 text-[10px] inline-block select-none">
+    <span className="ml-1 text-neutral-500 text-[11px] inline-block select-none">
       {sortKey === col ? (sortDir === "asc" ? "↑" : "↓") : "↕"}
     </span>
   );
@@ -490,21 +490,20 @@ export default function IPOVintagePage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-teal-500/10 border border-teal-500/25 text-teal-400">
+            <span className="flex h-5 w-5 items-center justify-center rounded-lg bg-brand-500/10 border border-brand-500/25 text-brand-400">
               <Landmark size={12} />
             </span>
-            <span className="text-xs font-bold uppercase tracking-wider text-teal-400">Proprietary Strategy</span>
+            <span className="text-xs font-bold text-brand-400">Proprietary Strategy</span>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">🏦 IPO Vintage</h1>
-          <p className="text-sm text-gray-400 max-w-2xl">
-            Opening-range breakout on recent listings. Entry is the first close above the opening candle's
-            <strong className="text-gray-300"> high</strong>; the stop is that candle's
-            <strong className="text-gray-300"> low</strong>; exits are fixed at 7/15/30/60/90 sessions.
+          <h1 className="text-title text-foreground">IPO Vintage</h1>
+          <p className="text-sm text-neutral-400 max-w-2xl">
+            Recent IPO listings, tracked from their debut session, with post-listing performance
+            across standard holding periods.
           </p>
         </div>
-        <div className="bg-teal-950/20 border border-teal-500/20 rounded-2xl px-5 py-2.5 text-center min-w-[100px]">
-          <div className="text-2xl font-black text-teal-400 font-mono">{loading ? "..." : filtered.length}</div>
-          <div className="text-gray-500 text-[10px] uppercase font-bold tracking-wider">
+        <div className="bg-brand-950/20 border border-brand-500/20 rounded-xl px-5 py-2.5 text-center min-w-[100px]">
+          <div className="text-2xl font-bold text-brand-400 font-mono">{loading ? "..." : filtered.length}</div>
+          <div className="text-neutral-500 text-[11px] font-bold">
             {view === "live" ? "Live Setups" : "Past Trades"}
           </div>
         </div>
@@ -512,14 +511,14 @@ export default function IPOVintagePage() {
 
       {/* ── View toggle: two ISOLATED lists, not a filter on one list ────── */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="inline-flex rounded-xl border border-gray-800 bg-gray-900/60 p-1">
+        <div className="inline-flex rounded-xl border border-neutral-800 bg-neutral-900/60 p-1">
           <button
             type="button"
             onClick={() => { setView("live"); setSortBy("days_since_trigger"); setExpanded(null); }}
             className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
               view === "live"
-                ? "bg-teal-600 text-white shadow"
-                : "text-gray-400 hover:text-gray-200"
+                ? "bg-brand-600 text-white shadow"
+                : "text-neutral-400 hover:text-neutral-200"
             }`}
           >
             Live Setups{liveCount != null && ` (${liveCount})`}
@@ -529,14 +528,14 @@ export default function IPOVintagePage() {
             onClick={() => { setView("history"); setSortBy("confidence"); setExpanded(null); }}
             className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
               view === "history"
-                ? "bg-gray-700 text-white shadow"
-                : "text-gray-400 hover:text-gray-200"
+                ? "bg-neutral-700 text-foreground shadow"
+                : "text-neutral-400 hover:text-neutral-200"
             }`}
           >
             Track Record{histCount != null && ` (${histCount})`}
           </button>
         </div>
-        <p className="text-[11px] text-gray-500 sm:ml-2">
+        <p className="text-[11px] text-neutral-500 sm:ml-2">
           {view === "live"
             ? `Triggered within the last ${30} sessions and not stopped out — these are the only ones you could still act on.`
             : "Closed or stale trades kept strictly out of the live list: stopped out, or triggered too long ago to enter."}
@@ -545,8 +544,8 @@ export default function IPOVintagePage() {
 
       {/* ── Permanent honest framing — not dismissible. Figures come from the
           study itself so this note can never drift out of date. ─────────── */}
-      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] px-4 py-3 text-[11px] leading-relaxed text-amber-200/90">
-        <strong className="text-amber-200">Historical breakout study, not a recommendation.</strong>{" "}
+      <div className="rounded-xl border border-warning-500/25 bg-warning-500/[0.05] px-4 py-3 text-[11px] leading-relaxed text-warning-200">
+        <strong className="text-warning-200">Historical breakout study, not a recommendation.</strong>{" "}
         Stops on this setup are wide — median risk to stop is
         {study?.median_risk_pct != null ? ` about ${study.median_risk_pct}%` : " typically over 10%"}.
         {study?.by_horizon?.length ? (
@@ -565,34 +564,34 @@ export default function IPOVintagePage() {
       <StudyPanel study={study} />
 
       {/* ── Track a new listing (auto-discovery handles this normally) ── */}
-      <div className="rounded-2xl border border-gray-800/80 bg-gray-900/40">
+      <div className="rounded-xl border border-neutral-800/80 bg-neutral-900/40">
         <button
           type="button"
           onClick={() => setShowAddForm((v) => !v)}
-          className="flex w-full items-center gap-2 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-gray-300"
+          className="flex w-full items-center gap-2 px-4 py-2.5 text-[11px] font-bold text-neutral-300"
         >
-          <Plus size={13} className="text-teal-400" /> Add / correct a listing
-          <span className="ml-2 normal-case font-normal text-gray-600">
+          <Plus size={13} className="text-brand-400" /> Add / correct a listing
+          <span className="ml-2 normal-case font-normal text-neutral-500">
             listings are auto-detected from price history — use this only to override
           </span>
         </button>
         {showAddForm && (
-          <form onSubmit={handleAddListing} className="border-t border-gray-800/60 p-3 flex flex-col sm:flex-row gap-2">
+          <form onSubmit={handleAddListing} className="border-t border-neutral-800/60 p-3 flex flex-col sm:flex-row gap-2">
             <input type="text" placeholder="Symbol" value={addSymbol} onChange={(e) => setAddSymbol(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-800 bg-gray-950 py-2 px-3 text-sm text-white placeholder-gray-600 focus:border-teal-500 focus:outline-none" required />
+              className="flex-1 rounded-lg border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-foreground placeholder-neutral-600 focus:border-brand-500 focus:outline-none" required />
             <input type="text" placeholder="Company (optional)" value={addCompany} onChange={(e) => setAddCompany(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-800 bg-gray-950 py-2 px-3 text-sm text-white placeholder-gray-600 focus:border-teal-500 focus:outline-none" />
+              className="flex-1 rounded-lg border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-foreground placeholder-neutral-600 focus:border-brand-500 focus:outline-none" />
             <input type="date" value={addListingDate} onChange={(e) => setAddListingDate(e.target.value)}
-              className="rounded-lg border border-gray-800 bg-gray-950 py-2 px-3 text-sm text-white focus:border-teal-500 focus:outline-none" required />
+              className="rounded-lg border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-foreground focus:border-brand-500 focus:outline-none" required />
             <input type="number" step="0.01" placeholder="Issue price" value={addIssuePrice} onChange={(e) => setAddIssuePrice(e.target.value)}
-              className="w-full sm:w-36 rounded-lg border border-gray-800 bg-gray-950 py-2 px-3 text-sm text-white placeholder-gray-600 focus:border-teal-500 focus:outline-none" />
+              className="w-full sm:w-36 rounded-lg border border-neutral-800 bg-neutral-950 py-2 px-3 text-sm text-foreground placeholder-neutral-600 focus:border-brand-500 focus:outline-none" />
             <button type="submit" disabled={adding}
-              className="rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm px-5 py-2 transition-all disabled:opacity-50">
+              className="rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm px-5 py-2 transition-all disabled:opacity-50">
               {adding ? "Adding…" : "Save"}
             </button>
           </form>
         )}
-        {addMsg && <p className="px-4 pb-3 text-xs text-teal-300">{addMsg}</p>}
+        {addMsg && <p className="px-4 pb-3 text-xs text-brand-300">{addMsg}</p>}
       </div>
 
       {/* ── Filters ──────────────────────────────────────────────── */}
@@ -604,13 +603,13 @@ export default function IPOVintagePage() {
         footer={
           <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
             <div className="relative w-full sm:max-w-xs">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"><Search size={14} /></span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"><Search size={14} /></span>
               <input type="text" placeholder="Search symbol or company..." value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-800 bg-gray-950 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-600 focus:border-teal-500 focus:outline-none" />
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-950 py-2 pl-9 pr-3 text-sm text-foreground placeholder-neutral-600 focus:border-brand-500 focus:outline-none" />
             </div>
             <button onClick={runScan} disabled={loading}
-              className="w-full rounded-lg bg-teal-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-teal-500 active:scale-98 sm:w-auto">
+              className="w-full rounded-lg bg-brand-600 px-6 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-brand-500 active:scale-98 sm:w-auto">
               {loading ? "Scanning…" : "Re-Run Scanner"}
             </button>
           </div>
@@ -669,7 +668,7 @@ export default function IPOVintagePage() {
       </FilterPanel>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-start gap-3 text-red-400 text-sm">
+        <div className="bg-negative-500/10 border border-negative-500/30 rounded-xl p-4 flex items-start gap-3 text-negative-400 text-sm">
           <AlertCircle className="flex-shrink-0 mt-0.5" size={16} />
           <div><h4 className="font-semibold">Scanner Error</h4><p className="opacity-80 mt-0.5">{error}</p></div>
         </div>
@@ -678,26 +677,26 @@ export default function IPOVintagePage() {
       {/* ── Results table ─────────────────────────────────────────── */}
       {loading && filtered.length === 0 ? (
         <div className="space-y-2">
-          {[...Array(8)].map((_, i) => <div key={i} className="h-11 rounded-lg bg-gray-900/40 animate-pulse" />)}
+          {[...Array(8)].map((_, i) => <div key={i} className="h-11 rounded-lg bg-neutral-900/40 animate-pulse" />)}
         </div>
       ) : filtered.length === 0 && cacheEmpty ? (
-        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">
-          <Landmark size={40} className="text-gray-650" />
-          <p className="text-gray-400 font-semibold text-base">No IPO Vintage setups yet</p>
-          <p className="text-gray-600 text-xs max-w-sm">
+        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-neutral-900/20 border border-neutral-800/60 rounded-xl">
+          <Landmark size={40} className="text-neutral-600" />
+          <p className="text-neutral-400 font-semibold text-base">No IPO Vintage setups yet</p>
+          <p className="text-neutral-500 text-xs max-w-sm">
             Listings are auto-detected from price history — run a full scan to populate this scanner.
           </p>
-          <Link href="/screener" className="mt-2 inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all">
+          <Link href="/screener" className="mt-2 inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-500 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition-all">
             Go to Overview &amp; Run Full Scan
           </Link>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-gray-900/20 border border-gray-800/60 rounded-3xl">
-          <Landmark size={40} className="text-gray-650" />
+        <div className="flex flex-col items-center py-20 text-center space-y-3 bg-neutral-900/20 border border-neutral-800/60 rounded-xl">
+          <Landmark size={40} className="text-neutral-600" />
           {view === "live" ? (
             <>
-              <p className="text-gray-400 font-semibold text-base">No live setups right now</p>
-              <p className="text-gray-600 text-xs max-w-md">
+              <p className="text-neutral-400 font-semibold text-base">No live setups right now</p>
+              <p className="text-neutral-500 text-xs max-w-md">
                 Nothing has broken above its opening-candle high in the last 30 sessions (or the ones that did
                 have since stopped out). That is a normal state — new listings trigger in clusters. Past trades
                 are in the Track Record tab.
@@ -705,79 +704,79 @@ export default function IPOVintagePage() {
             </>
           ) : (
             <>
-              <p className="text-gray-400 font-semibold text-base">No past trades match these filters</p>
-              <p className="text-gray-600 text-xs max-w-sm">Try widening the risk or confidence range, or hit Reset.</p>
+              <p className="text-neutral-400 font-semibold text-base">No past trades match these filters</p>
+              <p className="text-neutral-500 text-xs max-w-sm">Try widening the risk or confidence range, or hit Reset.</p>
             </>
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-gray-800/80 bg-gray-900/30">
+        <div className="overflow-x-auto rounded-xl border border-neutral-800/80 bg-neutral-900/30">
           <table className="w-full min-w-[900px] text-xs">
-            <thead className="bg-gray-900/60 text-gray-500">
+            <thead className="bg-neutral-900/60 text-neutral-500">
               <tr>
                 <th
                   onClick={() => handleSort("symbol")}
-                  className="px-3 py-2.5 text-left font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                  className="px-3 py-2.5 text-left font-semibold cursor-pointer hover:text-foreground transition-colors select-none"
                 >
                   Symbol <SortIcon col="symbol" />
                 </th>
                 <th
                   onClick={() => handleSort("date")}
-                  className="px-3 py-2.5 text-left font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                  className="px-3 py-2.5 text-left font-semibold cursor-pointer hover:text-foreground transition-colors select-none"
                 >
                   {view === "live" ? "Triggered" : "Listed"} <SortIcon col="date" />
                 </th>
                 <th
                   onClick={() => handleSort("entry")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none"
                 >
                   Entry <SortIcon col="entry" />
                 </th>
                 <th
                   onClick={() => handleSort("stop")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none"
                 >
                   Stop <SortIcon col="stop" />
                 </th>
                 <th
                   onClick={() => handleSort("risk")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-amber-400/80"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none text-warning-400"
                 >
                   Risk % <SortIcon col="risk" />
                 </th>
                 <th
                   onClick={() => handleSort("cmp")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none"
                 >
                   CMP <SortIcon col="cmp" />
                 </th>
                 <th
                   onClick={() => handleSort("return")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-emerald-400/80"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none text-positive-400"
                 >
                   {view === "live" ? "Since Entry" : "Final"} <SortIcon col="return" />
                 </th>
                 <th
                   onClick={() => handleSort("horizon")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-cyan-400/80"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none text-brand-400"
                 >
                   @{horizon}d <SortIcon col="horizon" />
                 </th>
                 <th
                   onClick={() => handleSort("max_dd")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-red-400/80"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none text-negative-400"
                 >
                   Max DD <SortIcon col="max_dd" />
                 </th>
                 <th
                   onClick={() => handleSort("confidence")}
-                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-white transition-colors select-none text-blue-400/80"
+                  className="px-3 py-2.5 text-right font-semibold cursor-pointer hover:text-foreground transition-colors select-none text-brand-400"
                 >
                   Conf. <SortIcon col="confidence" />
                 </th>
                 <th
                   onClick={() => handleSort("outcome")}
-                  className="px-3 py-2.5 text-center font-semibold cursor-pointer hover:text-white transition-colors select-none"
+                  className="px-3 py-2.5 text-center font-semibold cursor-pointer hover:text-foreground transition-colors select-none"
                 >
                   {view === "live" ? "Window" : "Outcome"} <SortIcon col="outcome" />
                 </th>
@@ -788,11 +787,11 @@ export default function IPOVintagePage() {
                 <React.Fragment key={s.symbol}>
                   <tr
                     onClick={() => setExpanded(expanded === s.symbol ? null : s.symbol)}
-                    className="cursor-pointer border-t border-gray-850 transition-colors hover:bg-gray-800/30"
+                    className="cursor-pointer border-t border-neutral-850 transition-colors hover:bg-neutral-800/30"
                   >
                     <td className="px-3 py-2.5">
-                      <span className="block font-bold text-white">{s.symbol}</span>
-                      <span className="block max-w-[150px] truncate text-[10px] text-gray-500">{s.company_name}</span>
+                      <span className="block font-bold text-foreground">{s.symbol}</span>
+                      <span className="block max-w-[150px] truncate text-[11px] text-neutral-500">{s.company_name}</span>
                     </td>
                     <td className="px-3 py-2.5">
                       {view === "live" ? (
@@ -800,33 +799,33 @@ export default function IPOVintagePage() {
                           <span className={`block font-mono ${freshTone(s.days_since_trigger)}`}>
                             {freshLabel(s.days_since_trigger)}
                           </span>
-                          <span className="block text-[10px] text-gray-600">{s.trigger_date}</span>
+                          <span className="block text-[11px] text-neutral-500">{s.trigger_date}</span>
                         </>
                       ) : (
-                        <span className="text-gray-400">{s.listing_date}</span>
+                        <span className="text-neutral-400">{s.listing_date}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-white">₹{s.entry}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-400">₹{s.stop_loss}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-foreground">₹{s.entry}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-neutral-400">₹{s.stop_loss}</td>
                     <td className={`px-3 py-2.5 text-right font-mono ${riskTone(s.risk_pct)}`}>{s.risk_pct}%</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-300">₹{s.cmp}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-neutral-300">₹{s.cmp}</td>
                     <td className={`px-3 py-2.5 text-right font-mono ${returnTone(s.unrealized_return_pct)}`}>
                       {fmtPct(s.unrealized_return_pct)}
                     </td>
                     <td className={`px-3 py-2.5 text-right font-mono ${returnTone(s.selected_horizon_return_pct)}`}>
                       {s.selected_horizon_status === "pending"
-                        ? <span className="text-gray-600">pending</span>
+                        ? <span className="text-neutral-500">pending</span>
                         : fmtPct(s.selected_horizon_return_pct)}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-red-400/80">{fmtPct(s.max_drawdown_pct, false)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-gray-200">{s.confidence}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-negative-400">{fmtPct(s.max_drawdown_pct, false)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono text-neutral-200">{s.confidence}</td>
                     <td className="px-3 py-2.5 text-center">
                       {view === "live" ? (
-                        <span className="rounded-full border border-teal-500/30 bg-teal-500/10 px-2 py-0.5 text-[10px] font-semibold text-teal-300">
+                        <span className="rounded-md border border-brand-500/30 bg-brand-500/10 px-2 py-0.5 text-[11px] font-semibold text-brand-300">
                           {s.sessions_left_in_window}d left
                         </span>
                       ) : (
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(s.setup_status)}`}>
+                        <span className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${statusTone(s.setup_status)}`}>
                           {s.setup_status === "expired" ? "ran its course" : s.setup_status}
                         </span>
                       )}
@@ -834,29 +833,29 @@ export default function IPOVintagePage() {
                   </tr>
 
                   {expanded === s.symbol && (
-                    <tr className="border-t border-gray-850 bg-gray-950/60">
+                    <tr className="border-t border-neutral-850 bg-neutral-950/60">
                       <td colSpan={11} className="px-4 py-4">
                         <div className="grid gap-4 lg:grid-cols-3">
                           <div className="lg:col-span-2 space-y-3">
                             <div>
-                              <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                              <span className="mb-1.5 block text-[11px] font-bold text-neutral-500">
                                 All Exit Horizons
                               </span>
                               <div className="grid grid-cols-5 gap-1.5">
                                 {HORIZONS.map((h) => {
                                   const hz = s.horizons?.[`h${h}`];
                                   return (
-                                    <div key={h} className="rounded-lg border border-gray-850 bg-gray-900/40 py-2 text-center">
-                                      <span className="block text-[9px] uppercase text-gray-500">{h}d</span>
+                                    <div key={h} className="rounded-lg border border-neutral-850 bg-neutral-900/40 py-2 text-center">
+                                      <span className="block text-[11px] text-neutral-500">{h}d</span>
                                       {hz?.status === "pending" ? (
-                                        <span className="block font-mono text-[11px] text-gray-600">{hz.days_remaining}d left</span>
+                                        <span className="block font-mono text-[11px] text-neutral-500">{hz.days_remaining}d left</span>
                                       ) : (
                                         <span className={`block font-mono text-[11px] font-bold ${returnTone(hz?.return_pct)}`}>
                                           {fmtPct(hz?.return_pct)}
                                         </span>
                                       )}
                                       {hz?.status === "stopped" && (
-                                        <span className="block text-[8px] uppercase text-red-400/70">stopped</span>
+                                        <span className="block text-[11px] text-negative-400">stopped</span>
                                       )}
                                     </div>
                                   );
@@ -865,17 +864,17 @@ export default function IPOVintagePage() {
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 text-[11px]">
-                              <div><span className="block text-gray-500">Opening High</span><span className="font-mono text-gray-200">₹{s.opening_high}</span></div>
-                              <div><span className="block text-gray-500">Opening Low (stop)</span><span className="font-mono text-gray-200">₹{s.opening_low}</span></div>
-                              <div><span className="block text-gray-500">Best run-up (MFE)</span><span className="font-mono text-emerald-400">{fmtPct(s.mfe_pct)}</span></div>
-                              <div><span className="block text-gray-500">Worst dip (MAE)</span><span className="font-mono text-red-400">{fmtPct(s.mae_pct)}</span></div>
-                              <div><span className="block text-gray-500">Trigger</span><span className="font-mono text-gray-200">{s.trigger_date}</span></div>
-                              <div><span className="block text-gray-500">Sessions to entry</span><span className="font-mono text-gray-200">{s.entry_session}</span></div>
-                              <div><span className="block text-gray-500">Breakout</span><span className="font-mono text-gray-200">{fmtPct(s.breakout_strength_pct)}</span></div>
-                              <div><span className="block text-gray-500">Volume ratio</span><span className="font-mono text-gray-200">{s.volume_ratio != null ? `${s.volume_ratio}x` : "—"}</span></div>
+                              <div><span className="block text-neutral-500">Opening High</span><span className="font-mono text-neutral-200">₹{s.opening_high}</span></div>
+                              <div><span className="block text-neutral-500">Opening Low (stop)</span><span className="font-mono text-neutral-200">₹{s.opening_low}</span></div>
+                              <div><span className="block text-neutral-500">Best run-up (MFE)</span><span className="font-mono text-positive-400">{fmtPct(s.mfe_pct)}</span></div>
+                              <div><span className="block text-neutral-500">Worst dip (MAE)</span><span className="font-mono text-negative-400">{fmtPct(s.mae_pct)}</span></div>
+                              <div><span className="block text-neutral-500">Trigger</span><span className="font-mono text-neutral-200">{s.trigger_date}</span></div>
+                              <div><span className="block text-neutral-500">Sessions to entry</span><span className="font-mono text-neutral-200">{s.entry_session}</span></div>
+                              <div><span className="block text-neutral-500">Breakout</span><span className="font-mono text-neutral-200">{fmtPct(s.breakout_strength_pct)}</span></div>
+                              <div><span className="block text-neutral-500">Volume ratio</span><span className="font-mono text-neutral-200">{s.volume_ratio != null ? `${s.volume_ratio}x` : "—"}</span></div>
                               {s.stop_hit && (
-                                <div className="col-span-2"><span className="block text-gray-500">Stopped on</span>
-                                  <span className="font-mono text-red-400">{s.stop_hit_date} (session {s.stop_hit_session})</span></div>
+                                <div className="col-span-2"><span className="block text-neutral-500">Stopped on</span>
+                                  <span className="font-mono text-negative-400">{s.stop_hit_date} (session {s.stop_hit_session})</span></div>
                               )}
                             </div>
                           </div>
@@ -892,17 +891,17 @@ export default function IPOVintagePage() {
                             />
                             <div className="grid grid-cols-3 gap-2">
                               <button onClick={(e) => { e.stopPropagation(); window.open(`https://in.tradingview.com/chart/?symbol=NSE:${s.symbol}`, "_blank"); }}
-                                className="flex items-center justify-center gap-1 rounded-xl border border-gray-800 bg-gray-900 px-2 py-2 text-[11px] text-gray-400 transition-all hover:bg-gray-850 hover:text-white"
+                                className="flex items-center justify-center gap-1 rounded-xl border border-neutral-800 bg-neutral-900 px-2 py-2 text-[11px] text-neutral-400 transition-all hover:bg-neutral-850 hover:text-foreground"
                                 title="Open chart on TradingView">
                                 <ExternalLink size={11} /> Chart
                               </button>
                               <button onClick={(e) => handleOpenWatchlist(s, e)}
-                                className="flex items-center justify-center gap-1 rounded-xl border border-gray-800 bg-gray-900 px-2 py-2 text-[11px] text-gray-400 transition-all hover:bg-gray-850 hover:text-white">
+                                className="flex items-center justify-center gap-1 rounded-xl border border-neutral-800 bg-neutral-900 px-2 py-2 text-[11px] text-neutral-400 transition-all hover:bg-neutral-850 hover:text-foreground">
                                 <Bookmark size={11} /> +Watch
                               </button>
                               <Link href={`/ai-copilot?prompt=Analyze+the+IPO+Vintage+breakout+for+${s.symbol}%2C+entry+%E2%82%B9${s.entry}+stop+%E2%82%B9${s.stop_loss}+%28risk+${s.risk_pct}%25%29.`}
                                 onClick={(e) => e.stopPropagation()}
-                                className="flex items-center justify-center gap-1 rounded-xl border border-teal-500/20 bg-teal-600/10 px-2 py-2 text-[11px] font-bold text-teal-300 transition-all hover:bg-teal-600 hover:text-white">
+                                className="flex items-center justify-center gap-1 rounded-xl border border-brand-500/20 bg-brand-600/10 px-2 py-2 text-[11px] font-bold text-brand-300 transition-all hover:bg-brand-600 hover:text-white">
                                 <Sparkles size={11} /> AI
                               </Link>
                             </div>

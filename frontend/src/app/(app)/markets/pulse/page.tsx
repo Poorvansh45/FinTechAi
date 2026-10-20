@@ -6,9 +6,8 @@ import {
   Activity, TrendingUp, TrendingDown, RefreshCw, Brain, BarChart3,
   Zap, AlertTriangle, Clock, Radio, Flame, Snowflake, Scale,
   ArrowUpRight, ArrowDownRight, ChevronRight, Target, Shield,
-  WifiOff, Eye, Layers3, Gauge, Globe2, DollarSign, Cpu,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+  WifiOff, Eye, Layers3, Gauge, Globe2, DollarSign, Cpu, Landmark, HeartPulse, Factory, ShoppingBag, ShoppingCart, Lightbulb, Home, Pickaxe, type LucideIcon } from 'lucide-react';
+import { cn, withAlpha, themeColors } from '@/lib/utils';
 import { authHeader } from "@/lib/api/authToken";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,14 +69,14 @@ interface PulseData {
 // ─────────────────────────────────────────────────────────────────────────────
 // DESIGN TOKENS
 // ─────────────────────────────────────────────────────────────────────────────
-const BG      = '#050816';
-const CARD    = 'rgba(9,17,31,0.85)';
-const BORDER  = 'rgba(255,255,255,0.06)';
-const PURPLE  = '#7c3aed';
-const EMERALD = '#22c55e';
-const RED     = '#ef4444';
-const AMBER   = '#f59e0b';
-const BLUE    = '#3b82f6';
+const BG      = 'rgb(var(--background))';
+const CARD    = 'rgb(var(--card) / 0.85)';
+const BORDER  = 'rgb(var(--foreground) / 0.06)';
+const PURPLE  = 'rgb(var(--brand-400))';
+const EMERALD = 'rgb(var(--positive-400))';
+const RED     = 'rgb(var(--negative-400))';
+const AMBER   = 'rgb(var(--warning-400))';
+const BLUE    = 'rgb(var(--brand-400))';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANIMATION PRESETS
@@ -109,15 +108,15 @@ function TerminalCard({
   return (
     <div
       className={cn(
-        'relative rounded-2xl border transition-all duration-300',
-        'hover:border-violet-500/20 hover:shadow-[0_8px_40px_rgba(124,58,237,0.08)]',
+        'relative rounded-xl border transition-all duration-300',
+        'hover:border-brand-500/20',
         !noPad && 'p-4',
         className,
       )}
-      style={{ background: CARD, borderColor: glow ? `${glow}20` : BORDER }}
+      style={{ background: CARD, borderColor: glow ? `${withAlpha(glow, 0.13)}` : BORDER }}
     >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-2xl"
-        style={{ background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.25), transparent)' }} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-xl"
+        style={{ background: 'linear-gradient(90deg, transparent, rgb(var(--brand-600) / 0.25), transparent)' }} />
       {children}
     </div>
   );
@@ -133,12 +132,12 @@ function SectionLabel({
       <div className="w-0.5 h-4 rounded-full flex-shrink-0"
         style={{ background: `linear-gradient(to bottom, ${color}, transparent)` }} />
       <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color }} />
-      <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{title}</span>
-      {sub && <span className="text-[9px] text-slate-600 ml-1">· {sub}</span>}
-      <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.04), transparent)' }} />
+      <span className="text-[11px] font-bold text-neutral-400">{title}</span>
+      {sub && <span className="text-[11px] text-neutral-500 ml-1">· {sub}</span>}
+      <div className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgb(var(--foreground) / 0.04), transparent)' }} />
       {live && (
-        <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider flex-shrink-0" style={{ color: EMERALD }}>
-          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: EMERALD }} />
+        <span className="flex items-center gap-1 text-[11px] font-bold flex-shrink-0" style={{ color: EMERALD }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: EMERALD }} />
           Live
         </span>
       )}
@@ -174,15 +173,13 @@ function Spark({
 function LiveDot({ color = EMERALD }: { color?: string }) {
   return (
     <span className="relative flex h-2 w-2 flex-shrink-0">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-        style={{ background: color }} />
       <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: color }} />
     </span>
   );
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={cn('animate-pulse rounded-lg bg-white/[0.04]', className)} />;
+  return <div className={cn('animate-pulse rounded-lg bg-foreground/[0.04]', className)} />;
 }
 
 function PctBadge({ v, small }: { v: number; small?: boolean }) {
@@ -190,8 +187,8 @@ function PctBadge({ v, small }: { v: number; small?: boolean }) {
   return (
     <span className={cn(
       'inline-flex items-center gap-0.5 font-bold tabular-nums rounded-md px-1.5 py-0.5',
-      small ? 'text-[9px]' : 'text-[11px]',
-      pos ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10',
+      small ? 'text-[11px]' : 'text-[11px]',
+      pos ? 'text-positive-400 bg-positive-500/10' : 'text-negative-400 bg-negative-500/10',
     )}>
       {pos ? <ArrowUpRight className="w-2.5 h-2.5" /> : <ArrowDownRight className="w-2.5 h-2.5" />}
       {pos ? '+' : ''}{v.toFixed(2)}%
@@ -234,7 +231,7 @@ function HeroBar({ data, loading, lastRefresh, onRefresh }: {
   const isOpen   = data?.marketOpen ?? false;
   const fg       = data?.fearGreed;
   const fgVal    = fg?.value ?? 50;
-  const fgColor  = fgVal >= 70 ? EMERALD : fgVal >= 55 ? '#84cc16' : fgVal >= 45 ? AMBER : fgVal >= 25 ? '#f97316' : RED;
+  const fgColor  = fgVal >= 70 ? EMERALD : fgVal >= 55 ? 'rgb(var(--positive-400))' : fgVal >= 45 ? AMBER : fgVal >= 25 ? 'rgb(var(--warning-400))' : RED;
   const FGIcon   = fgVal >= 60 ? Flame : fgVal >= 40 ? Scale : Snowflake;
   const vix      = data?.vix;
   const sentiment = data?.aiSentiment ?? '—';
@@ -242,37 +239,37 @@ function HeroBar({ data, loading, lastRefresh, onRefresh }: {
 
   return (
     <motion.div {...fadeUp(0)}>
-      <div className="rounded-2xl border p-4 md:p-5 flex flex-wrap items-center gap-5 lg:gap-8"
-        style={{ background: 'rgba(9,17,31,0.95)', borderColor: 'rgba(124,58,237,0.15)', backdropFilter: 'blur(20px)' }}>
+      <div className="rounded-xl border p-4 md:p-5 flex flex-wrap items-center gap-5 lg:gap-8"
+        style={{ background: 'rgb(var(--card) / 0.95)', borderColor: 'rgb(var(--brand-600) / 0.15)', backdropFilter: 'blur(20px)' }}>
 
         {/* Title + live */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <div className="relative w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border"
-            style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(59,130,246,0.2))', borderColor: 'rgba(124,58,237,0.3)' }}>
-            <Activity className="w-5 h-5 text-violet-300" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-[#050816] bg-emerald-400 animate-pulse" />
+            style={{ background: 'rgb(var(--brand-600))', borderColor: 'rgb(var(--brand-600) / 0.3)' }}>
+            <Activity className="w-5 h-5 text-white" />
+            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-neutral-800 bg-positive-400 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-[16px] font-black text-white tracking-tight leading-none">Market Pulse</h1>
-            <p className="text-[9px] text-slate-600 uppercase tracking-widest mt-0.5">Real-Time Intelligence Engine</p>
+            <h1 className="text-[16px] font-bold text-foreground tracking-tight leading-none">Market Pulse</h1>
+            <p className="text-[11px] text-neutral-500 mt-0.5">Real-Time Intelligence Engine</p>
           </div>
         </div>
 
-        <div className="h-8 w-px bg-white/[0.05] hidden sm:block flex-shrink-0" />
+        <div className="h-8 w-px bg-foreground/[0.05] hidden sm:block flex-shrink-0" />
 
         {/* Time + market status */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
           <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center border flex-shrink-0',
-            isOpen ? 'border-emerald-500/20 bg-emerald-500/10' : 'border-slate-600/20 bg-slate-600/10')}>
+            isOpen ? 'border-positive-500/20 bg-positive-500/10' : 'border-neutral-600/20 bg-neutral-600/10')}>
             {isOpen
-              ? <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-              : <WifiOff className="w-4 h-4 text-slate-500" />}
+              ? <Radio className="w-4 h-4 text-positive-400 animate-pulse" />
+              : <WifiOff className="w-4 h-4 text-neutral-500" />}
           </div>
           <div>
-            <div className={cn('text-[13px] font-bold', isOpen ? 'text-emerald-400' : 'text-slate-500')}>
+            <div className={cn('text-[13px] font-bold', isOpen ? 'text-positive-400' : 'text-neutral-500')}>
               {isOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}
             </div>
-            <div className="text-[10px] text-slate-600 tabular-nums flex items-center gap-1 mt-px">
+            <div className="text-[11px] text-neutral-500 tabular-nums flex items-center gap-1 mt-px">
               <Clock className="w-2.5 h-2.5" />
               {time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               &nbsp;·&nbsp;
@@ -281,19 +278,19 @@ function HeroBar({ data, loading, lastRefresh, onRefresh }: {
           </div>
         </div>
 
-        <div className="h-8 w-px bg-white/[0.05] hidden md:block flex-shrink-0" />
+        <div className="h-8 w-px bg-foreground/[0.05] hidden md:block flex-shrink-0" />
 
         {/* Fear & Greed */}
         {fg && (
           <div className="flex items-center gap-2.5 flex-shrink-0">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center border flex-shrink-0"
-              style={{ background: `${fgColor}14`, borderColor: `${fgColor}25` }}>
+              style={{ background: `${withAlpha(fgColor, 0.08)}`, borderColor: `${withAlpha(fgColor, 0.15)}` }}>
               <FGIcon className="w-4 h-4" style={{ color: fgColor }} />
             </div>
             <div>
-              <div className="text-[9px] text-slate-500 font-medium">Fear & Greed</div>
-              <div className="text-[15px] font-black tabular-nums leading-tight" style={{ color: fgColor }}>
-                {fg.value}<span className="text-[10px] font-semibold ml-1">{fg.label}</span>
+              <div className="text-[11px] text-neutral-500 font-medium">Fear & Greed</div>
+              <div className="text-[15px] font-bold tabular-nums leading-tight" style={{ color: fgColor }}>
+                {fg.value}<span className="text-[11px] font-semibold ml-1">{fg.label}</span>
               </div>
             </div>
           </div>
@@ -302,15 +299,15 @@ function HeroBar({ data, loading, lastRefresh, onRefresh }: {
         {/* VIX */}
         {vix && (
           <div className="flex items-center gap-2.5 flex-shrink-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-orange-500/10 border border-orange-500/18 flex-shrink-0">
-              <Gauge className="w-4 h-4 text-orange-400" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-warning-500/10 border border-warning-500/18 flex-shrink-0">
+              <Gauge className="w-4 h-4 text-warning-400" />
             </div>
             <div>
-              <div className="text-[9px] text-slate-500 font-medium">VIX</div>
-              <div className={cn('text-[15px] font-black tabular-nums leading-tight flex items-center gap-1',
-                vix.changePct < 0 ? 'text-emerald-400' : 'text-red-400')}>
+              <div className="text-[11px] text-neutral-500 font-medium">VIX</div>
+              <div className={cn('text-[15px] font-bold tabular-nums leading-tight flex items-center gap-1',
+                vix.changePct < 0 ? 'text-positive-400' : 'text-negative-400')}>
                 {vix.price.toFixed(2)}
-                <span className="text-[10px]">{vix.changePct >= 0 ? '+' : ''}{vix.changePct.toFixed(2)}%</span>
+                <span className="text-[11px]">{vix.changePct >= 0 ? '+' : ''}{vix.changePct.toFixed(2)}%</span>
               </div>
             </div>
           </div>
@@ -319,12 +316,12 @@ function HeroBar({ data, loading, lastRefresh, onRefresh }: {
         {/* AI Sentiment */}
         <div className="flex items-center gap-2.5 flex-shrink-0">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center border flex-shrink-0"
-            style={{ background: `${sentColor}14`, borderColor: `${sentColor}25` }}>
+            style={{ background: `${withAlpha(sentColor, 0.08)}`, borderColor: `${withAlpha(sentColor, 0.15)}` }}>
             <Brain className="w-4 h-4" style={{ color: sentColor }} />
           </div>
           <div>
-            <div className="text-[9px] text-slate-500 font-medium">AI Sentiment</div>
-            <div className="text-[13px] font-black" style={{ color: sentColor }}>{sentiment}</div>
+            <div className="text-[11px] text-neutral-500 font-medium">AI Sentiment</div>
+            <div className="text-[13px] font-bold" style={{ color: sentColor }}>{sentiment}</div>
           </div>
         </div>
 
@@ -333,12 +330,12 @@ function HeroBar({ data, loading, lastRefresh, onRefresh }: {
         {/* Refresh */}
         <div className="flex items-center gap-3 flex-shrink-0">
           {lastRefresh && (
-            <span className="text-[9px] text-slate-600 tabular-nums hidden lg:block">
+            <span className="text-[11px] text-neutral-500 tabular-nums hidden lg:block">
               Updated {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           )}
           <button onClick={onRefresh} disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold text-slate-400 hover:text-white hover:border-violet-500/30 hover:bg-violet-500/8 transition-all disabled:opacity-40"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold text-neutral-400 hover:text-foreground hover:border-brand-500/30 hover:bg-brand-500/8 transition-all disabled:opacity-40"
             style={{ borderColor: BORDER }}>
             <RefreshCw className={cn('w-3 h-3', loading && 'animate-spin')} />
             {loading ? 'Refreshing…' : 'Refresh'}
@@ -364,8 +361,6 @@ function RegimeCard({ data, loading }: { data: PulseData | null; loading: boolea
     <motion.div {...fadeUp(1)}>
       <TerminalCard className="relative overflow-hidden" glow={color}>
         {/* Background ambient */}
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20"
-          style={{ background: `radial-gradient(circle, ${color}, transparent)` }} />
 
         <SectionLabel title="Market Regime" icon={Target} color={color} live />
 
@@ -380,10 +375,10 @@ function RegimeCard({ data, loading }: { data: PulseData | null; loading: boolea
             <div className="flex flex-col items-center">
               <div className="relative w-44 h-44">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
-                  <circle cx="80" cy="80" r="44" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="12" />
+                  <circle cx="80" cy="80" r="44" fill="none" stroke="rgb(var(--foreground) / 0.05)" strokeWidth="12" />
                   <circle cx="80" cy="80" r="44" fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"
                     strokeDasharray={`${dash} 276`}
-                    style={{ filter: `drop-shadow(0 0 16px ${color}88)` }} />
+                    style={{ filter: `drop-shadow(0 0 16px ${withAlpha(color, 0.53)})` }} />
                   {/* Tick marks */}
                   {[0, 25, 50, 75, 100].map((v) => {
                     const angle = (v / 100) * 360 - 90;
@@ -393,24 +388,24 @@ function RegimeCard({ data, loading }: { data: PulseData | null; loading: boolea
                       <line key={v}
                         x1={80 + r1 * Math.cos(rad)} y1={80 + r1 * Math.sin(rad)}
                         x2={80 + r2 * Math.cos(rad)} y2={80 + r2 * Math.sin(rad)}
-                        stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" />
+                        stroke="rgb(var(--foreground) / 0.15)" strokeWidth="1.5" />
                     );
                   })}
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <motion.div className="text-[28px] font-black tabular-nums" style={{ color }}
+                  <motion.div className="text-[28px] font-bold tabular-nums" style={{ color }}
                     initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                     transition={{ delay: 0.3, duration: 0.5, ease: EASE }}>
                     {conf}%
                   </motion.div>
-                  <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Confidence</div>
+                  <div className="text-[11px] font-bold text-neutral-500">Confidence</div>
                 </div>
               </div>
               <motion.div
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
                 className="mt-2 text-center">
-                <div className="text-[22px] font-black tracking-tight" style={{ color }}>{label}</div>
-                <div className="text-[9px] text-slate-600 uppercase tracking-widest mt-0.5">Current Regime</div>
+                <div className="text-[22px] font-bold tracking-tight" style={{ color }}>{label}</div>
+                <div className="text-[11px] text-neutral-500 mt-0.5">Current Regime</div>
               </motion.div>
             </div>
 
@@ -422,19 +417,19 @@ function RegimeCard({ data, loading }: { data: PulseData | null; loading: boolea
                   transition={{ delay: 0.15 + i * 0.08, ease: EASE }}
                   className="flex items-start gap-3 p-3 rounded-xl border"
                   style={{
-                    background: d.positive ? 'rgba(34,197,94,0.05)' : d.positive === false ? 'rgba(239,68,68,0.05)' : 'rgba(255,255,255,0.02)',
-                    borderColor: d.positive ? 'rgba(34,197,94,0.15)' : d.positive === false ? 'rgba(239,68,68,0.12)' : BORDER,
+                    background: d.positive ? 'rgb(var(--positive-500) / 0.05)' : d.positive === false ? 'rgb(var(--negative-500) / 0.05)' : 'rgb(var(--foreground) / 0.02)',
+                    borderColor: d.positive ? 'rgb(var(--positive-500) / 0.15)' : d.positive === false ? 'rgb(var(--negative-500) / 0.12)' : BORDER,
                   }}>
                   <span className="text-[14px] flex-shrink-0 mt-0.5">
                     {d.positive ? '↑' : d.positive === false ? '↓' : '→'}
                   </span>
-                  <span className="text-[12px] text-slate-300 leading-relaxed">{d.text}</span>
+                  <span className="text-[12px] text-neutral-300 leading-relaxed">{d.text}</span>
                   <div className="ml-auto flex-shrink-0">
                     {d.positive
-                      ? <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full">POSITIVE</span>
+                      ? <span className="text-[11px] font-bold text-positive-400 bg-positive-500/10 border border-positive-500/20 px-1.5 py-0.5 rounded-md">POSITIVE</span>
                       : d.positive === false
-                      ? <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded-full">RISK</span>
-                      : <span className="text-[9px] font-bold text-slate-500 bg-slate-500/10 border border-slate-500/20 px-1.5 py-0.5 rounded-full">NEUTRAL</span>}
+                      ? <span className="text-[11px] font-bold text-negative-400 bg-negative-500/10 border border-negative-500/20 px-1.5 py-0.5 rounded-md">RISK</span>
+                      : <span className="text-[11px] font-bold text-neutral-500 bg-neutral-500/10 border border-neutral-500/20 px-1.5 py-0.5 rounded-md">NEUTRAL</span>}
                   </div>
                 </motion.div>
               ))}
@@ -454,10 +449,10 @@ function MoverCard({ q, rank }: { q: Quote; rank: number }) {
   const [expanded, setExpanded] = useState(false);
   return (
     <motion.div variants={cardIn}
-      className="group relative rounded-xl border overflow-hidden cursor-pointer transition-all duration-250 hover:scale-[1.015] hover:-translate-y-0.5"
+      className="group relative rounded-xl border overflow-hidden cursor-pointer transition-all duration-250 hover:scale-[1.015]"
       style={{
-        background: pos ? 'rgba(34,197,94,0.04)' : 'rgba(239,68,68,0.04)',
-        borderColor: pos ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+        background: pos ? 'rgb(var(--positive-500) / 0.04)' : 'rgb(var(--negative-500) / 0.04)',
+        borderColor: pos ? 'rgb(var(--positive-500) / 0.15)' : 'rgb(var(--negative-500) / 0.15)',
         boxShadow: expanded ? `0 0 28px ${pos ? EMERALD : RED}18` : 'none',
       }}
       onClick={() => setExpanded(v => !v)}>
@@ -467,22 +462,22 @@ function MoverCard({ q, rank }: { q: Quote; rank: number }) {
       <div className="ml-3 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[9px] font-black text-slate-600 w-4 flex-shrink-0">#{rank}</span>
+            <span className="text-[11px] font-bold text-neutral-500 w-4 flex-shrink-0">#{rank}</span>
             <div className="min-w-0">
-              <div className="text-[13px] font-black text-white truncate">{q.symbol}</div>
-              <div className="text-[9px] text-slate-600 truncate">{q.sector}</div>
+              <div className="text-[13px] font-bold text-foreground truncate">{q.symbol}</div>
+              <div className="text-[11px] text-neutral-500 truncate">{q.sector}</div>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             <PctBadge v={q.changePct} />
-            <span className="text-[9px] text-slate-600 tabular-nums">
+            <span className="text-[11px] text-neutral-500 tabular-nums">
               Vol {q.volRatio?.toFixed(1)}×
             </span>
           </div>
         </div>
 
         <div className="flex items-center justify-between mt-2">
-          <span className="text-[12px] font-bold text-white tabular-nums">
+          <span className="text-[12px] font-bold text-foreground tabular-nums">
             {q.price >= 1000
               ? q.price.toLocaleString('en-US', { maximumFractionDigits: 0 })
               : q.price.toFixed(2)}
@@ -495,7 +490,7 @@ function MoverCard({ q, rank }: { q: Quote; rank: number }) {
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
               className="overflow-hidden">
-              <div className="pt-2.5 mt-2.5 border-t border-white/[0.05] grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
+              <div className="pt-2.5 mt-2.5 border-t border-foreground/[0.05] grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
                 {[
                   ['Volume', q.volume ? `${(q.volume / 1e6).toFixed(1)}M` : '—'],
                   ['Avg Vol', q.avgVolume ? `${(q.avgVolume / 1e6).toFixed(1)}M` : '—'],
@@ -503,8 +498,8 @@ function MoverCard({ q, rank }: { q: Quote; rank: number }) {
                   ['52W High', q.high52w ? q.high52w.toFixed(1) : '—'],
                 ].map(([k, v]) => (
                   <div key={k} className="flex justify-between">
-                    <span className="text-slate-600">{k}</span>
-                    <span className="font-bold text-white">{v}</span>
+                    <span className="text-neutral-500">{k}</span>
+                    <span className="font-bold text-foreground">{v}</span>
                   </div>
                 ))}
               </div>
@@ -551,54 +546,54 @@ function LeadersLaggards({ data, loading }: { data: PulseData | null; loading: b
 // ─────────────────────────────────────────────────────────────────────────────
 // SECTION 4 — SECTOR ROTATION MATRIX
 // ─────────────────────────────────────────────────────────────────────────────
-const SECTOR_ICON: Record<string, string> = {
-  Technology: '💻', Financials: '🏦', Healthcare: '🏥', Energy: '⚡',
-  Industrials: '🏭', 'Consumer Disc': '🛍', 'Consumer Stap': '🛒',
-  Utilities: '💡', 'Real Estate': '🏠', Materials: '⛏', 'Comm Svcs': '📡',
+const SECTOR_ICON: Record<string, LucideIcon> = {
+  Technology: Cpu, Financials: Landmark, Healthcare: HeartPulse, Energy: Zap,
+  Industrials: Factory, 'Consumer Disc': ShoppingBag, 'Consumer Stap': ShoppingCart,
+  Utilities: Lightbulb, 'Real Estate': Home, Materials: Pickaxe, 'Comm Svcs': Radio,
 };
 
 function SectorCell({ s }: { s: SectorData }) {
   const pos      = s.changePct >= 0;
   const intensity = Math.min(Math.abs(s.changePct) / 3, 1);
   const cellBg   = pos
-    ? `rgba(34,197,94,${0.04 + intensity * 0.14})`
-    : `rgba(239,68,68,${0.04 + intensity * 0.14})`;
+    ? `rgb(var(--positive-500) / ${0.04 + intensity * 0.14})`
+    : `rgb(var(--negative-500) / ${0.04 + intensity * 0.14})`;
   const border   = pos
-    ? `rgba(34,197,94,${0.12 + intensity * 0.2})`
-    : `rgba(239,68,68,${0.12 + intensity * 0.2})`;
+    ? `rgb(var(--positive-500) / ${0.12 + intensity * 0.2})`
+    : `rgb(var(--negative-500) / ${0.12 + intensity * 0.2})`;
   const color    = pos ? EMERALD : RED;
 
   return (
     <motion.div variants={cardIn}
       className="relative rounded-xl border p-3 overflow-hidden transition-all duration-300 cursor-default group"
       style={{ background: cellBg, borderColor: border }}
-      whileHover={{ scale: 1.03, y: -3, boxShadow: `0 12px 40px ${color}20` }}>
+      whileHover={{ scale: 1.03, y: -3, boxShadow: `0 12px 40px ${withAlpha(color, 0.13)}` }}>
 
       {/* Intensity bar at bottom */}
       <div className="absolute inset-x-0 bottom-0 h-0.5 rounded-b-xl"
         style={{ background: color, opacity: 0.3 + intensity * 0.5 }} />
 
       <div className="flex items-start justify-between mb-2">
-        <span className="text-[14px]">{SECTOR_ICON[s.name] ?? '📊'}</span>
+        {(() => { const SectorIcon = SECTOR_ICON[s.name] ?? BarChart3; return <SectorIcon className="h-4 w-4 text-neutral-400" aria-hidden />; })()}
         <span className={cn(
-          'text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full border',
-          s.bias === 'bullish' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-            : s.bias === 'bearish' ? 'text-red-400 bg-red-500/10 border-red-500/20'
-            : 'text-slate-400 bg-slate-500/10 border-slate-500/20',
+          'text-[11px] font-bold px-1.5 py-0.5 rounded-md border',
+          s.bias === 'bullish' ? 'text-positive-400 bg-positive-500/10 border-positive-500/20'
+            : s.bias === 'bearish' ? 'text-negative-400 bg-negative-500/10 border-negative-500/20'
+            : 'text-neutral-400 bg-neutral-500/10 border-neutral-500/20',
         )}>{s.bias}</span>
       </div>
-      <div className="text-[10px] font-bold text-white truncate mb-1">{s.name}</div>
-      <div className="text-[16px] font-black tabular-nums" style={{ color }}>
+      <div className="text-[11px] font-bold text-foreground truncate mb-1">{s.name}</div>
+      <div className="text-[16px] font-bold tabular-nums" style={{ color }}>
         {s.changePct >= 0 ? '+' : ''}{s.changePct.toFixed(2)}%
       </div>
-      <div className="flex items-center justify-between mt-2 text-[9px]">
-        <span className="text-slate-600">RSI {s.rsi}</span>
+      <div className="flex items-center justify-between mt-2 text-[11px]">
+        <span className="text-neutral-500">RSI {s.rsi}</span>
         <span style={{ color, opacity: 0.8 }}>
           {s.moneyFlow.direction === 'in' ? '↑' : '↓'} {s.moneyFlow.value.toFixed(1)}B
         </span>
       </div>
       {/* Strength bar */}
-      <div className="mt-2 h-0.5 rounded-full bg-white/[0.05] overflow-hidden">
+      <div className="mt-2 h-0.5 rounded-full bg-foreground/[0.05] overflow-hidden">
         <motion.div className="h-full rounded-full" style={{ background: color }}
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(s.strengthScore, 100)}%` }}
@@ -636,22 +631,22 @@ function SectorMatrix({ data, loading }: { data: PulseData | null; loading: bool
 // ─────────────────────────────────────────────────────────────────────────────
 function MomentumCard({ q }: { q: MomentumLeader }) {
   const pos = q.changePct >= 0;
-  const rsiColor = q.rsi > 70 ? RED : q.rsi < 30 ? EMERALD : '#94a3b8';
+  const rsiColor = q.rsi > 70 ? RED : q.rsi < 30 ? EMERALD : 'rgb(var(--neutral-400))';
   return (
     <motion.div variants={cardIn}
       className="flex-shrink-0 rounded-xl border p-4 w-52 transition-all duration-300 cursor-default"
       style={{ background: CARD, borderColor: BORDER }}
-      whileHover={{ scale: 1.04, y: -4, borderColor: 'rgba(124,58,237,0.4)', boxShadow: `0 16px 40px rgba(124,58,237,0.15)` }}>
+      whileHover={{ scale: 1.04, y: -4, borderColor: 'rgb(var(--brand-600) / 0.4)', boxShadow: `0 16px 40px rgb(var(--brand-600) / 0.15)` }}>
 
       <div className="flex items-start justify-between mb-2">
         <div>
-          <div className="text-[14px] font-black text-white">{q.symbol}</div>
-          <div className="text-[9px] text-slate-600 truncate max-w-[120px]">{q.sector}</div>
+          <div className="text-[14px] font-bold text-foreground">{q.symbol}</div>
+          <div className="text-[11px] text-neutral-500 truncate max-w-[120px]">{q.sector}</div>
         </div>
         <PctBadge v={q.changePct} small />
       </div>
 
-      <div className="text-[20px] font-black text-white tabular-nums mb-1">
+      <div className="text-[20px] font-bold text-foreground tabular-nums mb-1">
         {q.price >= 10000
           ? q.price.toLocaleString('en-IN', { maximumFractionDigits: 0 })
           : q.price >= 100 ? q.price.toFixed(1) : q.price.toFixed(2)}
@@ -659,18 +654,18 @@ function MomentumCard({ q }: { q: MomentumLeader }) {
 
       <Spark data={q.sparkline} pos={pos} h={36} w={176} />
 
-      <div className="grid grid-cols-3 gap-1.5 mt-3 text-[9px]">
+      <div className="grid grid-cols-3 gap-1.5 mt-3 text-[11px]">
         <div className="text-center">
           <div className="font-bold tabular-nums" style={{ color: rsiColor }}>{q.rsi}</div>
-          <div className="text-slate-600">RSI</div>
+          <div className="text-neutral-500">RSI</div>
         </div>
         <div className="text-center">
-          <div className="font-bold text-violet-400 tabular-nums">{q.volRatio.toFixed(1)}×</div>
-          <div className="text-slate-600">Vol</div>
+          <div className="font-bold text-brand-400 tabular-nums">{q.volRatio.toFixed(1)}×</div>
+          <div className="text-neutral-500">Vol</div>
         </div>
         <div className="text-center">
-          <div className="font-bold text-amber-400 tabular-nums">{q.trendScore}</div>
-          <div className="text-slate-600">Trend</div>
+          <div className="font-bold text-warning-400 tabular-nums">{q.trendScore}</div>
+          <div className="text-neutral-500">Trend</div>
         </div>
       </div>
     </motion.div>
@@ -691,7 +686,7 @@ function MomentumLeaders({ data, loading }: { data: PulseData | null; loading: b
           </div>
         ) : (
           <div ref={scrollRef} className="flex gap-3 px-4 pb-4 overflow-x-auto scroll-smooth"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: `${PURPLE}30 transparent` }}>
+            style={{ scrollbarWidth: 'thin', scrollbarColor: `${withAlpha(PURPLE, 0.19)} transparent` }}>
             <motion.div variants={stagger} initial="initial" animate="animate" className="flex gap-3">
               {data.momentumLeaders.map(q => <MomentumCard key={q.symbol} q={q} />)}
             </motion.div>
@@ -716,27 +711,27 @@ function VolCard({ q }: { q: VolInstrument }) {
       style={{ background: CARD, borderColor: BORDER }}>
       <div className="flex items-start justify-between mb-2">
         <div>
-          <div className="text-[11px] font-black text-white">{q.symbol}</div>
-          <div className="text-[9px] text-slate-600 truncate max-w-[90px]">{q.name}</div>
+          <div className="text-[11px] font-bold text-foreground">{q.symbol}</div>
+          <div className="text-[11px] text-neutral-500 truncate max-w-[90px]">{q.name}</div>
         </div>
         <div className="flex flex-col items-end gap-0.5">
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
-            style={{ color: rsCol, background: `${rsCol}12` }}>
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md"
+            style={{ color: rsCol, background: `${withAlpha(rsCol, 0.07)}` }}>
             {rs >= 70 ? 'HIGH RISK' : rs >= 45 ? 'MOD RISK' : 'LOW RISK'}
           </span>
         </div>
       </div>
-      <div className="text-[18px] font-black text-white tabular-nums">
+      <div className="text-[18px] font-bold text-foreground tabular-nums">
         {q.price >= 1000 ? q.price.toLocaleString('en-US', { maximumFractionDigits: 0 }) : q.price.toFixed(2)}
       </div>
       <PctBadge v={flip ? -q.changePct : q.changePct} small />
       {/* Risk bar */}
-      <div className="mt-2.5 h-1 rounded-full bg-white/[0.04] overflow-hidden">
+      <div className="mt-2.5 h-1 rounded-full bg-foreground/[0.04] overflow-hidden">
         <motion.div className="h-full rounded-full" style={{ background: rsCol }}
           initial={{ width: 0 }} animate={{ width: `${rs}%` }}
           transition={{ duration: 0.8, ease: EASE }} />
       </div>
-      <div className="flex justify-between mt-1 text-[8px] text-slate-700">
+      <div className="flex justify-between mt-1 text-[11px] text-neutral-500">
         <span>Low</span><span>Risk {rs}/100</span><span>High</span>
       </div>
     </motion.div>
@@ -747,7 +742,7 @@ function VolatilityMonitor({ data, loading }: { data: PulseData | null; loading:
   return (
     <motion.div {...fadeUp(5)}>
       <TerminalCard>
-        <SectionLabel title="Volatility Monitor" icon={Activity} color="#f97316" live />
+        <SectionLabel title="Volatility Monitor" icon={Activity} color="rgb(var(--warning-400))" live />
         {loading || !data ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-[120px]" />)}
@@ -767,12 +762,12 @@ function VolatilityMonitor({ data, loading }: { data: PulseData | null; loading:
 // SECTION 7 — AI NARRATIVE FEED
 // ─────────────────────────────────────────────────────────────────────────────
 const FEED_TYPES = {
-  bullish:     { color: EMERALD,   label: 'BULLISH',     icon: TrendingUp,   bg: 'rgba(34,197,94,0.04)',   border: 'rgba(34,197,94,0.15)'   },
-  bearish:     { color: RED,       label: 'BEARISH',     icon: TrendingDown, bg: 'rgba(239,68,68,0.04)',   border: 'rgba(239,68,68,0.15)'   },
-  macro:       { color: AMBER,     label: 'MACRO',       icon: Globe2,       bg: 'rgba(245,158,11,0.04)',  border: 'rgba(245,158,11,0.15)'  },
-  fed:         { color: PURPLE,    label: 'FED',         icon: Brain,        bg: 'rgba(124,58,237,0.06)',  border: 'rgba(124,58,237,0.2)'   },
-  institutional:{ color: BLUE,    label: 'INSTITUTIONAL',icon: Layers3,     bg: 'rgba(59,130,246,0.04)',  border: 'rgba(59,130,246,0.15)'  },
-  breaking:    { color: '#ef4444', label: 'BREAKING',    icon: Zap,          bg: 'rgba(239,68,68,0.06)',   border: 'rgba(239,68,68,0.25)'   },
+  bullish:     { color: EMERALD,   label: 'BULLISH',     icon: TrendingUp,   bg: 'rgb(var(--positive-500) / 0.04)',   border: 'rgb(var(--positive-500) / 0.15)'   },
+  bearish:     { color: RED,       label: 'BEARISH',     icon: TrendingDown, bg: 'rgb(var(--negative-500) / 0.04)',   border: 'rgb(var(--negative-500) / 0.15)'   },
+  macro:       { color: AMBER,     label: 'MACRO',       icon: Globe2,       bg: 'rgb(var(--warning-500) / 0.04)',  border: 'rgb(var(--warning-500) / 0.15)'  },
+  fed:         { color: PURPLE,    label: 'FED',         icon: Brain,        bg: 'rgb(var(--brand-600) / 0.06)',  border: 'rgb(var(--brand-600) / 0.2)'   },
+  institutional:{ color: BLUE,    label: 'INSTITUTIONAL',icon: Layers3,     bg: 'rgb(var(--brand-500) / 0.04)',  border: 'rgb(var(--brand-500) / 0.15)'  },
+  breaking:    { color: 'rgb(var(--negative-400))', label: 'BREAKING',    icon: Zap,          bg: 'rgb(var(--negative-500) / 0.06)',   border: 'rgb(var(--negative-500) / 0.25)'   },
 };
 
 const LIVE_FEED = [
@@ -825,36 +820,36 @@ function NarrativeFeed() {
             const isLarge = item.type === 'breaking' || item.type === 'fed';
             return (
               <motion.div key={`${i}-${ticking}`} variants={cardIn}
-                className="group relative rounded-xl border overflow-hidden transition-all duration-250 hover:border-violet-500/25"
+                className="group relative rounded-xl border overflow-hidden transition-all duration-250 hover:border-brand-500/25"
                 style={{ background: cfg.bg, borderColor: cfg.border }}>
                 <div className="absolute left-0 inset-y-0 w-[2.5px]" style={{ background: cfg.color, opacity: 0.7 }} />
                 <div className={cn('ml-3', isLarge ? 'p-3.5' : 'p-3')}>
                   <div className="flex items-start justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border"
-                        style={{ color: cfg.color, background: `${cfg.color}12`, borderColor: `${cfg.color}25` }}>
+                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded border"
+                        style={{ color: cfg.color, background: `${withAlpha(cfg.color, 0.07)}`, borderColor: `${withAlpha(cfg.color, 0.15)}` }}>
                         {cfg.label}
                       </span>
-                      <span className="text-[8px] font-bold px-1.5 py-0.5 rounded border"
+                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded border"
                         style={{
-                          color: item.impact === 'HIGH' ? RED : item.impact === 'MEDIUM' ? AMBER : '#94a3b8',
-                          background: item.impact === 'HIGH' ? 'rgba(239,68,68,0.08)' : item.impact === 'MEDIUM' ? 'rgba(245,158,11,0.08)' : 'rgba(148,163,184,0.08)',
-                          borderColor: item.impact === 'HIGH' ? 'rgba(239,68,68,0.2)' : item.impact === 'MEDIUM' ? 'rgba(245,158,11,0.2)' : 'rgba(148,163,184,0.2)',
+                          color: item.impact === 'HIGH' ? RED : item.impact === 'MEDIUM' ? AMBER : 'rgb(var(--neutral-400))',
+                          background: item.impact === 'HIGH' ? 'rgb(var(--negative-500) / 0.08)' : item.impact === 'MEDIUM' ? 'rgb(var(--warning-500) / 0.08)' : 'rgb(var(--neutral-400) / 0.08)',
+                          borderColor: item.impact === 'HIGH' ? 'rgb(var(--negative-500) / 0.2)' : item.impact === 'MEDIUM' ? 'rgb(var(--warning-500) / 0.2)' : 'rgb(var(--neutral-400) / 0.2)',
                         }}>
                         {item.impact} IMPACT
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <span className="text-[10px] font-black" style={{ color: cfg.color }}>{item.conf}%</span>
+                      <span className="text-[11px] font-bold" style={{ color: cfg.color }}>{item.conf}%</span>
                       <Icon className="w-3 h-3 flex-shrink-0" style={{ color: cfg.color }} />
                     </div>
                   </div>
-                  <p className={cn('text-slate-200 leading-relaxed font-medium', isLarge ? 'text-[12px]' : 'text-[11px]')}>
+                  <p className={cn('text-neutral-200 leading-relaxed font-medium', isLarge ? 'text-[12px]' : 'text-[11px]')}>
                     {item.text}
                   </p>
                   <div className="flex items-center gap-1 mt-1.5">
-                    <Clock className="w-2.5 h-2.5 text-slate-700" />
-                    <span className="text-[9px] text-slate-700">{item.time}</span>
+                    <Clock className="w-2.5 h-2.5 text-neutral-500" />
+                    <span className="text-[11px] text-neutral-500">{item.time}</span>
                   </div>
                 </div>
               </motion.div>
@@ -876,28 +871,28 @@ function MoneyFlowCard({ d, max }: { d: { sector: string; flow: number; directio
   return (
     <motion.div variants={cardIn}
       className="relative rounded-xl border overflow-hidden p-4 transition-all duration-300"
-      style={{ background: `${color}06`, borderColor: `${color}18` }}
-      whileHover={{ scale: 1.025, y: -3, boxShadow: `0 12px 40px ${color}18` }}>
+      style={{ background: `${withAlpha(color, 0.02)}`, borderColor: `${withAlpha(color, 0.09)}` }}
+      whileHover={{ scale: 1.025, y: -3, boxShadow: `0 12px 40px ${withAlpha(color, 0.09)}` }}>
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none rounded-xl opacity-0 hover:opacity-100 transition-opacity duration-500"
-        style={{ background: `radial-gradient(circle at 50% 0%, ${color}08, transparent)` }} />
+        style={{ background: `radial-gradient(circle at 50% 0%, ${withAlpha(color, 0.03)}, transparent)` }} />
       <div className="relative">
         <div className="flex items-start justify-between mb-2">
-          <span className="text-[11px] font-bold text-slate-400">{d.sector}</span>
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
-            style={{ color, background: `${color}10`, borderColor: `${color}20` }}>
+          <span className="text-[11px] font-bold text-neutral-400">{d.sector}</span>
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md border"
+            style={{ color, background: `${withAlpha(color, 0.06)}`, borderColor: `${withAlpha(color, 0.13)}` }}>
             {isIn ? 'INFLOW' : 'OUTFLOW'}
           </span>
         </div>
-        <div className="text-[22px] font-black tabular-nums flex items-center gap-1.5" style={{ color }}>
+        <div className="text-[22px] font-bold tabular-nums flex items-center gap-1.5" style={{ color }}>
           {isIn ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
           {isIn ? '+' : '-'}${d.flow.toFixed(1)}B
         </div>
-        <div className="text-[10px] mt-0.5 font-semibold tabular-nums" style={{ color, opacity: 0.7 }}>
+        <div className="text-[11px] mt-0.5 font-semibold tabular-nums" style={{ color, opacity: 0.7 }}>
           {d.pct >= 0 ? '+' : ''}{d.pct.toFixed(2)}%
         </div>
         {/* Flow bar */}
-        <div className="mt-3 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+        <div className="mt-3 h-1.5 rounded-full bg-foreground/[0.04] overflow-hidden">
           <motion.div className="h-full rounded-full" style={{ background: color }}
             initial={{ width: 0 }} animate={{ width: `${pct}%` }}
             transition={{ duration: 0.9, ease: EASE }} />
@@ -923,7 +918,7 @@ function MoneyFlow({ data, loading }: { data: PulseData | null; loading: boolean
             {data.moneyFlow.map(d => <MoneyFlowCard key={d.sector} d={d} max={max} />)}
           </motion.div>
         )}
-        <p className="mt-3 text-[9px] text-slate-700 pt-2.5 border-t border-white/[0.04]">
+        <p className="mt-3 text-[11px] text-neutral-500 pt-2.5 border-t border-foreground/[0.04]">
           Flow estimated from sector ETF volume × price action · {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : '—'}
         </p>
       </TerminalCard>
@@ -940,25 +935,25 @@ function GaugeMini({ value, max = 100, color, label, sub }: {
   const pct = Math.min((value / max) * 100, 100);
   const arc = (pct / 100) * 251;
   return (
-    <div className="flex flex-col items-center gap-2 p-3 rounded-xl border" style={{ borderColor: `${color}18`, background: `${color}05` }}>
+    <div className="flex flex-col items-center gap-2 p-3 rounded-xl border" style={{ borderColor: `${withAlpha(color, 0.09)}`, background: `${withAlpha(color, 0.02)}` }}>
       <div className="relative w-20 h-20">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
-          <circle cx="40" cy="40" r="30" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
+          <circle cx="40" cy="40" r="30" fill="none" stroke="rgb(var(--foreground) / 0.05)" strokeWidth="8" />
           <motion.circle cx="40" cy="40" r="30" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
             strokeDasharray={`${arc} 251`}
             initial={{ strokeDasharray: '0 251' }} animate={{ strokeDasharray: `${arc} 251` }}
             transition={{ duration: 0.9, ease: EASE }}
-            style={{ filter: `drop-shadow(0 0 6px ${color}66)` }} />
+            style={{ filter: `drop-shadow(0 0 6px ${withAlpha(color, 0.4)})` }} />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-[16px] font-black tabular-nums" style={{ color }}>
+          <span className="text-[16px] font-bold tabular-nums" style={{ color }}>
             {value.toLocaleString()}
           </span>
         </div>
       </div>
       <div className="text-center">
-        <div className="text-[10px] font-bold text-slate-300">{label}</div>
-        {sub && <div className="text-[9px] text-slate-600 mt-0.5">{sub}</div>}
+        <div className="text-[11px] font-bold text-neutral-300">{label}</div>
+        {sub && <div className="text-[11px] text-neutral-500 mt-0.5">{sub}</div>}
       </div>
     </div>
   );
@@ -996,17 +991,17 @@ function MarketInternals({ data, loading }: { data: PulseData | null; loading: b
                 { label: 'Volume Breadth', value: int.volBreadth, color: BLUE, sub: 'Above average volume' },
                 { label: 'TRIN (Arms Index)', value: Math.min(int.trin * 50, 100), color: int.trin < 1 ? EMERALD : RED, sub: `TRIN ${int.trin.toFixed(2)} — ${int.trin < 0.8 ? 'Bullish' : int.trin > 1.2 ? 'Bearish' : 'Neutral'}` },
               ].map(m => (
-                <div key={m.label} className="p-3 rounded-xl border border-white/[0.04] bg-white/[0.02]">
-                  <div className="flex justify-between text-[10px] font-bold mb-2">
-                    <span className="text-slate-400">{m.label}</span>
+                <div key={m.label} className="p-3 rounded-xl border border-foreground/[0.04] bg-foreground/[0.02]">
+                  <div className="flex justify-between text-[11px] font-bold mb-2">
+                    <span className="text-neutral-400">{m.label}</span>
                     <span style={{ color: m.color }}>{m.value.toFixed(0)}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-foreground/[0.05] overflow-hidden">
                     <motion.div className="h-full rounded-full" style={{ background: m.color }}
                       initial={{ width: 0 }} animate={{ width: `${m.value}%` }}
                       transition={{ duration: 0.9, ease: EASE }} />
                   </div>
-                  <div className="text-[9px] text-slate-600 mt-1">{m.sub}</div>
+                  <div className="text-[11px] text-neutral-500 mt-1">{m.sub}</div>
                 </div>
               ))}
             </div>
@@ -1021,9 +1016,9 @@ function MarketInternals({ data, loading }: { data: PulseData | null; loading: b
 // SECTION 10 — BREAKOUT DETECTOR
 // ─────────────────────────────────────────────────────────────────────────────
 const STATUS_CFG = {
-  EARLY:     { color: AMBER,  label: 'EARLY',     bg: 'rgba(245,158,11,0.08)',  border: 'rgba(245,158,11,0.2)'  },
-  CONFIRMED: { color: EMERALD,label: 'CONFIRMED', bg: 'rgba(34,197,94,0.08)',   border: 'rgba(34,197,94,0.2)'   },
-  EXTENDED:  { color: '#94a3b8', label: 'EXTENDED', bg: 'rgba(148,163,184,0.06)', border: 'rgba(148,163,184,0.15)' },
+  EARLY:     { color: AMBER,  label: 'EARLY',     bg: 'rgb(var(--warning-500) / 0.08)',  border: 'rgb(var(--warning-500) / 0.2)'  },
+  CONFIRMED: { color: EMERALD,label: 'CONFIRMED', bg: 'rgb(var(--positive-500) / 0.08)',   border: 'rgb(var(--positive-500) / 0.2)'   },
+  EXTENDED:  { color: 'rgb(var(--neutral-400))', label: 'EXTENDED', bg: 'rgb(var(--neutral-400) / 0.06)', border: 'rgb(var(--neutral-400) / 0.15)' },
 };
 
 function BreakoutCard({ b }: { b: Breakout }) {
@@ -1033,52 +1028,52 @@ function BreakoutCard({ b }: { b: Breakout }) {
     <motion.div variants={cardIn}
       className="group relative rounded-xl border overflow-hidden transition-all duration-300"
       style={{ background: sc.bg, borderColor: sc.border }}
-      whileHover={{ scale: 1.015, y: -3, boxShadow: `0 12px 40px ${sc.color}18` }}>
-      <div className="absolute left-0 inset-y-0 w-[3px]" style={{ background: sc.color, boxShadow: `0 0 8px ${sc.color}` }} />
+      whileHover={{ scale: 1.015, y: -3, boxShadow: `0 12px 40px ${withAlpha(sc.color, 0.09)}` }}>
+      <div className="absolute left-0 inset-y-0 w-[3px]" style={{ background: sc.color }} />
 
       <div className="ml-3 p-4">
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[15px] font-black text-white">{b.symbol}</span>
-              <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full border"
+              <span className="text-[15px] font-bold text-foreground">{b.symbol}</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md border"
                 style={{ color: sc.color, background: sc.bg, borderColor: sc.border }}>
                 {b.status}
               </span>
             </div>
-            <div className="text-[9px] text-slate-600 mt-0.5">{b.sector} · {b.pattern}</div>
+            <div className="text-[11px] text-neutral-500 mt-0.5">{b.sector} · {b.pattern}</div>
           </div>
           <div className="text-right">
-            <div className="text-[22px] font-black tabular-nums" style={{ color: sc.color }}>{b.breakoutScore}</div>
-            <div className="text-[8px] text-slate-600">Score/100</div>
+            <div className="text-[22px] font-bold tabular-nums" style={{ color: sc.color }}>{b.breakoutScore}</div>
+            <div className="text-[11px] text-neutral-500">Score/100</div>
           </div>
         </div>
 
         {/* Score bar */}
-        <div className="relative h-1.5 rounded-full bg-white/[0.05] overflow-hidden mb-3">
+        <div className="relative h-1.5 rounded-full bg-foreground/[0.05] overflow-hidden mb-3">
           <motion.div className="h-full rounded-full" style={{ background: sc.color }}
             initial={{ width: 0 }} animate={{ width: `${b.breakoutScore}%` }}
             transition={{ duration: 0.9, ease: EASE }} />
         </div>
 
         <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
-            <div className="text-[12px] font-black tabular-nums" style={{ color: pos ? EMERALD : RED }}>
+          <div className="text-center p-2 rounded-lg bg-foreground/[0.03] border border-foreground/[0.05]">
+            <div className="text-[12px] font-bold tabular-nums" style={{ color: pos ? EMERALD : RED }}>
               {pos ? '+' : ''}{b.changePct.toFixed(2)}%
             </div>
-            <div className="text-[8px] text-slate-600">Daily</div>
+            <div className="text-[11px] text-neutral-500">Daily</div>
           </div>
-          <div className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
-            <div className="text-[12px] font-black text-violet-400 tabular-nums">{b.volRatio.toFixed(1)}×</div>
-            <div className="text-[8px] text-slate-600">Vol Ratio</div>
+          <div className="text-center p-2 rounded-lg bg-foreground/[0.03] border border-foreground/[0.05]">
+            <div className="text-[12px] font-bold text-brand-400 tabular-nums">{b.volRatio.toFixed(1)}×</div>
+            <div className="text-[11px] text-neutral-500">Vol Ratio</div>
           </div>
-          <div className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
-            <div className="text-[12px] font-black text-blue-400 tabular-nums">{b.rsi.toFixed(0)}</div>
-            <div className="text-[8px] text-slate-600">RSI</div>
+          <div className="text-center p-2 rounded-lg bg-foreground/[0.03] border border-foreground/[0.05]">
+            <div className="text-[12px] font-bold text-brand-400 tabular-nums">{b.rsi.toFixed(0)}</div>
+            <div className="text-[11px] text-neutral-500">RSI</div>
           </div>
         </div>
 
-        <p className="text-[10px] text-slate-400 leading-relaxed">{b.aiReason}</p>
+        <p className="text-[11px] text-neutral-400 leading-relaxed">{b.aiReason}</p>
       </div>
     </motion.div>
   );
@@ -1094,7 +1089,7 @@ function BreakoutDetector({ data, loading }: { data: PulseData | null; loading: 
             {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-[210px]" />)}
           </div>
         ) : data.breakouts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-slate-600">
+          <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
             <Shield className="w-10 h-10 mb-3 opacity-30" />
             <p className="text-[12px]">No active breakouts detected — market is in consolidation</p>
           </div>
@@ -1124,14 +1119,8 @@ function AIMarketStory({ data, loading }: { data: PulseData | null; loading: boo
     <motion.div {...fadeUp(10)}>
       <TerminalCard className="relative overflow-hidden" glow={biasColor}>
         {/* Background glows */}
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl pointer-events-none opacity-15"
-          style={{ background: `radial-gradient(circle, ${biasColor}, transparent)` }} />
-        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full blur-2xl pointer-events-none opacity-10"
-          style={{ background: `radial-gradient(circle, #3b82f6, transparent)` }} />
 
         {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
-          style={{ backgroundImage: 'linear-gradient(rgba(124,58,237,1) 1px, transparent 1px), linear-gradient(90deg, rgba(124,58,237,1) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
         <div className="relative z-10">
           {/* Header */}
@@ -1139,17 +1128,17 @@ function AIMarketStory({ data, loading }: { data: PulseData | null; loading: boo
             <div className="flex items-center gap-3">
               <motion.div
                 className="w-12 h-12 rounded-xl flex items-center justify-center border flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(59,130,246,0.2))', borderColor: 'rgba(124,58,237,0.35)' }}
-                animate={{ boxShadow: brainPulse ? `0 0 32px ${PURPLE}66` : `0 0 12px ${PURPLE}22` }}
+                style={{ background: 'rgb(var(--brand-600))', borderColor: 'rgb(var(--brand-600) / 0.35)' }}
+                animate={{ boxShadow: brainPulse ? `0 0 32px ${withAlpha(PURPLE, 0.4)}` : `0 0 12px ${withAlpha(PURPLE, 0.13)}` }}
                 transition={{ duration: 0.8 }}>
-                <Brain className="w-6 h-6 text-violet-300" />
+                <Brain className="w-6 h-6 text-white" />
               </motion.div>
               <div>
-                <div className="text-[16px] font-black text-white flex items-center gap-2">
+                <div className="text-[16px] font-bold text-foreground flex items-center gap-2">
                   AI Market Story
                   <LiveDot />
                 </div>
-                <div className="text-[9px] text-slate-500 mt-0.5">
+                <div className="text-[11px] text-neutral-500 mt-0.5">
                   Generated from live Yahoo Finance data · Updated every 90s
                 </div>
               </div>
@@ -1157,14 +1146,14 @@ function AIMarketStory({ data, loading }: { data: PulseData | null; loading: boo
 
             {/* Confidence meter */}
             <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-              <span className="text-[9px] text-slate-500 uppercase tracking-wider">AI Confidence</span>
+              <span className="text-[11px] text-neutral-500">AI Confidence</span>
               <div className="flex items-center gap-1.5">
                 {[...Array(5)].map((_, i) => (
                   <motion.div key={i} className="w-5 h-2 rounded-full transition-all"
-                    animate={{ background: i < Math.round(conf / 20) ? PURPLE : 'rgba(255,255,255,0.06)' }}
+                    animate={{ background: i < Math.round(conf / 20) ? PURPLE : 'rgb(var(--foreground) / 0.06)' }}
                     transition={{ delay: i * 0.05 }} />
                 ))}
-                <span className="text-[11px] font-black" style={{ color: PURPLE }}>{conf}%</span>
+                <span className="text-[11px] font-bold" style={{ color: PURPLE }}>{conf}%</span>
               </div>
             </div>
           </div>
@@ -1183,9 +1172,9 @@ function AIMarketStory({ data, loading }: { data: PulseData | null; loading: boo
                 { label: 'Tomorrow Outlook',   value: n.tomorrow,   color: AMBER        },
               ].map(({ label, value, color }) => (
                 <div key={label} className="p-3 rounded-xl border text-center"
-                  style={{ borderColor: `${color}20`, background: `${color}08` }}>
-                  <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">{label}</div>
-                  <div className="text-[12px] font-black leading-tight" style={{ color }}>{value}</div>
+                  style={{ borderColor: `${withAlpha(color, 0.13)}`, background: `${withAlpha(color, 0.03)}` }}>
+                  <div className="text-[11px] text-neutral-500 mb-1">{label}</div>
+                  <div className="text-[12px] font-bold leading-tight" style={{ color }}>{value}</div>
                 </div>
               ))}
             </div>
@@ -1194,11 +1183,11 @@ function AIMarketStory({ data, loading }: { data: PulseData | null; loading: boo
           {/* Institutional flow banner */}
           {n && (
             <div className="flex items-center gap-2.5 mb-4 px-4 py-2.5 rounded-xl border"
-              style={{ background: 'rgba(124,58,237,0.06)', borderColor: 'rgba(124,58,237,0.15)' }}>
-              <Layers3 className="w-4 h-4 text-violet-400 flex-shrink-0" />
-              <span className="text-[11px] text-slate-400 font-medium">Institutional Flow:</span>
-              <span className="text-[11px] font-bold text-violet-300">{n.institutionalFlow}</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400 ml-auto" />
+              style={{ background: 'rgb(var(--brand-600) / 0.06)', borderColor: 'rgb(var(--brand-600) / 0.15)' }}>
+              <Layers3 className="w-4 h-4 text-brand-400 flex-shrink-0" />
+              <span className="text-[11px] text-neutral-400 font-medium">Institutional Flow:</span>
+              <span className="text-[11px] font-bold text-brand-300">{n.institutionalFlow}</span>
+              <ArrowUpRight className="w-3.5 h-3.5 text-positive-400 ml-auto" />
             </div>
           )}
 
@@ -1212,7 +1201,7 @@ function AIMarketStory({ data, loading }: { data: PulseData | null; loading: boo
                   initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 + i * 0.07, ease: EASE }}>
                   <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: biasColor }} />
-                  <p className="text-[12px] text-slate-300 leading-relaxed">{b}</p>
+                  <p className="text-[12px] text-neutral-300 leading-relaxed">{b}</p>
                 </motion.div>
               ))}
             </div>
@@ -1221,17 +1210,17 @@ function AIMarketStory({ data, loading }: { data: PulseData | null; loading: boo
           {/* Risk area */}
           {n && (
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border"
-              style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.15)' }}>
-              <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-              <span className="text-[10px] text-slate-400"><span className="font-bold text-red-400">Risk Area:</span> {n.riskArea}</span>
+              style={{ background: 'rgb(var(--negative-500) / 0.05)', borderColor: 'rgb(var(--negative-500) / 0.15)' }}>
+              <AlertTriangle className="w-3.5 h-3.5 text-negative-400 flex-shrink-0" />
+              <span className="text-[11px] text-neutral-400"><span className="font-bold text-negative-400">Risk Area:</span> {n.riskArea}</span>
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-white/[0.05]">
-            <span className="text-[9px] text-slate-700">
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-foreground/[0.05]">
+            <span className="text-[11px] text-neutral-500">
               Data: Yahoo Finance · Refresh: 90s · {data?.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'Loading…'}
             </span>
-            <span className="text-[9px] font-bold" style={{ color: PURPLE }}>
+            <span className="text-[11px] font-bold" style={{ color: PURPLE }}>
               Tomorrow: {n?.tomorrow ?? '—'}
             </span>
           </div>
@@ -1255,9 +1244,9 @@ const CALENDAR = [
 ];
 
 const IMP = {
-  high:   { color: RED,    label: 'HIGH', dot: 'bg-red-400'    },
-  medium: { color: AMBER,  label: 'MED',  dot: 'bg-amber-400'  },
-  low:    { color: EMERALD,label: 'LOW',  dot: 'bg-emerald-400'},
+  high:   { color: RED,    label: 'HIGH', dot: 'bg-negative-400'    },
+  medium: { color: AMBER,  label: 'MED',  dot: 'bg-warning-400'  },
+  low:    { color: EMERALD,label: 'LOW',  dot: 'bg-positive-400'},
 };
 
 function EconomicCalendar() {
@@ -1271,21 +1260,21 @@ function EconomicCalendar() {
             <motion.div key={i}
               initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05, ease: EASE }}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/[0.04] bg-white/[0.02] hover:border-violet-500/12 transition-all">
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-foreground/[0.04] bg-foreground/[0.02] hover:border-brand-500/12 transition-all">
               <div className="flex flex-col items-center w-8 flex-shrink-0">
-                <span className="text-[8px] font-bold text-slate-600 uppercase">{ev.day}</span>
-                <span className="text-[14px] font-black text-white leading-tight">{ev.date}</span>
+                <span className="text-[11px] font-bold text-neutral-500">{ev.day}</span>
+                <span className="text-[14px] font-bold text-foreground leading-tight">{ev.date}</span>
               </div>
-              <div className="w-px h-7 bg-white/[0.05] flex-shrink-0" />
+              <div className="w-px h-7 bg-foreground/[0.05] flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-bold text-slate-200 truncate">{ev.event}</div>
-                <div className="text-[9px] text-slate-600 flex items-center gap-1 mt-px">
+                <div className="text-[11px] font-bold text-neutral-200 truncate">{ev.event}</div>
+                <div className="text-[11px] text-neutral-500 flex items-center gap-1 mt-px">
                   <Clock className="w-2 h-2" />{ev.time}
                 </div>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <span className={cn('w-1.5 h-1.5 rounded-full', imp.dot)} />
-                <span className="text-[8px] font-bold" style={{ color: imp.color }}>{imp.label}</span>
+                <span className="text-[11px] font-bold" style={{ color: imp.color }}>{imp.label}</span>
               </div>
             </motion.div>
           );
@@ -1311,7 +1300,7 @@ export default function MarketPulsePage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error);
-      setData(json);
+      setData(themeColors(json));
       setLastRefresh(new Date());
     } catch (e: any) {
       setError(e.message);
@@ -1328,17 +1317,7 @@ export default function MarketPulsePage() {
 
   return (
     <div className="relative min-h-screen" style={{ background: BG }}>
-      {/* Grid background */}
-      <div className="fixed inset-0 pointer-events-none"
-        style={{
-          backgroundImage: 'linear-gradient(rgba(124,58,237,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(124,58,237,0.03) 1px, transparent 1px)',
-          backgroundSize: '32px 32px',
-        }} />
       {/* Ambient orbs */}
-      <div className="fixed top-0 left-1/3 w-[700px] h-[300px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse, rgba(124,58,237,0.06), transparent)', filter: 'blur(80px)' }} />
-      <div className="fixed bottom-0 right-1/4 w-[400px] h-[300px] rounded-full pointer-events-none"
-        style={{ background: 'radial-gradient(ellipse, rgba(59,130,246,0.05), transparent)', filter: 'blur(80px)' }} />
 
       <div className="relative max-w-screen-2xl mx-auto px-4 md:px-6 py-5">
 
@@ -1347,7 +1326,7 @@ export default function MarketPulsePage() {
           {error && (
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               className="mb-4 flex items-center gap-2.5 px-4 py-3 rounded-xl text-[12px]"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: RED }}>
+              style={{ background: 'rgb(var(--negative-500) / 0.08)', border: '1px solid rgb(var(--negative-500) / 0.2)', color: RED }}>
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               Live data unavailable ({error}) — showing cached reference data. Market data resumes on next refresh.
             </motion.div>
@@ -1386,7 +1365,7 @@ export default function MarketPulsePage() {
 
         {/* Footer */}
         <motion.div {...fadeUp(11)} className="text-center py-6 mt-2">
-          <p className="text-[9px] text-slate-700 uppercase tracking-widest">
+          <p className="text-[11px] text-neutral-500">
             Nivro Market Pulse · Yahoo Finance API · RSI + Regime AI · {loading ? 'Refreshing…' : '90s auto-refresh'} · Prices delayed 15min
           </p>
         </motion.div>

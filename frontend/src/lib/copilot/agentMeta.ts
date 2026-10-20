@@ -19,11 +19,11 @@ export interface AgentMeta {
 }
 
 export const AGENT_META: Record<string, AgentMeta> = {
-  portfolio: { label: 'Portfolio Analyst', color: 'text-violet-300', border: 'border-violet-500/25 bg-violet-500/10', Icon: Briefcase },
-  market: { label: 'Market Analyst', color: 'text-blue-300', border: 'border-blue-500/25 bg-blue-500/10', Icon: LineChart },
-  planning: { label: 'Planning Agent', color: 'text-amber-300', border: 'border-amber-500/25 bg-amber-500/10', Icon: PiggyBank },
-  education: { label: 'Education Agent', color: 'text-emerald-300', border: 'border-emerald-500/25 bg-emerald-500/10', Icon: GraduationCap },
-  none: { label: 'Nivro Copilot', color: 'text-slate-300', border: 'border-white/10 bg-white/5', Icon: Bot },
+  portfolio: { label: 'Portfolio Analyst', color: 'text-brand-300', border: 'border-brand-500/25 bg-brand-500/10', Icon: Briefcase },
+  market: { label: 'Market Analyst', color: 'text-brand-300', border: 'border-brand-500/25 bg-brand-500/10', Icon: LineChart },
+  planning: { label: 'Planning Agent', color: 'text-warning-300', border: 'border-warning-500/25 bg-warning-500/10', Icon: PiggyBank },
+  education: { label: 'Education Agent', color: 'text-positive-300', border: 'border-positive-500/25 bg-positive-500/10', Icon: GraduationCap },
+  none: { label: 'Nivro Copilot', color: 'text-neutral-300', border: 'border-foreground/10 bg-foreground/5', Icon: Bot },
 };
 
 export function agentMeta(agent?: string): AgentMeta {
